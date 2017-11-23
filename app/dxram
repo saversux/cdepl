@@ -1,0 +1,647 @@
+#!/bin/bash
+
+readonly DXRAM_LOG_FILE_SUPERPEER_POSTFIX="_superpeer"
+readonly DXRAM_LOG_FILE_PEER_POSTFIX="_peer"
+
+readonly DXRAM_MAIN_CLASS="de.hhu.bsinfo.dxram.DXRAM"
+readonly DXRAM_CLASS_PATH="lib/slf4j-api-1.6.1.jar:lib/zookeeper-3.4.3.jar:lib/gson-2.7.jar:lib/log4j-api-2.7.jar:lib/log4j-core-2.7.jar:lib:dxram.jar"
+
+readonly DXRAM_DEFAULT_S_PORT="22221"
+readonly DXRAM_DEFAULT_P_PORT="22222"
+readonly DXRAM_DEFAULT_NETWORK="eth"
+readonly DXRAM_DEFAULT_MSG_HANDLER="2"
+readonly DXRAM_DEFAULT_P_KVSS="1024"
+
+readonly DXRAM_PROCESS_IDENTIFIER="dxramdeployscript"
+readonly DXRAM_DEFAULT_STARTUP_CONDITION="!---ooo---!"
+
+DXRAM_PATH=""
+DXRAM_CONFIG_PATH=""
+DXRAM_LOG4J_CONFIG_PATH=""
+
+DXRAM_OUT_PATH=""
+DXRAM_OUT_CONF_PATH=""
+DXRAM_OUT_LOG_PATH=""
+
+DXRAM_ZOOKEEPER_NODE=""
+DXRAM_ZOOKEEPER_PORT=""
+
+DXRAM_NODE_TYPE=()
+DXRAM_NODE_PORT=()
+DXRAM_NODE_NETWORK=()
+DXRAM_NODE_MSG_HANDLER=()
+DXRAM_NODE_RUN_SUDO=()
+DXRAM_NODE_REMOTE_DEBUG_PORT=()
+DXRAM_NODE_REMOTE_PROFILE_YJP_PORT=()
+DXRAM_NODE_REMOTE_PROFILE_YJP_AGENT_LIB=()
+DXRAM_NODE_PEER_KVSS=()
+
+cdepl_app_dxram_init()
+{
+	local path=$1
+	local zookeeper_node=$2
+	local zookeeper_port=$3
+
+	DXRAM_PATH="$(cdepl_cluster_login_cmd "realpath $path")"
+	DXRAM_CONFIG_PATH="${DXRAM_PATH}/config/dxram.json"
+	DXRAM_LOG4J_CONFIG_PATH="${DXRAM_PATH}/config/log4j.xml"
+
+	DXRAM_OUT_PATH="${DEPLOY_CUR_OUT_PATH}/dxram"
+	DXRAM_OUT_CONF_PATH="${DXRAM_OUT_PATH}/conf"
+	DXRAM_OUT_LOG_PATH="${DXRAM_OUT_PATH}/log"
+
+	DXRAM_ZOOKEEPER_NODE="$zookeeper_node"
+	DXRAM_ZOOKEEPER_PORT="$zookeeper_port"
+
+	# Check if dxram path is available
+	if [ "$(cdepl_cluster_login_cmd "[ -d $DXRAM_PATH ] && echo \"1\"")" != "1" ]; then
+		util_log_error_and_exit "[login][dxram]: Path does not exist: $DXRAM_PATH"
+	fi
+
+	__cdepl_app_dxram_check
+	__cdepl_app_dxram_check_config
+
+	# Output path setup
+	cdepl_cluster_login_cmd "mkdir -p $DXRAM_OUT_CONF_PATH"
+	cdepl_cluster_login_cmd "mkdir -p $DXRAM_OUT_LOG_PATH"
+
+	util_log "[login][dxram] Initialized: $DXRAM_PATH"
+	util_log "[login][dxram] Output: $DXRAM_OUT_PATH"
+}
+
+# in order to declare a node an actual DXRAM node, you have to assign a role
+# no default role, node will be ignored and not considered a dxram node
+cdepl_app_dxram_node_type()
+{
+	local node=$1
+	local type=$2
+
+	# No default values. If node type not set explicitly, node is not considered to run a DXRAM instance
+	if [ "$node" -ge "$(cdepl_cluster_get_alloc_node_count)" ]; then
+		util_log_error_and_exit "[$node][dxram] Invalid node id $node > $(cdepl_cluster_get_alloc_node_count)"
+	fi
+
+	if [ "$type" != "S" ] && [ "$type" != "P" ]; then
+		util_log_error_and_exit "[$node][dxram] Invalid node type $type for node $node"
+	fi
+
+	DXRAM_NODE_TYPE[$node]="$type"
+}
+
+cdepl_app_dxram_node_port()
+{
+	local node=$1
+	local port=$2
+
+	if [ "$node" -ge "$(cdepl_cluster_get_alloc_node_count)" ]; then
+		util_log_error_and_exit "[$node][dxram] Invalid node id $node > $(cdepl_cluster_get_alloc_node_count)"
+	fi
+
+	if [ "$port" -gt "65536" ] || [ "$port" -lt "0" ]; then
+		util_log_error_and_exit "[$node][dxram] Invalid port $port for node $node"
+	fi
+
+	DXRAM_NODE_PORT[$node]="$port"
+}
+
+cdepl_app_dxram_node_network()
+{
+	local node=$1
+	local network=$2
+
+	if [ "$node" -ge "$(cdepl_cluster_get_alloc_node_count)" ]; then
+		util_log_error_and_exit "[$node][dxram] Invalid node id $node > $(cdepl_cluster_get_alloc_node_count)"
+	fi
+
+	if [ "$network" != "eth" ] && [ "$network" != "ib" ]; then
+		util_log_error_and_exit "[$node][dxram] Invalid network type $network for node $node"
+	fi
+
+	DXRAM_NODE_NETWORK[$node]="$network"
+}
+
+cdepl_app_dxram_node_message_handler()
+{
+	local node=$1
+	local msg_handler=$2
+
+	if [ "$node" -ge "$(cdepl_cluster_get_alloc_node_count)" ]; then
+		util_log_error_and_exit "[$node][dxram] Invalid node id $node > $(cdepl_cluster_get_alloc_node_count)"
+	fi
+
+	DXRAM_NODE_MSG_HANDLER[$node]="$msg_handler"
+}
+
+cdepl_app_dxram_run_as_sudo()
+{
+	local node=$1
+
+	if [ "$node" -ge "$(cdepl_cluster_get_alloc_node_count)" ]; then
+		util_log_error_and_exit "[$node][dxram] Invalid node id $node > $(cdepl_cluster_get_alloc_node_count)"
+	fi
+
+	DXRAM_NODE_RUN_SUDO[$node]="1"
+}
+
+cdepl_app_dxram_remote_debug()
+{
+	local node=$1
+	local port=$2
+
+	if [ "$node" -ge "$(cdepl_cluster_get_alloc_node_count)" ]; then
+		util_log_error_and_exit "[$node][dxram] Invalid node id $node > $(cdepl_cluster_get_alloc_node_count)"
+	fi
+
+	DXRAM_NODE_REMOTE_DEBUG_PORT[$node]="$port"
+}
+
+cdepl_app_dxram_remote_profile_yjp()
+{
+	local node=$1
+	local port=$2
+	local agent_lib=$3
+
+	if [ "$node" -ge "$(cdepl_cluster_get_alloc_node_count)" ]; then
+		util_log_error_and_exit "[$node][dxram] Invalid node id $node > $(cdepl_cluster_get_alloc_node_count)"
+	fi
+
+	# Check if the agent lib is available
+	if [ "$(cdepl_cluster_node_cmd $node "[ -f $agent_lib ] && echo \"1\"")" != "1" ]; then
+		util_log_error_and_exit "[$node][dxram] Could not find libyjpagent.so in $agent_lib"
+	fi
+
+	DXRAM_NODE_REMOTE_PROFILE_YJP_PORT[$node]="$port"
+	DXRAM_NODE_REMOTE_PROFILE_YJP_AGENT_LIB[$node]="$agent_lib"
+}
+
+cdepl_app_dxram_peer_kvss()
+{
+	local node=$1
+	local kvss=$2
+
+	if [ "$node" -ge "$(cdepl_cluster_get_alloc_node_count)" ]; then
+		util_log_error_and_exit "[$node][dxram] Invalid node id $node > $(cdepl_cluster_get_alloc_node_count)"
+	fi
+
+	DXRAM_NODE_PEER_KVSS[$node]="$kvss"
+}
+
+cdepl_app_dxram_auto_detect_node_config_params()
+{
+	local node=$1
+
+	# TODO: auto detect optimal
+	# network: if /dev/infiniband -> ib, eth otherwise
+	# msg handler count: total core count - 2
+	# kvss: 1GB OS, 2GB jvm, remain: kvss
+
+	util_log_error_and_exit "Auto detect node config and params not implemented, yet"
+}
+
+# port is optional
+cdepl_app_dxram_start_node()
+{
+	local node=$1
+
+	if [ "${DXRAM_NODE_TYPE[$node]}" = "" ]; then
+		util_log_error_and_exit "[$node][dxram] No node type set, cannot start instance"
+	fi
+
+	local logfile=""
+
+	if [ "${DXRAM_NODE_TYPE[$node]}" = "S" ]; then
+		logfile=${DXRAM_OUT_LOG_PATH}/node${node}${DXRAM_LOG_FILE_SUPERPEER_POSTFIX}
+	else
+		logfile=${DXRAM_OUT_LOG_PATH}/node${node}${DXRAM_LOG_FILE_PEER_POSTFIX}
+	fi
+
+	# Check if java is available on the target node
+	cdepl_cluster_resolve_dependency $node "java" "1.8"
+
+	__cdepl_app_dxram_resolve_default_config_values
+	__cdepl_app_dxram_create_node_base_config $node ${DXRAM_NODE_TYPE[$node]}
+
+	if [ "${DXRAM_NODE_TYPE[$node]}" = "S" ]; then
+		__cdepl_app_dxram_start_superpeer $node $logfile
+	elif [ "${DXRAM_NODE_TYPE[$node]}" = "P" ]; then
+		__cdepl_app_dxram_start_peer $node $logfile
+	fi
+}
+
+# Compared to cleanup, this executes a soft shutdown calling a dxram node and initiating a clean shutdown
+cdepl_app_dxram_shutdown_node()
+{
+	local node=$1
+	local shutdown_type=$2
+
+	# TODO
+	util_log_error_and_exit "Soft shutdown not implemented"
+}
+
+# second parameter condition optional, using default start condition otherwise
+cdepl_app_dxram_node_wait_started()
+{
+	local node=$1
+	local condition=$2
+
+	local type="${DXRAM_NODE_TYPE[$node]}"
+	local logfile=""
+
+	if [ "${DXRAM_NODE_TYPE[$node]}" = "S" ]; then
+		logfile=${DXRAM_OUT_LOG_PATH}/node${node}${DXRAM_LOG_FILE_SUPERPEER_POSTFIX}
+	else
+		logfile=${DXRAM_OUT_LOG_PATH}/node${node}${DXRAM_LOG_FILE_PEER_POSTFIX}
+	fi
+
+	# Use default condition if not specfied
+	if [ ! "$condition" ]; then
+		condition="$DXRAM_DEFAULT_STARTUP_CONDITION"
+	fi
+
+	util_log "[$node][dxram][$type] Waiting for startup: $condition"
+
+	while true; do
+		echo -n "."
+
+		local success=$(cdepl_cluster_node_cmd $node "cat $logfile 2> /dev/null | sed 's,\x1B\[[0-9;]*[a-zA-Z],,g' | grep '$condition'")
+		local fail_init=$(cdepl_cluster_node_cmd $node "cat $logfile 2> /dev/null | sed 's,\x1B\[[0-9;]*[a-zA-Z],,g' | grep '^Initializing DXRAM failed.$'")
+		# Abort execution after an exception was thrown (every exception but NetworkResponseCancelledException)
+		local fail_error=$(cdepl_cluster_node_cmd $node "cat $logfile 2> /dev/null | sed 's,\x1B\[[0-9;]*[a-zA-Z],,g' | grep -i 'exception' | grep -v 'NetworkResponseCancelledException'")
+		# "A fatal error" -> JVM segfaults
+		local fail_error2=$(cdepl_cluster_node_cmd $node "cat $logfile 2> /dev/null | sed 's,\x1B\[[0-9;]*[a-zA-Z],,g' | grep -i -e '\[ERROR\]' -e '\# A fatal error'")
+
+		if [ "$success" ]; then
+			local pid=$(__cdepl_app_dxram_get_instance_running_pid $node ${DXRAM_YCSB_NODE_PORT[$node]})
+
+			echo ""
+
+			if [ ! "$pid" ]; then
+				util_log_error_and_exit "[$node][dxram][$type] Could not find started process"
+			fi
+
+			util_log "[$node][dxram][$type] Started (pid: $pid)"
+
+			break
+		elif [ "$fail_init" ]; then
+			echo ""
+			util_log_error_and_exit "[$node][dxram][$type] Could not be started. See log file $logfile"
+			return 1
+		elif [ "$fail_error" ] || [ "$fail_error2" ]; then
+			echo ""
+			util_log_error_and_exit "[$node][dxram][$type] Failed, error or exception. See log file $logfile"
+			return 2
+		fi
+
+		sleep 1.0
+	done
+
+	return 0
+}
+
+cdepl_app_dxram_node_cleanup()
+{
+	local node=$1
+
+	util_log "[$node][dxram] Cleanup..."
+
+	__cdepl_app_dxram_cleanup $node
+}
+
+#################################################
+
+__cdepl_app_dxram_check()
+{
+	if [ "$(cdepl_cluster_node_cmd 0 "[ -f ${DXRAM_PATH}/dxram.jar ] && echo 1")" != "1" ]; then
+		util_log_error_and_exit "[0][dxram] Could not find dxram.jar in $DXRAM_PATH"
+	fi
+}
+
+__cdepl_app_dxram_check_config()
+{
+	# Check if config file is available and create default config
+	if [ "$(cdepl_cluster_node_cmd 0 "[ -f $DXRAM_CONFIG_PATH ] && echo \"1\"")" != "1" ]; then
+		util_log "[0][dxram] No config file available, creating default config: $DXRAM_CONFIG_PATH"
+		
+		# Don't run this on the login node (might not have java installed)
+		# Use the first actual cluster node instead
+		# sync: Ensure everything's written to disk and visible for other nodes
+		cdepl_cluster_node_cmd 0 "cd $DXRAM_PATH && java -Dlog4j.configurationFile=$DXRAM_LOG4J_CONFIG_PATH -Ddxram.config=$DXRAM_CONFIG_PATH -cp $DXRAM_CLASS_PATH $DXRAM_MAIN_CLASS > /dev/null 2>&1"
+	
+		# Sanity check
+		if [ "$(cdepl_cluster_node_cmd 0 "[ -f $DXRAM_CONFIG_PATH ] && echo \"1\"")" != "1" ]; then
+			util_log_error_and_exit "[0][dxram] Creating config file $DXRAM_CONFIG_PATH failed"
+		fi
+	else
+		local config_content="$(cdepl_cluster_node_cmd 0 "cat "$DXRAM_CONFIG_PATH"")"
+		# Check if corrupted configuration file
+		local component_header=`echo $config_content | grep "m_componentConfigs"`
+		local service_header=`echo $config_content | grep "m_serviceConfigs"`
+		if [ "$component_header" = "" ] && [ "$service_header" = "" ] ; then
+			util_log "[0][dxram] Configuration file $DXRAM_CONFIG_PATH corrupted, deleting and creating default"
+
+			# Configuration file seems to be corrupted -> start dxram once to create new configuration
+			cdepl_cluster_node_cmd 0 "rm $DXRAM_CONFIG_PATH && cd $DXRAM_PATH && java -Dlog4j.configurationFile=$DXRAM_LOG4J_CONFIG_PATH -Ddxram.config=$DXRAM_CONFIG_PATH -cp $DXRAM_CLASS_PATH $DXRAM_MAIN_CLASS && sync > /dev/null 2>&1"
+	
+			# Sanity check
+			if [ "$(cdepl_cluster_node_cmd 0 "[ -f $DXRAM_CONFIG_PATH ] && echo \"1\"")" != "1" ]; then
+				util_log_error_and_exit "[0][dxram] Creating config file $DXRAM_CONFIG_PATH failed"
+			fi
+		fi
+	fi
+}
+
+__cdepl_app_dxram_resolve_default_config_values()
+{
+	local node_count="$(cdepl_cluster_get_alloc_node_count)"
+
+	for i in `seq 0 $((node_count - 1))`; do
+		# Only for explicitly set node types = DXRAM instance
+		if [ "${DXRAM_NODE_TYPE[$i]}" = "S" ] && [ "${DXRAM_NODE_PORT[$i]}" = "" ]; then
+			DXRAM_NODE_PORT[$i]="$DXRAM_DEFAULT_S_PORT"
+		fi
+
+		if [ "${DXRAM_NODE_TYPE[$i]}" = "P" ] && [ "${DXRAM_NODE_PORT[$i]}" = "" ]; then
+			DXRAM_NODE_PORT[$i]="$DXRAM_DEFAULT_P_PORT"
+		fi
+
+		if [ "${DXRAM_NODE_TYPE[$i]}" = "P" ] && [ "${DXRAM_NODE_PEER_KVSS[$i]}" = "" ]; then
+			DXRAM_NODE_PEER_KVSS[$i]="$DXRAM_DEFAULT_P_KVSS"
+		fi
+
+		if [ "${DXRAM_NODE_TYPE[$i]}" != "" ]; then
+			if [ "${DXRAM_NODE_NETWORK[$i]}" = "" ]; then
+				DXRAM_NODE_NETWORK[$i]="$DXRAM_DEFAULT_NETWORK"
+			fi
+
+			if [ "${DXRAM_NODE_MSG_HANDLER[$i]}" = "" ]; then
+				DXRAM_NODE_MSG_HANDLER[$i]="$DXRAM_DEFAULT_MSG_HANDLER"
+			fi
+		fi
+	done
+}
+
+__cdepl_app_dxram_create_node_base_config()
+{
+	local node=$1
+	local type=$2
+
+	local node_config_path="${DXRAM_OUT_CONF_PATH}/node_${node}.conf"
+
+	local zookeeper_ip="$(cdepl_cluster_resolve_node_to_ip $DXRAM_ZOOKEEPER_NODE)"
+	local node_config="$(cdepl_cluster_login_cmd "cat $DXRAM_CONFIG_PATH")"
+
+	if [ zookeeper_ip = "" ]; then
+		util_log_error_and_exit "[$node][dxram] Could not resolve zookeeper ip for node $DXRAM_ZOOKEEPER_NODE"
+	fi
+
+	# Insert zookeeper config values
+	# Create replacement string for zookeeper configuration
+	local zookeeper_config_string="
+      \"m_path\": \"/dxram\",
+      \"m_connection\": {
+        \"m_ip\": \"$zookeeper_ip\",
+        \"m_port\": $DXRAM_ZOOKEEPER_PORT
+      },"
+
+	# Replace zookeeper configuration
+	local current_node_config="$(echo "$node_config" | sed '/ZookeeperBootComponentConfig/q')"
+	current_node_config="${current_node_config}${zookeeper_config_string}"
+	local end="$(echo "$node_config" | sed -ne '/ZookeeperBootComponentConfig/{s///; :a' -e 'n;p;ba' -e '}')"
+	end="$(echo "$end" | sed -ne '/},/{s///; :a' -e 'n;p;ba' -e '}')"
+	current_node_config="$(echo -e "${current_node_config}\n${end}")"
+
+	node_config="$current_node_config"
+
+	# Insert node config mappings
+	# Create replacement string for nodes configuration:
+	local default_node="{
+		\"m_address\": {
+            \"m_ip\": \"IP_TEMPLATE\",
+            \"m_port\": PORT_TEMPLATE
+		},
+          	\"m_role\": \"ROLE_TEMPLATE\",
+          	\"m_rack\": 0,
+          	\"m_switch\": 0,
+          	\"m_readFromFile\": 1
+	}"
+
+	local node_config_string=""
+	local first_iterartion=true
+
+	# Create "List" of node configs for configuration file
+	for i in `seq 0 $(($(cdepl_cluster_get_alloc_node_count) - 1))`; do
+		local ip=""
+		local port=""
+		local role=""
+
+		ip="$(cdepl_cluster_resolve_node_to_ip "$i")"
+
+		if [ ! "ip" ]; then
+			util_log_error_and_exit "[$node][dxram] Could not resolve node to ip"
+		fi
+
+		port="${DXRAM_NODE_PORT[$i]}"
+
+		# Only for explicitly set node types = DXRAM instance
+		if [ "${DXRAM_NODE_TYPE[$i]}" = "S" ]; then
+			role="SUPERPEER"
+		elif [ "${DXRAM_NODE_TYPE[$i]}" = "P" ]; then
+			role="PEER"
+		fi
+
+		if [ "${DXRAM_NODE_TYPE[$i]}" ]; then
+			local node_string=`echo "$default_node" | sed "s/IP_TEMPLATE/$ip/" | sed "s/PORT_TEMPLATE/$port/" | sed "s/ROLE_TEMPLATE/$role/"`
+
+			# Separate items of list with ,
+			if [ "$first_iterartion" == true ]; then
+				node_config_string="${node_config_string}${node_string}"
+				first_iterartion=false
+			else
+				node_config_string="${node_config_string},${node_string}"
+			fi
+		fi
+	done
+
+	# Close node config list
+	node_config_string="$(echo -e "$node_config_string\n      ],")"
+
+	# Replace nodes configuration:
+	local new_config="$(echo "${node_config}" | sed '/m_nodesConfig/q')"
+	new_config="${new_config}${node_config_string}"
+	local end="$(echo "${node_config}" | sed -ne '/m_nodesConfig/{s///; :a' -e 'n;p;ba' -e '}')"
+	end="$(echo "${end}" | sed -ne '/],/{s///; :a' -e 'n;p;ba' -e '}')"
+	new_config="$(echo -e "${new_config}\n${end}")"
+
+	# Write back new config
+	cdepl_cluster_login_cmd "echo '$new_config' > '${node_config_path}'"
+}
+
+__cdepl_app_dxram_start_superpeer()
+{
+	local node=$1
+	local logfile=$2
+
+	local node_config_path="${DXRAM_OUT_CONF_PATH}/node_${node}.conf"
+
+	util_log "[$node][dxram][S] Starting superpeer, logfile: $logfile config: $node_config_path"
+
+	local ip="$(cdepl_cluster_resolve_hostname_to_ip "$(cdepl_cluster_node_resolve_node_to_hostname $node)")"
+
+	if [ ! "$ip" ]; then
+		util_log_error_and_exit "[$node][dxram][S] Could not resolve hostname '$(cdepl_cluster_node_resolve_node_to_hostname $node)' to ip"
+	fi
+
+	local vm_opts=""
+
+	# Required to fix JNI crashing with libIbdxnet (see JNINotes.md in ibnet repository)
+	vm_opts="-XX:+UseMembar"
+
+	vm_opts="$vm_opts -Dlog4j.configurationFile=$DXRAM_LOG4J_CONFIG_PATH"
+	vm_opts="$vm_opts -Ddxram.config=$node_config_path"
+	vm_opts="$vm_opts -Ddxram.m_config.m_engineConfig.m_address.m_ip=$ip"
+	vm_opts="$vm_opts -Ddxram.m_config.m_engineConfig.m_address.m_port=${DXRAM_NODE_PORT[$node]}"
+	vm_opts="$vm_opts -Ddxram.m_config.m_engineConfig.m_role=Superpeer"
+
+	# Optional dxram node specific settings
+
+	if [ "${DXRAM_NODE_NETWORK[$node]}" = "eth" ]; then
+		vm_opts="$vm_opts -Ddxram.m_config.m_componentConfigs[NetworkComponentConfig].m_core.m_device=Ethernet"
+	elif [ "${DXRAM_NODE_NETWORK[$node]}" = "ib" ]; then
+		vm_opts="$vm_opts -Ddxram.m_config.m_componentConfigs[NetworkComponentConfig].m_core.m_device=Infiniband"
+	fi
+
+	if [ "${DXRAM_NODE_MSG_HANDLER[$node]}" ]; then
+		vm_opts="$vm_opts -Ddxram.m_config.m_componentConfigs[NetworkComponentConfig].m_core.m_numMessageHandlerThreads=${DXRAM_NODE_MSG_HANDLER[$node]}"
+	fi
+
+	# Development and debugging
+
+	local root=""
+	if [ "${DXRAM_NODE_RUN_SUDO[$node]}" = "1" ]; then
+		util_log "[$node][dxram][S] Running with sudo"
+		root="sudo -P"
+	fi
+
+	if [ "${DXRAM_NODE_REMOTE_DEBUG_PORT[$node]}" != "" ]; then
+		vm_opts="$vm_opts -agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=${DXRAM_NODE_REMOTE_DEBUG_PORT[$node]}"
+		util_log "[$node][dxram][S] Enabled remote debugging on port ${DXRAM_NODE_REMOTE_DEBUG_PORT[$node]}"
+		util_log "[$node][dxram][S] On your local machine: establish a tunnel using 'ssh <target_hostname> -L ${DXRAM_NODE_REMOTE_DEBUG_PORT[$node]}:<target_hostname>:${DXRAM_NODE_REMOTE_DEBUG_PORT[$node]}' and connect your debugger to localhost, port ${DXRAM_NODE_REMOTE_DEBUG_PORT[$node]}"
+	fi
+
+	if [ "${DXRAM_NODE_REMOTE_PROFILE_YJP_PORT[$node]}" != "" ]; then
+		vm_opts="$vm_opts -agentpath:${DXRAM_NODE_REMOTE_PROFILE_YJP_AGENT_LIB[$node]}=port=${DXRAM_NODE_REMOTE_PROFILE_YJP_PORT[$node]}"
+
+		util_log "[$node][dxram][S] On your local machine: establish a tunnel using 'ssh <target_hostname> -L ${DXRAM_NODE_REMOTE_PROFILE_YJP_PORT[$node]}:<target_hostname>:${DXRAM_NODE_REMOTE_PROFILE_YJP_PORT[$node]}' and connect with yourkit using 'Connect to remote application' with the arguments 'localhost:${DXRAM_NODE_REMOTE_PROFILE_YJP_PORT[$node]}'"
+	fi
+
+	cdepl_cluster_node_cmd $node "cd $DXRAM_PATH && $root nohup java -D${DXRAM_PROCESS_IDENTIFIER} $vm_opts -cp $DXRAM_CLASS_PATH $DXRAM_MAIN_CLASS > $logfile 2>&1 &"
+}
+
+__cdepl_app_dxram_start_peer()
+{
+	local node=$1
+	local logfile=$2
+
+	local node_config_path="${DXRAM_OUT_CONF_PATH}/node_${node}.conf"
+
+	util_log "[$node][dxram][P] Starting peer, logfile: $logfile config: $node_config_path"
+
+	local ip="$(cdepl_cluster_resolve_hostname_to_ip "$(cdepl_cluster_node_resolve_node_to_hostname $node)")"
+
+	if [ ! "$ip" ]; then
+		util_log_error_and_exit "[$node][dxram][P] Could not resolve hostname '$(cdepl_cluster_node_resolve_node_to_hostname $node)' to ip"
+	fi
+
+	local vm_opts=""
+	
+	# Required to fix JNI crashing with libIbdxnet (see JNINotes.md in ibnet repository)
+	vm_opts="-XX:+UseMembar"
+
+	vm_opts="$vm_opts -Dlog4j.configurationFile=$DXRAM_LOG4J_CONFIG_PATH"
+	vm_opts="$vm_opts -Ddxram.config=$node_config_path"
+	vm_opts="$vm_opts -Ddxram.m_config.m_engineConfig.m_address.m_ip=$ip"
+	vm_opts="$vm_opts -Ddxram.m_config.m_engineConfig.m_address.m_port=${DXRAM_NODE_PORT[$node]}"
+	vm_opts="$vm_opts -Ddxram.m_config.m_engineConfig.m_role=Peer"
+
+	# Optional dxram node specific settings
+
+	if [ "${DXRAM_NODE_NETWORK[$node]}" = "eth" ]; then
+		vm_opts="$vm_opts -Ddxram.m_config.m_componentConfigs[NetworkComponentConfig].m_core.m_device=Ethernet"
+	elif [ "${DXRAM_NODE_NETWORK[$node]}" = "ib" ]; then
+		vm_opts="$vm_opts -Ddxram.m_config.m_componentConfigs[NetworkComponentConfig].m_core.m_device=Infiniband"
+	fi
+
+	if [ "${DXRAM_NODE_MSG_HANDLER[$node]}" ]; then
+		vm_opts="$vm_opts -Ddxram.m_config.m_componentConfigs[NetworkComponentConfig].m_core.m_numMessageHandlerThreads=${DXRAM_NODE_MSG_HANDLER[$node]}"
+	fi
+
+	if [ "${DXRAM_NODE_PEER_KVSS[$node]}" ]; then
+		vm_opts="$vm_opts -Ddxram.m_config.m_componentConfigs[MemoryManagerComponentConfig].m_keyValueStoreSize.m_value=${DXRAM_NODE_PEER_KVSS[$node]}"
+		vm_opts="$vm_opts -Ddxram.m_config.m_componentConfigs[MemoryManagerComponentConfig].m_keyValueStoreSize.m_unit=mb"
+	fi
+
+	# Development and debugging
+
+	local root=""
+	if [ "${DXRAM_NODE_RUN_SUDO[$node]}" = "1" ]; then
+		util_log "[$node][dxram][P] Running with sudo"
+		root="sudo -P"
+	fi
+
+	if [ "${DXRAM_NODE_REMOTE_DEBUG_PORT[$node]}" != "" ]; then
+		vm_opts="$vm_opts -agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=${DXRAM_NODE_REMOTE_DEBUG_PORT[$node]}"
+		util_log "[$node][dxram][P] Enabled remote debugging on port ${DXRAM_NODE_REMOTE_DEBUG_PORT[$node]}"
+		util_log "[$node][dxram][P] On your local machine: establish a tunnel using 'ssh <target_hostname> -L ${DXRAM_NODE_REMOTE_DEBUG_PORT[$node]}:<target_hostname>:${DXRAM_NODE_REMOTE_DEBUG_PORT[$node]}' and connect your debugger to localhost, port ${DXRAM_NODE_REMOTE_DEBUG_PORT[$node]}"
+	fi
+
+	if [ "${DXRAM_NODE_REMOTE_PROFILE_YJP_PORT[$node]}" != "" ]; then
+		vm_opts="$vm_opts -agentpath:${DXRAM_NODE_REMOTE_PROFILE_YJP_AGENT_LIB[$node]}=port=${DXRAM_NODE_REMOTE_PROFILE_YJP_PORT[$node]}"
+
+		util_log "[$node][dxram][P] On your local machine: establish a tunnel using 'ssh <target_hostname> -L ${DXRAM_NODE_REMOTE_PROFILE_YJP_PORT[$node]}:<target_hostname>:${DXRAM_NODE_REMOTE_PROFILE_YJP_PORT[$node]}' and connect with yourkit using 'Connect to remote application' with the arguments 'localhost:${DXRAM_NODE_REMOTE_PROFILE_YJP_PORT[$node]}'"
+	fi
+
+	cdepl_cluster_node_cmd $node "cd $DXRAM_PATH && $root nohup java -D${DXRAM_PROCESS_IDENTIFIER} $vm_opts -cp $DXRAM_CLASS_PATH $DXRAM_MAIN_CLASS > $logfile 2>&1 &"
+}
+
+__cdepl_app_dxram_get_instance_running_pid()
+{
+	local node=$1
+	local port=$2
+
+	if [ "$port" ]; then
+		port=".*-Ddxram.m_config.m_engineConfig.m_address.m_port=${port}"
+	fi
+
+	# Consider port for multiple instances on a single machine (e.g. localhost)
+	echo "$(cdepl_cluster_node_cmd $node "pgrep -f '^java.*${DXRAM_PROCESS_IDENTIFIER}${port}'")"
+}
+
+__cdepl_app_dxram_cleanup()
+{
+	local node=$1
+
+	local pid=$(__cdepl_app_dxram_get_instance_running_pid $node)
+
+	if [ "$pid" ]; then
+		# If we or someone else left some garbage processes on the node multiple
+		# pids are returned
+		for i in $pid; do
+			local kill_out=$(cdepl_cluster_node_cmd $node "kill -9 $i 2>&1")
+
+			if [ "$?" = "0" ] && [ ! "$kill_out" ]; then
+				util_log "[$node][dxram] Killed (pid: $i)"
+			elif [ "$kill_out" ]; then
+				# Probably operation not permitted, try root
+				cdepl_cluster_node_cmd $node "sudo -P kill -9 $i > /dev/null 2>&1"
+
+				if [ "$?" = "0" ]; then
+					util_log "[$node][dxram] Killed (root) (pid: $i)"
+				elif [ "$?" != "1" ]; then
+					util_log_warn "[$node][dxram] Killing (root) $i failed, DXRAM instance(s) might stay alive"
+				fi
+			elif [ "$?" != "1" ]; then
+				util_log_warn "[$node][dxram] Killing $i failed, DXRAM instance(s) might stay alive"
+			fi
+		done
+	fi
+}

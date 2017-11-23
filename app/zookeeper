@@ -1,0 +1,128 @@
+#!/bin/bash
+
+ZOOKEEPER_PATH=""
+ZOOKEEPER_OUT_PATH=""
+
+readonly ZOOKEEPER_LOG_FILE_POSTFIX="_server"
+readonly ZOOKEEPER_LOG_FILE_CLIENT_POSTFIX="_client"
+
+cdepl_app_zookeeper_init()
+{
+	local path=$1
+
+	ZOOKEEPER_PATH="$(cdepl_cluster_login_cmd "realpath $path")"
+	ZOOKEEPER_OUT_PATH="${DEPLOY_CUR_OUT_PATH}/zookeeper"
+
+	if [ "$(cdepl_cluster_login_cmd "[ -d $ZOOKEEPER_PATH ] && echo \"1\"")" != "1" ]; then
+		util_log_error_and_exit "[login][zookeeper]: Path does not exist: $ZOOKEEPER_PATH"
+	fi
+
+	util_log "[login][zookeeper] Initialized: $ZOOKEEPER_PATH"
+	util_log "[login][zookeeper] Output: $ZOOKEEPER_OUT_PATH"
+}
+
+cdepl_app_zookeeper_start()
+{
+	local node=$1
+	local port=$2
+
+	local logfile=${ZOOKEEPER_OUT_PATH}/node${node}${ZOOKEEPER_LOG_FILE_POSTFIX}
+
+	# Check if java is available on the target node
+	cdepl_cluster_resolve_dependency $node "java" "1.8"
+
+	util_log "[$node][zookeeper] Starting, logfile: $logfile"
+
+	cdepl_cluster_node_cmd $node "mkdir -p $ZOOKEEPER_OUT_PATH"
+	# Go to zookeeper out dir before execution to get all output, zookeeper 
+	# data dir if relative path and zookeeper.out folder in the same dir
+	cdepl_cluster_node_cmd $node "sed -i -e \"s/clientPort=[0-9]*/clientPort=$port/g\" \"${ZOOKEEPER_PATH}/conf/zoo.cfg\" && cd ${ZOOKEEPER_OUT_PATH} && ${ZOOKEEPER_PATH}/bin/zkServer.sh start ${ZOOKEEPER_PATH}/conf/zoo.cfg >> $logfile 2>&1"
+
+	if [ "$?" != "0" ]; then
+		util_log_error_and_exit "[$node][zookeeper] Starting failed, also check logfile $logfile"
+	fi
+}
+
+cdepl_app_zookeeper_remove()
+{
+	local node=$1
+	local path=$2
+
+	local logfile=${ZOOKEEPER_OUT_PATH}/node${node}${ZOOKEEPER_LOG_FILE_CLIENT_POSTFIX}
+	
+	util_log "[$node][zookeeper] Remove path $path"
+
+	cdepl_cluster_node_cmd $node "cd ${ZOOKEEPER_OUT_PATH} && echo \"rmr ${path}\" | zkCli.sh >> $logfile 2>&1"
+}
+
+cdepl_app_zookeeper_wait_started()
+{
+	local node=$1
+
+	local logfile=${ZOOKEEPER_OUT_PATH}/node${node}${ZOOKEEPER_LOG_FILE_POSTFIX}
+	local logfile_client=${ZOOKEEPER_OUT_PATH}/node${node}${ZOOKEEPER_LOG_FILE_CLIENT_POSTFIX}
+
+	util_log "[$node][zookeeper] Waiting for startup"
+
+	while true; do
+		echo -n "."
+
+		local success_started=$(cdepl_cluster_node_cmd $node "cat "$logfile" 2> /dev/null | grep 'STARTED'")
+		local success_running=$(cdepl_cluster_node_cmd $node "cat "$logfile" 2> /dev/null | grep 'already running'")
+		local fail_file=$(cdepl_cluster_node_cmd $node "cat "$logfile" 2> /dev/null | grep 'No such file or directory'")
+		local fail_pid=$(cdepl_cluster_node_cmd $node "cat "$logfile" 2> /dev/null | grep 'FAILED TO WRITE PID'")
+		local fail_started=$(cdepl_cluster_node_cmd $node "cat "$logfile" 2> /dev/null | grep 'SERVER DID NOT START'")
+
+		if [ "$success_started" != "" ] || [ "$success_running" != "" ]; then
+			local pid=$(cdepl_cluster_node_cmd $node "pgrep -f '^java -Dzookeeper.log.dir'")
+
+			echo ""
+
+			if [ "$pid" = "" ]; then
+				util_log_error_and_exit "[$node][zookeeper] Could not find started process"
+			fi
+
+			util_log "[$node][zookeeper] Started (pid: $pid)"
+
+			break
+		elif [ "$fail_file" != "" -o "$fail_pid" != "" -o "$fail_started" != "" ] ; then
+			echo ""
+			util_log_error_and_exit "[$node][zookeeper] Could not be started. See log file $logfile"
+		fi
+
+		sleep 1.0
+	done
+}
+
+cdepl_app_zookeeper_cleanup()
+{
+	local node=$1
+
+	util_log "[$node][zookeeper] Cleanup..."
+
+	__cdepl_app_zookeeper_cleanup $node
+}
+
+__cdepl_app_zookeeper_get_instance_running_pid()
+{
+	local node=$1
+
+	echo "$(cdepl_cluster_node_cmd $node "pgrep -f '^java -Dzookeeper.log.dir'")"
+}
+
+__cdepl_app_zookeeper_cleanup()
+{
+	local node=$1
+
+	local pid=$(cdepl_cluster_node_cmd $node "pgrep -f '^java -Dzookeeper.log.dir'")
+
+	if [ "$pid" != "" ]; then
+		cdepl_cluster_node_cmd $node "kill -9 $pid > /dev/null 2>&1"
+
+		if [ "$?" != "0" ]; then
+			util_log_warn "[$node][zookeeper] Killing $pid failed, zookeeper might stay alive"
+		else
+			util_log "[$node][zookeeper] Killed (pid: $pid)"
+		fi
+	fi
+}

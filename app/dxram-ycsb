@@ -1,0 +1,882 @@
+#!/bin/bash
+
+readonly DXRAM_YCSB_LOG_FILE_SUPERPEER_POSTFIX="_superpeer"
+readonly DXRAM_YCSB_LOG_FILE_STORE_POSTFIX="_store"
+readonly DXRAM_YCSB_LOG_FILE_BENCH_POSTFIX="_bench"
+
+readonly DXRAM_YCSB_MAIN_CLASS="de.hhu.bsinfo.dxram.DXRAM"
+readonly DXRAM_YCSB_CLASS_PATH="lib/slf4j-api-1.6.1.jar:lib/zookeeper-3.4.3.jar:lib/gson-2.7.jar:lib/log4j-api-2.7.jar:lib/log4j-core-2.7.jar:lib:dxram.jar"
+
+readonly DXRAM_YCSB_DEFAULT_S_PORT="22221"
+readonly DXRAM_YCSB_DEFAULT_PS_PORT="22222"
+readonly DXRAM_YCSB_DEFAULT_PB_PORT="22223"
+
+readonly DXRAM_YCSB_PROCESS_IDENTIFIER="-Ddxramdeployscript"
+readonly DXRAM_YCSB_DEFAULT_STARTUP_CONDITION="!---ooo---!"
+readonly DXRAM_YCSB_RUN_OR_LOAD_DONE_CONDITION="!---YCSB---!"
+
+DXRAM_YCSB_PATH=""
+DXRAM_YCSB_CONFIG_PATH=""
+DXRAM_YCSB_LOG4J_CONFIG_PATH=""
+
+DXRAM_YCSB_OUT_PATH=""
+DXRAM_YCSB_OUT_CONF_PATH=""
+DXRAM_YCSB_OUT_LOG_PATH=""
+
+DXRAM_YCSB_ZOOKEEPER_NODE=""
+DXRAM_YCSB_ZOOKEEPER_PORT=""
+
+DXRAM_YCSB_NODE_TYPE=()
+DXRAM_YCSB_NODE_PORT=()
+DXRAM_YCSB_NODE_NETWORK=()
+DXRAM_YCSB_NODE_MSG_HANDLER=()
+DXRAM_YCSB_NODE_PEER_KVSS=()
+
+DXRAM_YCSB_NODE_RUN_SUDO=()
+DXRAM_YCSB_NODE_REMOTE_DEBUG_PORT=()
+DXRAM_YCSB_NODE_REMOTE_PROFILE_YJP_PORT=()
+DXRAM_YCSB_NODE_REMOTE_PROFILE_YJP_AGENT_LIB=()
+
+DXRAM_YCSB_TOTAL_STORAGE_NODES=""
+DXRAM_YCSB_TOTAL_BENCHMARK_NODES=""
+
+DXRAM_YCSB_NODE_THREADS=()
+
+# Specify workload inline
+DXRAM_YCSB_WORKLOAD_RECORDCOUNT=""
+DXRAM_YCSB_WORKLOAD_OPERATIONCOUNT=""
+DXRAM_YCSB_WORKLOAD_READPROPORTION=""
+DXRAM_YCSB_WORKLOAD_UPDATEPROPORTION=""
+DXRAM_YCSB_WORKLOAD_REQUESTDISTRIBUTION=""
+DXRAM_YCSB_WORKLOAD_FIELDCOUNT=""
+DXRAM_YCSB_WORKLOAD_FIELDLENGTH=""
+
+DXRAM_YCSB_NODE_INSERTSTART=()
+
+cdepl_app_dxram_ycsb_init()
+{
+	local path=$1
+	local zookeeper_node=$2
+	local zookeeper_port=$3
+
+	DXRAM_YCSB_PATH="$(cdepl_cluster_login_cmd "realpath $path")"
+	DXRAM_YCSB_CONFIG_PATH="${DXRAM_YCSB_PATH}/config/dxram.json"
+	DXRAM_YCSB_LOG4J_CONFIG_PATH="${DXRAM_YCSB_PATH}/config/log4j.xml"
+
+	DXRAM_YCSB_OUT_PATH="${DEPLOY_CUR_OUT_PATH}/dxram_ycsb"
+	DXRAM_YCSB_OUT_CONF_PATH="${DXRAM_YCSB_OUT_PATH}/conf"
+	DXRAM_YCSB_OUT_LOG_PATH="${DXRAM_YCSB_OUT_PATH}/log"
+
+	DXRAM_YCSB_ZOOKEEPER_NODE="$zookeeper_node"
+	DXRAM_YCSB_ZOOKEEPER_PORT="$zookeeper_port"
+
+	# Check if dxram ycsb path is available
+	if [ "$(cdepl_cluster_login_cmd "[ -d $DXRAM_YCSB_PATH ] && echo \"1\"")" != "1" ]; then
+		util_log_error_and_exit "[login][dxram-ycsb]: Path does not exist: $DXRAM_YCSB_PATH"
+	fi
+
+	__cdepl_app_dxram_ycsb_check
+	__cdepl_app_dxram_ycsb_check_config
+
+	# Output path setup
+	cdepl_cluster_login_cmd "mkdir -p $DXRAM_YCSB_OUT_CONF_PATH"
+	cdepl_cluster_login_cmd "mkdir -p $DXRAM_YCSB_OUT_LOG_PATH"
+
+	util_log "[login][dxram-ycsb] Initialized: $DXRAM_YCSB_PATH"
+	util_log "[login][dxram-ycsb] Output: $DXRAM_YCSB_OUT_PATH"
+}
+
+# in order to declare a node an actual DXRAM node, you have to assign a role
+# no default role, node will be ignored and not considered a dxram node
+cdepl_app_dxram_ycsb_node_type()
+{
+	local node=$1
+	local type=$2
+
+	# No default values. If node type not set explicitly, node is not considered to run a DXRAM YCSB instance
+	if [ "$node" -ge "$(cdepl_cluster_get_alloc_node_count)" ]; then
+		util_log_error_and_exit "[$node][dxram-ycsb] Invalid node id $node > $(cdepl_cluster_get_alloc_node_count)"
+	fi
+
+    # Superpeer (S), peer store (PS) or peer bench (PB)
+	if [ "$type" != "S" ] && [ "$type" != "PS" ] && [ "$type" != "PB" ]; then
+		util_log_error_and_exit "[$node][dxram-ycsb] Invalid node type $type for node $node"
+	fi
+
+	DXRAM_YCSB_NODE_TYPE[$node]="$type"
+}
+
+cdepl_app_dxram_ycsb_node_port()
+{
+	local node=$1
+	local port=$2
+
+	if [ "$node" -ge "$(cdepl_cluster_get_alloc_node_count)" ]; then
+		util_log_error_and_exit "[$node][dxram-ycsb] Invalid node id $node > $(cdepl_cluster_get_alloc_node_count)"
+	fi
+
+	if [ "$port" -gt "65536" ] || [ "$port" -lt "0" ]; then
+		util_log_error_and_exit "[$node][dxram-ycsb] Invalid port $port for node $node"
+	fi
+
+	DXRAM_YCSB_NODE_PORT[$node]="$port"
+}
+
+cdepl_app_dxram_ycsb_node_network()
+{
+	local node=$1
+	local network=$2
+
+	if [ "$node" -ge "$(cdepl_cluster_get_alloc_node_count)" ]; then
+		util_log_error_and_exit "[$node][dxram-ycsb] Invalid node id $node > $(cdepl_cluster_get_alloc_node_count)"
+	fi
+
+	if [ "$network" != "eth" ] && [ "$network" != "ib" ]; then
+		util_log_error_and_exit "[$node][dxram-ycsb] Invalid network type $network for node $node"
+	fi
+
+	DXRAM_YCSB_NODE_NETWORK[$node]="$network"
+}
+
+cdepl_app_dxram_ycsb_node_message_handler()
+{
+	local node=$1
+	local msg_handler=$2
+
+	if [ "$node" -ge "$(cdepl_cluster_get_alloc_node_count)" ]; then
+		util_log_error_and_exit "[$node][dxram-ycsb] Invalid node id $node > $(cdepl_cluster_get_alloc_node_count)"
+	fi
+
+	DXRAM_YCSB_NODE_MSG_HANDLER[$node]="$msg_handler"
+}
+
+cdepl_app_dxram_ycsb_peer_kvss()
+{
+	local node=$1
+	local kvss=$2
+
+	if [ "$node" -ge "$(cdepl_cluster_get_alloc_node_count)" ]; then
+		util_log_error_and_exit "[$node][dxram-ycsb] Invalid node id $node > $(cdepl_cluster_get_alloc_node_count)"
+	fi
+
+	DXRAM_YCSB_NODE_PEER_KVSS[$node]="$kvss"
+}
+
+cdepl_app_dxram_ycsb_run_as_sudo()
+{
+	local node=$1
+
+	if [ "$node" -ge "$(cdepl_cluster_get_alloc_node_count)" ]; then
+		util_log_error_and_exit "[$node][dxram-ycsb] Invalid node id $node > $(cdepl_cluster_get_alloc_node_count)"
+	fi
+
+	DXRAM_YCSB_NODE_RUN_SUDO[$node]="1"
+}
+
+cdepl_app_dxram_ycsb_remote_debug()
+{
+	local node=$1
+	local port=$2
+
+	if [ "$node" -ge "$(cdepl_cluster_get_alloc_node_count)" ]; then
+		util_log_error_and_exit "[$node][dxram-ycsb] Invalid node id $node > $(cdepl_cluster_get_alloc_node_count)"
+	fi
+
+	DXRAM_YCSB_NODE_REMOTE_DEBUG_PORT[$node]="$port"
+}
+
+cdepl_app_dxram_ycsb_remote_profile_yjp()
+{
+	local node=$1
+	local port=$2
+	local agent_lib=$3
+
+	if [ "$node" -ge "$(cdepl_cluster_get_alloc_node_count)" ]; then
+		util_log_error_and_exit "[$node][dxram-ycsb] Invalid node id $node > $(cdepl_cluster_get_alloc_node_count)"
+	fi
+
+	# Check if the agent lib is available
+	if [ "$(cdepl_cluster_node_cmd $node "[ -f $agent_lib ] && echo \"1\"")" != "1" ]; then
+		util_log_error_and_exit "[$node][dxram-ycsb] Could not find libyjpagent.so in $agent_lib"
+	fi
+
+	DXRAM_YCSB_NODE_REMOTE_PROFILE_YJP_PORT[$node]="$port"
+	DXRAM_YCSB_NODE_REMOTE_PROFILE_YJP_AGENT_LIB[$node]="$agent_lib"
+}
+
+cdepl_app_dxram_ycsb_total_storage_nodes()
+{
+	local total_nodes=$1
+
+	DXRAM_YCSB_TOTAL_STORAGE_NODES="$total_nodes"
+}
+
+cdepl_app_dxram_ycsb_total_benchmark_nodes()
+{
+	local total_nodes=$1
+
+	DXRAM_YCSB_TOTAL_BENCHMARK_NODES="$total_nodes"
+}
+
+cdepl_app_dxram_ycsb_threads()
+{
+	local node=$1
+	local threads=$2
+
+	if [ "$node" -ge "$(cdepl_cluster_get_alloc_node_count)" ]; then
+		util_log_error_and_exit "[$node][dxram-ycsb] Invalid node id $node > $(cdepl_cluster_get_alloc_node_count)"
+	fi
+
+	DXRAM_YCSB_NODE_THREADS[$node]="$threads"
+}
+
+# specify inline workload instead of using workload config making the deploy
+# script more self containing
+cdepl_app_dxram_ycsb_workload()
+{
+	local recordcount=$1
+	local operationcount=$2
+	local readportion=$3
+	local updateportion=$4
+	local requestdistribution=$5
+	local fieldcount=$6
+	local fieldlength=$7
+
+	DXRAM_YCSB_WORKLOAD_RECORDCOUNT="$recordcount"
+	DXRAM_YCSB_WORKLOAD_OPERATIONCOUNT="$operationcount"
+	DXRAM_YCSB_WORKLOAD_READPORTION="$readportion"
+	DXRAM_YCSB_WORKLOAD_UPDATEPORTION="$updateportion"
+	DXRAM_YCSB_WORKLOAD_REQUESTDISTRIBUTION="$requestdistribution"
+	DXRAM_YCSB_WORKLOAD_FIELDCOUNT="$fieldcount"
+	DXRAM_YCSB_WORKLOAD_FIELDLENGTH="$fieldlength"
+}
+
+cdepl_app_dxram_ycsb_insertstart()
+{
+	local node=$1
+	local insertstart=$2
+
+	if [ "$node" -ge "$(cdepl_cluster_get_alloc_node_count)" ]; then
+		util_log_error_and_exit "[$node][dxram-ycsb] Invalid node id $node > $(cdepl_cluster_get_alloc_node_count)"
+	fi
+
+	DXRAM_YCSB_NODE_INSERTSTART[$node]="$insertstart"
+}
+
+# wrapper to easily set workloada
+cdepl_app_dxram_ycsb_workload_a()
+{
+	local recordcount=$1
+	local operationcount=$2
+
+	cdepl_app_dxram_ycsb_workload $recordcount $operationcount "0.5" "0.5" "zipfian" "10" "100"
+}
+
+# wrapper to easily set workloada
+cdepl_app_dxram_ycsb_workload_b()
+{
+	local recordcount=$1
+	local operationcount=$2
+
+	cdepl_app_dxram_ycsb_workload $recordcount $operationcount "0.95" "0.05" "zipfian" "10" "100"
+}
+
+# wrapper to easily set workloada
+cdepl_app_dxram_ycsb_workload_g()
+{
+	local recordcount=$1
+	local operationcount=$2
+
+	cdepl_app_dxram_ycsb_workload $recordcount $operationcount "0.5" "0.5" "zipfian" "1" "64"
+}
+
+cdepl_app_dxram_ycsb_auto_detect_node_config_params()
+{
+	local node=$1
+
+	# TODO: auto detect optimal
+	# network: if /dev/infiniband -> ib, eth otherwise
+	# msg handler count: total core count - 2
+	# kvss: 1GB OS, 2GB jvm, remain: kvss
+
+	util_log_error_and_exit "Auto detect node config and params not implemented, yet"
+}
+
+cdepl_app_ycsb_dxram_start_node()
+{
+	local node=$1
+
+	if [ "${DXRAM_YCSB_NODE_TYPE[$node]}" = "" ]; then
+		util_log_error_and_exit "[$node][dxram-ycsb] No node type set, cannot start instance"
+	fi
+
+	local logfile=""
+
+	if [ "${DXRAM_YCSB_NODE_TYPE[$node]}" = "S" ]; then
+		logfile=${DXRAM_YCSB_OUT_LOG_PATH}/node${node}${DXRAM_YCSB_LOG_FILE_SUPERPEER_POSTFIX}
+	elif [ "${DXRAM_YCSB_NODE_TYPE[$node]}" = "PS" ]; then
+		logfile=${DXRAM_YCSB_OUT_LOG_PATH}/node${node}${DXRAM_YCSB_LOG_FILE_STORE_POSTFIX}
+	elif [ "${DXRAM_YCSB_NODE_TYPE[$node]}" = "PB" ]; then
+		logfile=${DXRAM_YCSB_OUT_LOG_PATH}/node${node}${DXRAM_YCSB_LOG_FILE_BENCH_POSTFIX}
+	else
+        util_log_error_and_exit "[$node][dxram-ycsb] Invalid node type ${DXRAM_YCSB_NODE_TYPE[$node]} cannot start instance"
+    fi
+
+	# Check if java is available on the target node
+	cdepl_cluster_resolve_dependency $node "java" "1.8"
+
+	__cdepl_app_dxram_ycsb_resolve_default_config_values
+	__cdepl_app_dxram_ycsb_create_node_base_config $node ${DXRAM_YCSB_NODE_TYPE[$node]}
+
+	if [ "${DXRAM_YCSB_NODE_TYPE[$node]}" = "S" ]; then
+		__cdepl_app_dxram_ycsb_start_superpeer $node $logfile
+	elif [ "${DXRAM_YCSB_NODE_TYPE[$node]}" = "PS" ]; then
+		__cdepl_app_dxram_ycsb_start_peer $node "load" $logfile
+	elif [ "${DXRAM_YCSB_NODE_TYPE[$node]}" = "PB" ]; then
+		__cdepl_app_dxram_ycsb_start_peer $node "run" $logfile
+	fi
+}
+
+cdepl_app_dxram_ycsb_node_wait_superpeer_started()
+{
+	local node=$1
+
+	local type="${DXRAM_YCSB_NODE_TYPE[$node]}"
+	local logfile=${DXRAM_YCSB_OUT_LOG_PATH}/node${node}${DXRAM_YCSB_LOG_FILE_SUPERPEER_POSTFIX}
+
+	if [ "${DXRAM_YCSB_NODE_TYPE[$node]}" != "S" ]; then
+		util_log_error_and_exit "[$node][dxram-ycsb][$type] Waiting for node to be started, not a superpeer"
+	fi
+
+	util_log "[$node][dxram-ycsb][$type] Waiting for startup"
+
+	while true; do
+		echo -n "."
+
+		local success=$(cdepl_cluster_node_cmd $node "cat $logfile 2> /dev/null | sed 's,\x1B\[[0-9;]*[a-zA-Z],,g' | grep '$DXRAM_YCSB_DEFAULT_STARTUP_CONDITION'")
+		local fail_init=$(cdepl_cluster_node_cmd $node "cat $logfile 2> /dev/null | sed 's,\x1B\[[0-9;]*[a-zA-Z],,g' | grep '^Initializing DXRAM failed.$'")
+		# Abort execution after an exception was thrown (every exception but NetworkResponseCancelledException)
+		local fail_error=$(cdepl_cluster_node_cmd $node "cat $logfile 2> /dev/null | sed 's,\x1B\[[0-9;]*[a-zA-Z],,g' | grep -i 'exception' | grep -v 'NetworkResponseCancelledException'")
+		# "A fatal error" -> JVM segfaults
+		local fail_error2=$(cdepl_cluster_node_cmd $node "cat $logfile 2> /dev/null | sed 's,\x1B\[[0-9;]*[a-zA-Z],,g' | grep -i -e '\[ERROR\]' -e '\# A fatal error'")
+
+		if [ "$success" ]; then
+			local pid=$(__cdepl_app_dxram_ycsb_get_instance_running_pid $node ${DXRAM_YCSB_NODE_PORT[$node]})
+
+			echo ""
+
+			if [ ! "$pid" ]; then
+				util_log_error_and_exit "[$node][dxram-ycsb][$type] Could not find started process"
+			fi
+
+			util_log "[$node][dxram-ycsb][$type] Started (pid: $pid)"
+
+			break
+		elif [ "$fail_init" ]; then
+			echo ""
+			util_log_error_and_exit "[$node][dxram-ycsb][$type] Could not be started. See log file $logfile"
+			return 1
+		elif [ "$fail_error" ] || [ "$fail_error2" ]; then
+			echo ""
+			util_log_error_and_exit "[$node][dxram-ycsb][$type] Failed, error or exception. See log file $logfile"
+			return 2
+		fi
+
+		sleep 1.0
+	done
+
+	return 0
+}
+
+cdepl_app_dxram_ycsb_storage_finished_loading()
+{
+	local node=$1
+
+	local type="${DXRAM_YCSB_NODE_TYPE[$node]}"
+	local logfile=${DXRAM_YCSB_OUT_LOG_PATH}/node${node}${DXRAM_YCSB_LOG_FILE_STORE_POSTFIX}
+
+	if [ "$type" != "PS" ]; then
+		util_log_error_and_exit "[$node][dxram-ycsb][$type] Invalid node type $type to wait for load storage finish"
+	fi
+
+	util_log "[$node][dxram-ycsb][$type] Waiting for storage loading to finish: $DXRAM_YCSB_RUN_OR_LOAD_DONE_CONDITION"
+
+	while true; do
+		echo -n "."
+
+		local success=$(cdepl_cluster_node_cmd $node "cat $logfile 2> /dev/null | sed 's,\x1B\[[0-9;]*[a-zA-Z],,g' | grep '$DXRAM_YCSB_RUN_OR_LOAD_DONE_CONDITION'")
+		# Abort execution after an exception was thrown (every exception but NetworkResponseCancelledException)
+		local fail_error=$(cdepl_cluster_node_cmd $node "cat $logfile 2> /dev/null | sed 's,\x1B\[[0-9;]*[a-zA-Z],,g' | grep -i 'exception' | grep -v 'NetworkResponseCancelledException'")
+		# "A fatal error" -> JVM segfaults
+		local fail_error2=$(cdepl_cluster_node_cmd $node "cat $logfile 2> /dev/null | sed 's,\x1B\[[0-9;]*[a-zA-Z],,g' | grep -i -e '\[ERROR\]' -e '\# A fatal error'")
+
+		if [ "$success" ]; then
+			util_log "[$node][dxram-ycsb][$type] Storage loading complete"
+
+			break
+		elif [ "$fail_error" ] || [ "$fail_error2" ]; then
+			echo ""
+			util_log_error_and_exit "[$node][dxram-ycsb][$type] Failed, error or exception. See log file $logfile"
+			return 1
+		fi
+
+		sleep 1.0
+	done
+
+    return 0
+}
+
+cdepl_app_dxram_ycsb_benchmark_wait_finished()
+{
+	local node=$1
+
+	local type="${DXRAM_YCSB_NODE_TYPE[$node]}"
+	local logfile=${DXRAM_YCSB_OUT_LOG_PATH}/node${node}${DXRAM_YCSB_LOG_FILE_BENCH_POSTFIX}
+
+	if [ "$type" != "PB" ]; then
+		util_log_error_and_exit "[$node][dxram-ycsb][$type] Invalid node type $type to wait for benchmark to finish"
+	fi
+
+	util_log "[$node][dxram-ycsb][$type] Waiting for benchmark to finish: $DXRAM_YCSB_RUN_OR_LOAD_DONE_CONDITION"
+
+	while true; do
+		echo -n "."
+
+		local success=$(cdepl_cluster_node_cmd $node "cat $logfile 2> /dev/null | sed 's,\x1B\[[0-9;]*[a-zA-Z],,g' | grep '$DXRAM_YCSB_RUN_OR_LOAD_DONE_CONDITION'")
+		# Abort execution after an exception was thrown (every exception but NetworkResponseCancelledException)
+		local fail_error=$(cdepl_cluster_node_cmd $node "cat $logfile 2> /dev/null | sed 's,\x1B\[[0-9;]*[a-zA-Z],,g' | grep -i 'exception' | grep -v 'NetworkResponseCancelledException'")
+		# "A fatal error" -> JVM segfaults
+		local fail_error2=$(cdepl_cluster_node_cmd $node "cat $logfile 2> /dev/null | sed 's,\x1B\[[0-9;]*[a-zA-Z],,g' | grep -i -e '\[ERROR\]' -e '\# A fatal error'")
+
+		if [ "$success" ]; then
+			util_log "[$node][dxram-ycsb][$type] Benchmark completed"
+
+			break
+		elif [ "$fail_error" ] || [ "$fail_error2" ]; then
+			echo ""
+			util_log_error_and_exit "[$node][dxram-ycsb][$type] Failed, error or exception. See log file $logfile"
+			return 1
+		fi
+
+		sleep 1.0
+	done
+
+    return 0
+}
+
+cdepl_app_dxram_ycsb_node_cleanup()
+{
+	local node=$1
+
+	util_log "[$node][dxram-ycsb] Cleanup..."
+
+	__cdepl_app_dxram_ycsb_cleanup $node
+}
+
+#################################################
+
+__cdepl_app_dxram_ycsb_check()
+{
+	if [ "$(cdepl_cluster_node_cmd 0 "[ -f ${DXRAM_YCSB_PATH}/bin/ycsb ] && echo 1")" != "1" ]; then
+		util_log_error_and_exit "[0][dxram-ycsb] Could not find bin/ycsb in $DXRAM_YCSB_PATH"
+	fi
+}
+
+__cdepl_app_dxram_ycsb_check_config()
+{
+	# Check if config file is available and create default config
+	if [ "$(cdepl_cluster_node_cmd 0 "[ -f $DXRAM_YCSB_CONFIG_PATH ] && echo \"1\"")" != "1" ]; then
+		util_log "[0][dxram-ycsb] No config file available, creating default config: $DXRAM_YCSB_CONFIG_PATH"
+		
+		# Don't run this on the login node (might not have java installed)
+		# Use the first actual cluster node instead
+		# sync: Ensure everything's written to disk and visible for other nodes
+		cdepl_cluster_node_cmd 0 "cd $DXRAM_YCSB_PATH && java -Dlog4j.configurationFile=$DXRAM_YCSB_LOG4J_CONFIG_PATH -Ddxram.config=$DXRAM_YCSB_CONFIG_PATH -cp $DXRAM_YCSB_CLASS_PATH $DXRAM_YCSB_MAIN_CLASS > /dev/null 2>&1"
+	
+		# Sanity check
+		if [ "$(cdepl_cluster_node_cmd 0 "[ -f $DXRAM_YCSB_CONFIG_PATH ] && echo \"1\"")" != "1" ]; then
+			util_log_error_and_exit "[0][dxram-ycsb] Creating config file $DXRAM_YCSB_CONFIG_PATH failed"
+		fi
+	else
+		local config_content="$(cdepl_cluster_node_cmd 0 "cat "$DXRAM_YCSB_CONFIG_PATH"")"
+		# Check if corrupted configuration file
+		local component_header=`echo $config_content | grep "m_componentConfigs"`
+		local service_header=`echo $config_content | grep "m_serviceConfigs"`
+		if [ "$component_header" = "" ] && [ "$service_header" = "" ] ; then
+			util_log "[0][dxram-ycsb] Configuration file $DXRAM_YCSB_CONFIG_PATH corrupted, deleting and creating default"
+
+			# Configuration file seems to be corrupted -> start dxram once to create new configuration
+			cdepl_cluster_node_cmd 0 "rm $DXRAM_YCSB_CONFIG_PATH && cd $DXRAM_YCSB_PATH && java -Dlog4j.configurationFile=$DXRAM_YCSB_LOG4J_CONFIG_PATH -Ddxram.config=$DXRAM_YCSB_CONFIG_PATH -cp $DXRAM_YCSB_CLASS_PATH $DXRAM_YCSB_MAIN_CLASS > /dev/null 2>&1"
+	
+			# Sanity check
+			if [ "$(cdepl_cluster_node_cmd 0 "[ -f $DXRAM_YCSB_CONFIG_PATH ] && echo \"1\"")" != "1" ]; then
+				util_log_error_and_exit "[0][dxram-ycsb] Creating config file $DXRAM_YCSB_CONFIG_PATH failed"
+			fi
+		fi
+	fi
+}
+
+__cdepl_app_dxram_ycsb_resolve_default_config_values()
+{
+	local node_count="$(cdepl_cluster_get_alloc_node_count)"
+
+	for i in `seq 0 $((node_count - 1))`; do
+		# Only for explicitly set node types = DXRAM instance
+		if [ "${DXRAM_YCSB_NODE_TYPE[$i]}" = "S" ] && [ "${DXRAM_YCSB_NODE_PORT[$i]}" = "" ]; then
+			DXRAM_YCSB_NODE_PORT[$i]="$DXRAM_YCSB_DEFAULT_S_PORT"
+		fi
+
+		if [ "${DXRAM_YCSB_NODE_TYPE[$i]}" = "PS" ] && [ "${DXRAM_YCSB_NODE_PORT[$i]}" = "" ]; then
+			DXRAM_YCSB_NODE_PORT[$i]="$DXRAM_YCSB_DEFAULT_PS_PORT"
+		fi
+
+		if [ "${DXRAM_YCSB_NODE_TYPE[$i]}" = "PB" ] && [ "${DXRAM_YCSB_NODE_PORT[$i]}" = "" ]; then
+			DXRAM_YCSB_NODE_PORT[$i]="$DXRAM_YCSB_DEFAULT_PB_PORT"
+		fi
+	done
+}
+
+__cdepl_app_dxram_ycsb_create_node_base_config()
+{
+	local node=$1
+	local type=$2
+
+	local node_config_path="${DXRAM_YCSB_OUT_CONF_PATH}/node_${node}.conf"
+
+	local zookeeper_ip="$(cdepl_cluster_resolve_node_to_ip $DXRAM_YCSB_ZOOKEEPER_NODE)"
+	local node_config="$(cdepl_cluster_login_cmd "cat $DXRAM_YCSB_CONFIG_PATH")"
+
+	if [ zookeeper_ip = "" ]; then
+		util_log_error_and_exit "[$node][dxram-ycsb] Could not resolve zookeeper ip for node $DXRAM_YCSB_ZOOKEEPER_NODE"
+	fi
+
+	# Insert zookeeper config values
+	# Create replacement string for zookeeper configuration
+	local zookeeper_config_string="
+      \"m_path\": \"/dxram\",
+      \"m_connection\": {
+        \"m_ip\": \"$zookeeper_ip\",
+        \"m_port\": $DXRAM_YCSB_ZOOKEEPER_PORT
+      },"
+
+	# Replace zookeeper configuration
+	local current_node_config="$(echo "$node_config" | sed '/ZookeeperBootComponentConfig/q')"
+	current_node_config="${current_node_config}${zookeeper_config_string}"
+	local end="$(echo "$node_config" | sed -ne '/ZookeeperBootComponentConfig/{s///; :a' -e 'n;p;ba' -e '}')"
+	end="$(echo "$end" | sed -ne '/},/{s///; :a' -e 'n;p;ba' -e '}')"
+	current_node_config="$(echo -e "${current_node_config}\n${end}")"
+
+	node_config="$current_node_config"
+
+	# Insert node config mappings
+	# Create replacement string for nodes configuration:
+	local default_node="{
+		\"m_address\": {
+            \"m_ip\": \"IP_TEMPLATE\",
+            \"m_port\": PORT_TEMPLATE
+		},
+          	\"m_role\": \"ROLE_TEMPLATE\",
+          	\"m_rack\": 0,
+          	\"m_switch\": 0,
+          	\"m_readFromFile\": 1
+	}"
+
+	local node_config_string=""
+	local first_iterartion=true
+
+	# Create "List" of node configs for configuration file
+	for i in `seq 0 $(($(cdepl_cluster_get_alloc_node_count) - 1))`; do
+		local ip=""
+		local port=""
+		local role=""
+
+		ip="$(cdepl_cluster_resolve_node_to_ip "$i")"
+
+		if [ ! "ip" ]; then
+			util_log_error_and_exit "[$node][dxram-ycsb] Could not resolve node to ip"
+		fi
+
+		port="${DXRAM_YCSB_NODE_PORT[$i]}"
+
+			# Only for explicitly set node types = DXRAM instance
+		if [ "${DXRAM_YCSB_NODE_TYPE[$i]}" = "S" ]; then
+			role="SUPERPEER"
+		elif [ "${DXRAM_YCSB_NODE_TYPE[$i]}" = "PS" ] || [ "${DXRAM_YCSB_NODE_TYPE[$i]}" = "PB" ]; then
+			role="PEER"
+		fi
+
+		if [ "${DXRAM_YCSB_NODE_TYPE[$i]}" ]; then
+			local node_string=`echo "$default_node" | sed "s/IP_TEMPLATE/$ip/" | sed "s/PORT_TEMPLATE/$port/" | sed "s/ROLE_TEMPLATE/$role/"`
+
+			# Separate items of list with ,
+			if [ "$first_iterartion" == true ]; then
+				node_config_string="${node_config_string}${node_string}"
+				first_iterartion=false
+			else
+				node_config_string="${node_config_string},${node_string}"
+			fi
+		fi
+	done
+
+	# Close node config list
+	node_config_string="$(echo -e "$node_config_string\n      ],")"
+
+	# Replace nodes configuration:
+	local new_config="$(echo "${node_config}" | sed '/m_nodesConfig/q')"
+	new_config="${new_config}${node_config_string}"
+	local end="$(echo "${node_config}" | sed -ne '/m_nodesConfig/{s///; :a' -e 'n;p;ba' -e '}')"
+	end="$(echo "${end}" | sed -ne '/],/{s///; :a' -e 'n;p;ba' -e '}')"
+	new_config="$(echo -e "${new_config}\n${end}")"
+
+	# Write back new config
+	cdepl_cluster_login_cmd "echo '$new_config' > '${node_config_path}'"
+}
+
+__cdepl_app_dxram_ycsb_start_superpeer()
+{
+	local node=$1
+	local logfile=$2
+
+	local node_config_path="${DXRAM_YCSB_OUT_CONF_PATH}/node_${node}.conf"
+
+	util_log "[$node][dxram-ycsb][S] Starting superpeer, logfile: $logfile config: $node_config_path"
+
+	local ip="$(cdepl_cluster_resolve_hostname_to_ip "$(cdepl_cluster_node_resolve_node_to_hostname $node)")"
+
+	if [ ! "$ip" ]; then
+		util_log_error_and_exit "[$node][dxram-ycsb][S] Could not resolve hostname '$(cdepl_cluster_node_resolve_node_to_hostname $node)' to ip"
+	fi
+
+	local vm_opts=""
+
+	# Required to fix JNI crashing with libIbdxnet (see JNINotes.md in ibnet repository)
+	vm_opts="-XX:+UseMembar"
+
+	vm_opts="$vm_opts -Dlog4j.configurationFile=$DXRAM_YCSB_LOG4J_CONFIG_PATH"
+	vm_opts="$vm_opts -Ddxram.config=$node_config_path"
+	vm_opts="$vm_opts -Ddxram.m_config.m_engineConfig.m_address.m_ip=$ip"
+	vm_opts="$vm_opts -Ddxram.m_config.m_engineConfig.m_address.m_port=${DXRAM_YCSB_NODE_PORT[$node]}"
+	vm_opts="$vm_opts -Ddxram.m_config.m_engineConfig.m_role=Superpeer"
+
+	# Optional dxram node specific settings
+
+	if [ "${DXRAM_YCSB_NODE_NETWORK[$node]}" = "eth" ]; then
+		vm_opts="$vm_opts -Ddxram.m_config.m_componentConfigs[NetworkComponentConfig].m_core.m_device=Ethernet"
+	elif [ "${DXRAM_YCSB_NODE_NETWORK[$node]}" = "ib" ]; then
+		vm_opts="$vm_opts -Ddxram.m_config.m_componentConfigs[NetworkComponentConfig].m_core.m_device=Infiniband"
+	fi
+
+	if [ "${DXRAM_YCSB_NODE_MSG_HANDLER[$node]}" ]; then
+		vm_opts="$vm_opts -Ddxram.m_config.m_componentConfigs[NetworkComponentConfig].m_core.m_numMessageHandlerThreads=${DXRAM_NODE_MSG_HANDLER[$node]}"
+	fi
+
+	# Development and debugging
+
+	local root=""
+	if [ "${DXRAM_YCSB_NODE_RUN_SUDO[$node]}" = "1" ]; then
+		util_log "[$node][dxram-ycsb][S] Running with sudo"
+		root="sudo -P"
+	fi
+
+	if [ "${DXRAM_YCSB_NODE_REMOTE_DEBUG_PORT[$node]}" != "" ]; then
+		vm_opts="$vm_opts -agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=${DXRAM_YCSB_NODE_REMOTE_DEBUG_PORT[$node]}"
+		util_log "[$node][dxram-ycsb][S] Enabled remote debugging on port ${DXRAM_YCSB_NODE_REMOTE_DEBUG_PORT[$node]}"
+		util_log "[$node][dxram-ycsb][S] On your local machine: establish a tunnel using 'ssh <target_hostname> -L ${DXRAM_YCSB_NODE_REMOTE_DEBUG_PORT[$node]}:<target_hostname>:${DXRAM_YCSB_NODE_REMOTE_DEBUG_PORT[$node]}' and connect your debugger to localhost, port ${DXRAM_YCSB_NODE_REMOTE_DEBUG_PORT[$node]}"
+	fi
+
+	if [ "${DXRAM_YCSB_NODE_REMOTE_PROFILE_YJP_PORT[$node]}" != "" ]; then
+		vm_opts="$vm_opts -agentpath:${DXRAM_YCSB_NODE_REMOTE_PROFILE_YJP_AGENT_LIB[$node]}=port=${DXRAM_YCSB_NODE_REMOTE_PROFILE_YJP_PORT[$node]}"
+
+		util_log "[$node][dxram-ycsb][S] On your local machine: establish a tunnel using 'ssh <target_hostname> -L ${DXRAM_YCSB_NODE_REMOTE_PROFILE_YJP_PORT[$node]}:<target_hostname>:${DXRAM_YCSB_NODE_REMOTE_PROFILE_YJP_PORT[$node]}' and connect with yourkit using 'Connect to remote application' with the arguments 'localhost:${DXRAM_YCSB_NODE_REMOTE_PROFILE_YJP_PORT[$node]}'"
+	fi
+
+	cdepl_cluster_node_cmd $node "cd $DXRAM_YCSB_PATH && $root nohup java ${DXRAM_YCSB_PROCESS_IDENTIFIER} $vm_opts -cp $DXRAM_YCSB_CLASS_PATH $DXRAM_YCSB_MAIN_CLASS > $logfile 2>&1 &"
+}
+
+__cdepl_app_dxram_ycsb_start_peer()
+{
+	local node=$1
+	local ycsb_type=$2
+	local logfile=$3
+
+	local node_config_path="${DXRAM_YCSB_OUT_CONF_PATH}/node_${node}.conf"
+
+	util_log "[$node][dxram-ycsb][$ycsb_type] Starting $ycsb_type peer, logfile: $logfile config: $node_config_path"
+
+	local ip="$(cdepl_cluster_resolve_hostname_to_ip "$(cdepl_cluster_node_resolve_node_to_hostname $node)")"
+
+	if [ ! "$ip" ]; then
+		util_log_error_and_exit "[$node][dxram-ycsb][$ycsb_type] Could not resolve hostname '$(cdepl_cluster_node_resolve_node_to_hostname $node)' to ip"
+	fi
+
+	local zookeeper_ip="$(cdepl_cluster_resolve_node_to_ip $DXRAM_YCSB_ZOOKEEPER_NODE)"
+
+	if [ zookeeper_ip = "" ]; then
+		util_log_error_and_exit "[$node][dxram-ycsb][$ycsb_type] Could not resolve zookeeper ip for node $DXRAM_YCSB_ZOOKEEPER_NODE"
+	fi
+
+	local vm_opts=""
+	local ycsb_params=""
+	
+	# Required to fix JNI crashing with libIbdxnet (see JNINotes.md in ibnet repository)
+	vm_opts="-XX:+UseMembar"
+
+	vm_opts="$vm_opts -Dlog4j.configurationFile=$DXRAM_YCSB_LOG4J_CONFIG_PATH"
+	vm_opts="$vm_opts -Ddxram.config=$node_config_path"
+	vm_opts="$vm_opts -Ddxram.m_config.m_engineConfig.m_address.m_ip=$ip"
+	vm_opts="$vm_opts -Ddxram.m_config.m_engineConfig.m_address.m_port=${DXRAM_YCSB_NODE_PORT[$node]}"
+	vm_opts="$vm_opts -Ddxram.m_config.m_engineConfig.m_role=Peer"
+
+	# Optional dxram node specific settings
+
+	if [ "${DXRAM_YCSB_NODE_NETWORK[$node]}" = "eth" ]; then
+		vm_opts="$vm_opts -Ddxram.m_config.m_componentConfigs[NetworkComponentConfig].m_core.m_device=Ethernet"
+	elif [ "${DXRAM_YCSB_NODE_NETWORK[$node]}" = "ib" ]; then
+		vm_opts="$vm_opts -Ddxram.m_config.m_componentConfigs[NetworkComponentConfig].m_core.m_device=Infiniband"
+	fi
+
+	if [ "${DXRAM_YCSB_NODE_MSG_HANDLER[$node]}" ]; then
+		vm_opts="$vm_opts -Ddxram.m_config.m_componentConfigs[NetworkComponentConfig].m_core.m_numMessageHandlerThreads=${DXRAM_YCSB_NODE_MSG_HANDLER[$node]}"
+	fi
+
+	if [ "${DXRAM_YCSB_NODE_PEER_KVSS[$node]}" ]; then
+		vm_opts="$vm_opts -Ddxram.m_config.m_componentConfigs[MemoryManagerComponentConfig].m_keyValueStoreSize.m_value=${DXRAM_YCSB_NODE_PEER_KVSS[$node]}"
+		vm_opts="$vm_opts -Ddxram.m_config.m_componentConfigs[MemoryManagerComponentConfig].m_keyValueStoreSize.m_unit=mb"
+	fi
+
+	# Development and debugging
+
+	local root=""
+	if [ "${DXRAM_YCSB_NODE_RUN_SUDO[$node]}" = "1" ]; then
+		util_log "[$node][dxram-ycsb][$ycsb_type] Running with sudo"
+		root="sudo -P"
+	fi
+
+	if [ "${DXRAM_YCSB_NODE_REMOTE_DEBUG_PORT[$node]}" != "" ]; then
+		vm_opts="$vm_opts -agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=${DXRAM_YCSB_NODE_REMOTE_DEBUG_PORT[$node]}"
+		util_log "[$node][dxram-ycsb][$ycsb_type] Enabled remote debugging on port ${DXRAM_NODE_REMOTE_DEBUG_PORT[$node]}"
+		util_log "[$node][dxram-ycsb][$ycsb_type] On your local machine: establish a tunnel using 'ssh <target_hostname> -L ${DXRAM_YCSB_NODE_REMOTE_DEBUG_PORT[$node]}:<target_hostname>:${DXRAM_YCSB_NODE_REMOTE_DEBUG_PORT[$node]}' and connect your debugger to localhost, port ${DXRAM_YCSB_NODE_REMOTE_DEBUG_PORT[$node]}"
+	fi
+
+	if [ "${DXRAM_YCSB_NODE_REMOTE_PROFILE_YJP_PORT[$node]}" != "" ]; then
+		vm_opts="$vm_opts -agentpath:${DXRAM_YCSB_NODE_REMOTE_PROFILE_YJP_AGENT_LIB[$node]}=port=${DXRAM_YCSB_NODE_REMOTE_PROFILE_YJP_PORT[$node]}"
+
+		util_log "[$node][dxram-ydxb][$ycsb_type] On your local machine: establish a tunnel using 'ssh <target_hostname> -L ${DXRAM_YCSB_NODE_REMOTE_PROFILE_YJP_PORT[$node]}:<target_hostname>:${DXRAM_YCSB_NODE_REMOTE_PROFILE_YJP_PORT[$node]}' and connect with yourkit using 'Connect to remote application' with the arguments 'localhost:${DXRAM_YCSB_NODE_REMOTE_PROFILE_YJP_PORT[$node]}'"
+	fi
+
+	vm_opts="$vm_opts $DXRAM_YCSB_PROCESS_IDENTIFIER"
+
+	# YCSB settings
+
+	ycsb_params="$ycsb_params -p zookeeper.string=${zookeeper_ip}:${DXRAM_YCSB_ZOOKEEPER_PORT}"
+	ycsb_params="$ycsb_params -p status.interval=1"
+
+	if [ ! "$DXRAM_YCSB_TOTAL_STORAGE_NODES" ]; then
+		util_log_error_and_exit "[$node][dxram-ycsb][$ycsb_type] Cannot run DXRAM client without total storage nodes parameter specified"
+	fi
+
+	ycsb_params="$ycsb_params -p dxram.nodes_store=$DXRAM_YCSB_TOTAL_STORAGE_NODES"
+
+	if [ ! "$DXRAM_YCSB_TOTAL_BENCHMARK_NODES" ]; then
+		util_log_error_and_exit "[$node][dxram-ycsb][$ycsb_type] Cannot run DXRAM client without total benchmark nodes parameter specified"
+	fi
+
+	ycsb_params="$ycsb_params -p dxram.nodes_run=$DXRAM_YCSB_TOTAL_BENCHMARK_NODES"
+
+	if [ ! "${DXRAM_YCSB_NODE_THREADS[$node]}" ] || [ "$ycsb_type" = "load" ]; then
+		# Auto default to single thread
+		# And limit to single threaded on storage load nodes
+		DXRAM_YCSB_NODE_THREADS[$node]="1"
+	fi
+
+	if [ ! "${DXRAM_YCSB_NODE_INSERTSTART[$node]}" ] && [ "$ycsb_type" = "load" ]; then
+		util_log_error_and_exit "[$node][dxram-ycsb][$ycsb_type] Missing value for insertstart parameter for storage"
+	fi
+
+	if [ "${DXRAM_YCSB_NODE_INSERTSTART[$node]}" ]; then
+		ycsb_params="$ycsb_params -p insertstart=${DXRAM_YCSB_NODE_INSERTSTART[$node]}"
+	fi
+
+	# Force ordered because hashing is not supported by dxram
+	ycsb_params="$ycsb_params -p insertorder=ordered"
+	ycsb_params="$ycsb_params -p readallfields=true"
+	ycsb_params="$ycsb_params -p scanproportion=0.0"
+	ycsb_params="$ycsb_params -p updateproportion=0.0"
+
+	if [ "$DXRAM_YCSB_WORKLOAD_RECORDCOUNT" ]; then
+		ycsb_params="$ycsb_params -p recordcount=$DXRAM_YCSB_WORKLOAD_RECORDCOUNT"
+	fi
+
+	if [ "$DXRAM_YCSB_WORKLOAD_OPERATIONCOUNT" ]; then
+		ycsb_params="$ycsb_params -p operationcount=$DXRAM_YCSB_WORKLOAD_OPERATIONCOUNT"
+	fi
+
+	if [ "$DXRAM_YCSB_WORKLOAD_READPROPORTION" ]; then
+		ycsb_params="$ycsb_params -p readproportion=$DXRAM_YCSB_WORKLOAD_READPROPORTION"
+	fi
+
+	if [ "$DXRAM_YCSB_WORKLOAD_UPDATEPROPORTION" ]; then
+		ycsb_params="$ycsb_params -p updateproportion=$DXRAM_YCSB_WORKLOAD_UPDATEPROPORTION"
+	fi
+
+	if [ "$DXRAM_YCSB_WORKLOAD_REQUESTDISTRIBUTION" ]; then
+		ycsb_params="$ycsb_params -p requestdistribution=$DXRAM_YCSB_WORKLOAD_REQUESTDISTRIBUTION"
+	fi
+
+	if [ "$DXRAM_YCSB_WORKLOAD_FIELDCOUNT" ]; then
+		ycsb_params="$ycsb_params -p fieldcount=$DXRAM_YCSB_WORKLOAD_FIELDCOUNT"
+	fi
+
+	if [ "$DXRAM_YCSB_WORKLOAD_FIELDLENGTH" ]; then
+		ycsb_params="$ycsb_params -p fieldlength=$DXRAM_YCSB_WORKLOAD_FIELDLENGTH"
+	fi
+
+	# Assuming the ycsb and dxram folders are merged
+
+	# Use workloada as default if no further parameters are overwriting the default workload
+	# JVM options must be specified using the JAVA_OPTS env var
+	cdepl_cluster_node_cmd $node "cd $DXRAM_YCSB_PATH && $root nohup ./bin/ycsb $ycsb_type dxram -jvm-args '$vm_opts' -threads ${DXRAM_YCSB_NODE_THREADS[$node]} -s -P workloads/workloada $ycsb_params > $logfile 2>&1 &"
+}
+
+__cdepl_app_dxram_ycsb_get_instance_running_pid()
+{
+	local node=$1
+	local port=$2
+
+	if [ "$port" ]; then
+		port=".*-Ddxram.m_config.m_engineConfig.m_address.m_port=${port}"
+	fi
+
+	# Consider port for multiple instances on a single machine (e.g. localhost)
+	echo "$(cdepl_cluster_node_cmd $node "pgrep -f '^java.*${DXRAM_YCSB_PROCESS_IDENTIFIER}${port}'")"
+}
+
+__cdepl_app_dxram_ycsb_cleanup()
+{
+	local node=$1
+
+	local pid=$(__cdepl_app_dxram_ycsb_get_instance_running_pid $node)
+
+	if [ "$pid" ]; then
+		# If we or someone else left some garbage processes on the node multiple
+		# pids are returned
+		for i in $pid; do
+			local kill_out=$(cdepl_cluster_node_cmd $node "kill -9 $i 2>&1")
+
+			if [ "$?" = "0" ] && [ ! "$kill_out" ]; then
+				util_log "[$node][dxram-ycsb] Killed (pid: $i)"
+			elif [ "$kill_out" ]; then
+				# Probably operation not permitted, try root
+				cdepl_cluster_node_cmd $node "sudo -P kill -9 $i > /dev/null 2>&1"
+
+				if [ "$?" = "0" ]; then
+					util_log "[$node][dxram-ycsb] Killed (root) (pid: $i)"
+				elif [ "$?" != "1" ]; then
+					util_log_warn "[$node][dxram-ycsb] Killing (root) $i failed, DXRAM YCSB instance(s) might stay alive"
+				fi
+			elif [ "$?" != "1" ]; then
+				util_log_warn "[$node][dxram-ycsb] Killing $i failed, DXRAM YCSB instance(s) might stay alive"
+			fi
+		done
+	fi
+}
