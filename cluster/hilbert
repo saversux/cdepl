@@ -1,0 +1,196 @@
+#!/bin/bash
+
+readonly HILBERT_MAX_NODES="112"
+readonly HILBERT_MAX_CPUS_PER_NODE="24"
+readonly HILBERT_MAX_MEM_PER_NODE="106903"
+readonly HILBERT_ETH_BASE_IP="10.28.5."
+readonly HILBERT_LOGIN_NODE="hpc-login7"
+
+HILBERT_TOTAL_NODES=""
+HILBERT_WALLTIME=""
+HILBERT_CPUS_PER_NODE="0"
+HILBERT_MEM_MB_PER_NODE=""
+
+HILBERT_USER=""
+HILBERT_NODE_MAPPING=()
+
+cdepl_cluster_node_alloc()
+{
+	local num_nodes=$1
+
+    if [ "$num_nodes" -gt "$HILBERT_MAX_NODES" ]; then
+        util_log_error_and_exit "[hilbert] Cannot allocate $num_nodes, max: $HILBERT_MAX_NODES"
+    fi
+
+	HILBERT_TOTAL_NODES="$num_nodes"
+}
+
+cdepl_cluster_walltime()
+{
+	local walltime=$1
+
+	HILBERT_WALLTIME="$walltime"
+}
+
+cdepl_cluster_node_excl()
+{
+	local node=$1
+
+	# TODO reserve exclusively?
+    util_log_error_and_exit "Reserve exclusive not implemented for hilbert"
+}
+
+cdepl_cluster_node_cpus()
+{
+	local node=$1
+	local cpus=$2
+
+	# I don't think it's possible to allocate a different number of cpus
+    # per instance
+    # Just use the highest number and allocate that amount on every node
+    if [ "$cpus" -gt "$HILBERT_CPUS_PERNODE" ] && [ "$cpus" -le "$HILBERT_MAX_CPUS_PER_NODE" ]; then
+        HILBERT_CPUS_PER_NODE="$cpus"
+    fi
+}
+
+cdepl_cluster_node_mem()
+{
+	local node=$1
+	local mem=$2
+
+    if [ "$mem" -gt "$HILBERT_MAX_MEM_PER_NODE" ] && [ "$mem" -le "$HILBERT_MAX_MEM_PER_NODE" ]; then
+        HILBERT_MAX_MEM_PER_NODE="$mem"
+    fi	
+}
+
+cdepl_cluster_node_network()
+{
+	local node=$1
+	local net=$2
+
+	# All nodes are supporting eth and ib
+}
+
+cdepl_cluster_resolve_dependency()
+{
+	local node=$1
+	local cmd=$2
+	local version=$3
+
+	util_log_debug "[local][$node] Resolve dependency: $cmd/$version"
+
+	command -v $cmd > /dev/null 2>&1
+
+	if [ "$?" != "0" ]; then
+		util_log_error_and_exit "[local][$node] Dependency $cmd/$version does not exist"
+	fi
+}
+
+# if non resolveable, returns empty string
+cdepl_cluster_resolve_hostname_to_ip()
+{
+	local hostname=$1
+
+    # Quick way to resolve all hilbertXXX hostnames
+    local hilbert_id="$(sed 's/hilbert//')"
+
+	if [ ! "$hilbert_id" ]; then
+        echo ""
+    else
+        echo "$HILBERT_ETH_BASE_IP" "$hilbert_id"
+    fi
+}
+
+# if non resolveable, returns empty string
+cdepl_cluster_resolve_node_to_ip()
+{
+	local node=$1
+
+	cdepl_cluster_resolve_hostname_to_ip "${HILBERT_NODE_MAPPING[$node]}"
+}
+
+cdepl_cluster_login_cmd()
+{
+	local cmd="$1"
+
+    # TODO check if on login node and execute locally
+
+    # -n -f for nohup
+    ssh ${HILBERT_USER}@${HILBERT_LOGIN_NODE}-n -f "$cmd"
+}
+
+cdepl_cluster_node_cmd()
+{
+	local node=$1
+	local cmd="$2"
+
+    # TODO check if on current node and execute locally
+
+	if [ "${HILBERT_NODE_MAPPING[$node]}" = "" ]; then
+		util_log_error_and_exit "[hilbert][node $node] Exec node $cmd, node does not exist"
+	fi
+
+    # -n -f for nohup
+    ssh ${HILBERT_USER}@${HILBERT_NODE_MAPPING[$node]} -n -f "$cmd"
+}
+
+cdepl_cluster_get_alloc_node_count()
+{
+	echo "$HILBERT_TOTAL_NODES"
+}
+
+cdepl_cluster_node_resolve_node_to_hostname()
+{
+	local node=$1
+
+	echo "${HILBERT_NODE_MAPPING[$node]}"
+}
+
+####################################
+# "private" callback methods that should not be called by the user
+
+# "constructor"
+_cdepl_cluster_on_init()
+{
+	local cluster_user=$1
+
+	util_log_debug "[hilbert] on_init"
+
+	HILBERT_USER="$cluster_user"
+}
+
+_cdepl_cluster_on_node_setup_finish()
+{
+	util_log_debug "[local] on_node_setup_finish"
+
+    # 1. create a job script with resource allocation parameters
+    # 1.1. job script calls all other functions of the submitted cdepl script as soon
+    # as the job is started but does not execute the cluster setup, again
+    # 2. create temp directoy (on scratch) and copy cdepl folder to it
+    # 3. submit job script
+}
+
+_cdepl_cluster_on_env_setup_finish()
+{
+	util_log_debug "[local] on_env_setup_finish"
+}
+
+_cdepl_cluster_before_deploy()
+{
+	util_log_debug "[local] before_deploy"
+}
+
+_cdepl_cluster_after_deploy()
+{
+	util_log_debug "[local] after_deploy"
+}
+
+_cdepl_cluster_before_cleanup()
+{
+	util_log_debug "[local] before_cleanup"
+}
+
+_cdepl_cluster_after_cleanup()
+{
+	util_log_debug "[local] after_cleanup"
+}

@@ -126,6 +126,8 @@ cdepl_cluster_resolve_hostname_to_ip()
 
 	local ip=""
 
+	# TODO don't use dig etc -> just remove the id from the hostname, e.g. node65 -> 65 -> combine: 10.0.0.65
+
 	ip="$(__cdepl_cluster_hhubs_remote_sollipulli_cmd "host $hostname | cut -d ' ' -f 4 | grep -E '[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}'")"
 
 	if [ "$ip" = "" ]; then
