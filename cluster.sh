@@ -26,7 +26,7 @@ cdepl_cluster_init()
 	__cdepl_cluster_check_api
 
 	# Call "constructor"
-	_cdepl_cluster_on_init "$cluster_user"
+	_cdepl_cluster_on_init "$cluster_user" "${@:3}"
 }
 
 cdepl_cluster_app_load()

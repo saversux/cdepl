@@ -316,11 +316,12 @@ _cdepl_cluster_on_node_setup_finish()
 	# Also fill in hardware specs that are still default values with max
 	# available
 	for i in `seq 0 $((HHUBS_TOTAL_NODES - 1))`; do
+		nodes="${nodes}${i} ${HHUBS_NODE_MAP[$i]}\n"
+
 		# Replace marked groups to alloc with actual node hostnames
 		case "${HHUBS_NODE_MAP[$i]}" in
 			"group1")
 				HHUBS_NODE_MAP[$i]=$(echo $group1_avail | cut -d " " -f1)
-				nodes="${nodes}\n${i}: ${HHUBS_NODE_MAP[$i]}"
 				group1_avail=$(echo $group1_avail | cut -d " " -f2-)
 
 				if [ "${HHUBS_NODES_CPUS[$i]}" = "0" ]; then
@@ -339,7 +340,6 @@ _cdepl_cluster_on_node_setup_finish()
 
 			"group2")
 				HHUBS_NODE_MAP[$i]=$(echo $group2_avail | cut -d " " -f1)
-				nodes="${nodes}\n${i}: ${HHUBS_NODE_MAP[$i]}"
 				group2_avail=$(echo $group2_avail | cut -d " " -f2-)
 
 				if [ "${HHUBS_NODES_CPUS[$i]}" = "0" ]; then
@@ -358,7 +358,6 @@ _cdepl_cluster_on_node_setup_finish()
 
 			"group3")
 				HHUBS_NODE_MAP[$i]=$(echo $group3_avail | cut -d " " -f1)
-				nodes="${nodes}\n${i}: ${HHUBS_NODE_MAP[$i]}"
 				group3_avail=$(echo $group3_avail | cut -d " " -f2-)
 
 				if [ "${HHUBS_NODES_CPUS[$i]}" = "0" ]; then
@@ -383,7 +382,7 @@ _cdepl_cluster_on_node_setup_finish()
 	util_log_debug "[hhubs] Node allocations: $nodes"
 
 	# Store node mappings to file
-	__cdepl_cluster_hhubs_remote_sollipulli_cmd "printf \"$nodes\n\" > ${DEPLOY_CUR_OUT_PATH}/node_mappings"
+	__cdepl_cluster_hhubs_remote_sollipulli_cmd "printf \"$nodes\" > ${DEPLOY_CUR_OUT_PATH}/node_mappings"
 }
 
 _cdepl_cluster_on_env_setup_finish()
