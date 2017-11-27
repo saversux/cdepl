@@ -19,6 +19,11 @@ CLUSTER_JOB_NAME="cdepl"
 # on the application deployed
 OUT_PATH="/scratch_gs/${CLUSTER_USER}/test_cdepl"
 
+# Parameters for zookeeper
+ZK_PATH="/home/${CLUSTER_USER}/zookeeper"
+ZK_NODE=0
+ZK_PORT=2181
+
 # This is called before everything else. Setup your cluster
 # environment by defining what type of cluster you want to
 # deploy to and declare the resources you want to use 
@@ -34,7 +39,7 @@ cdepl_script_cluster_node_setup()
 	cdepl_cluster_init $CLUSTER_TYPE $CLUSTER_USER $CLUSTER_PROJECT_NAME $CLUSTER_JOB_NAME
 
 	# Load application modules of apps you want to deploy
-	#cdepl_cluster_app_load "zookeeper"
+	cdepl_cluster_app_load "zookeeper"
 	#cdepl_cluster_app_load "dxram"
 
 	# Alloc total number of nodes for this deployment
@@ -60,10 +65,10 @@ cdepl_script_cluster_node_setup()
 # to the target nodes etc
 cdepl_script_environment_setup()
 {
-#	for i in `seq 0 $((TOTAL_NODES - 1))`; do
-#		cdepl_cluster_resolve_dependency $i "java" "1.8"
+	for i in `seq 0 $((TOTAL_NODES - 1))`; do
+		cdepl_cluster_resolve_dependency $i "java" "1.8"
 #		cdepl_cluster_resolve_dependency $i "gcc" "4.9"
-#	done
+	done
 	TODO=""
 }
 
@@ -71,11 +76,21 @@ cdepl_script_environment_setup()
 # Called after environment setup
 cdepl_script_deploy()
 {
-	echo "Hitting deploy"
+	# Initilize zookeeper deployment
+	cdepl_app_zookeeper_init $ZK_PATH
 
-	# We are done
+	# Ensure that no (old) zookeeper instance is running on any node
+	for i in `seq 0 $((TOTAL_NODES - 1))`; do
+		cdepl_app_zookeeper_cleanup $i
+	done
 
-	# Wait a moment before cleaning up
+	# Start zookeeper instance and wait until started
+	cdepl_app_zookeeper_start $ZK_NODE $ZK_PORT
+	cdepl_app_zookeeper_wait_started $ZK_NODE
+
+	# Cleanup of failed startups in zookeeper
+	cdepl_app_zookeeper_remove $ZK_NODE "/dxram"
+
 	sleep 5
 }
 
@@ -86,5 +101,6 @@ cdepl_script_deploy()
 # cleanup tasks
 cdepl_script_cleanup()
 {
-	echo "Hitting cleanup"
+	# Kill zookeeper
+	cdepl_app_zookeeper_cleanup 0
 }

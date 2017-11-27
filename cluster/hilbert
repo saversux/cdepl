@@ -18,6 +18,9 @@ HILBERT_JOB_NAME=""
 HILBERT_JOB_ID=""
 HILBERT_NODE_MAPPING=()
 
+declare -gA HILBERT_DEPENDENCY_MAP
+HILBERT_DEPENDENCY_MAP["java/1.8"]="Java/1.8.0"
+
 cdepl_cluster_node_alloc()
 {
 	local num_nodes=$1
@@ -83,7 +86,15 @@ cdepl_cluster_resolve_dependency()
 
 	util_log_debug "[hilbert][$node] Resolve dependency: $cmd/$version"
 
-    cdepl_cluster_node_cmd $node "module load $cmd/$version"
+    local key="$cmd/$version"
+
+    local hilbert_dep=${HILBERT_DEPENDENCY_MAP[$key]}
+
+    if [ ! "$hilbert_dep" ]; then
+        util_log_error_and_exit "[hilbert][$node] Could not resolve dependency $cmd/$version, no mapping available"
+    fi
+
+    cdepl_cluster_node_cmd $node "module load $hilbert_dep"
 }
 
 # if non resolveable, returns empty string
@@ -195,6 +206,8 @@ _cdepl_cluster_on_node_setup_finish()
     local node_mappings_path="${DEPLOY_CUR_OUT_PATH}/node_mappings"
 
     local total_cpus=$(($HILBERT_CPUS_PER_NODE * $HILBERT_TOTAL_NODES))
+
+    # TODO add parameter for email notification (see pbs doc)
 
     printf '%s' "#!/bin/bash
 
