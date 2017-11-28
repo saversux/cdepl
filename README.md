@@ -20,7 +20,7 @@ However, creating abstractions of tasks like "start app X on node 0" or
 "wait until app startup on node 0 finished" makes it easier to write small
 and powerful deploy scripts.
 
-# Featuress
+# Features
 
 * Fully bash scripted, using common Linux utilities (no further dependencies, 
 not counting the application)
