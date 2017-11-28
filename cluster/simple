@@ -13,6 +13,11 @@ cdepl_cluster_node_alloc()
 	__SIMPLE_TOTAL_NODES="$num_nodes"
 }
 
+cdepl_cluster_get_alloc_node_count()
+{
+	echo "$__SIMPLE_TOTAL_NODES"
+}
+
 cdepl_cluster_walltime()
 {
 	local walltime=$1
@@ -35,7 +40,6 @@ cdepl_cluster_node_cpus()
 	# Not supporting resource allocation, ignore
 }
 
-# mem in MB
 cdepl_cluster_node_mem()
 {
 	local node=$1
@@ -71,7 +75,6 @@ cdepl_cluster_resolve_dependency()
 	fi
 }
 
-# if non resolveable, returns empty string
 cdepl_cluster_resolve_hostname_to_ip()
 {
 	local hostname=$1
@@ -87,7 +90,6 @@ cdepl_cluster_resolve_hostname_to_ip()
 	echo $ip
 }
 
-# if non resolveable, returns empty string
 cdepl_cluster_resolve_node_to_ip()
 {
 	local node=$1
@@ -105,6 +107,13 @@ cdepl_cluster_login_cmd()
 
 	# For a very simple cluster, we don't expect a dedicated login node
 	cdepl_cluster_node_cmd 0 "$cmd"
+}
+
+cdepl_cluster_node_resolve_node_to_hostname()
+{
+	local node=$1
+
+	echo "${__SIMPLE_NODE_MAP[$node]}"
 }
 
 cdepl_cluster_send_file_to_login()
@@ -133,18 +142,6 @@ cdepl_cluster_node_cmd()
 	# command before it using &&, e.g. cd ~ && nohup ...
 	# This will hang the session with controlmaster
 	ssh -o ControlMaster=auto -o ControlPath=~/.ssh/cdepl_%r@%h:%p.sock -o ControlPersist=60 ${__SIMPLE_USER}@${__SIMPLE_NODE_MAP[$node]} -n -f "$cmd"
-}
-
-cdepl_cluster_get_alloc_node_count()
-{
-	echo "$__SIMPLE_TOTAL_NODES"
-}
-
-cdepl_cluster_node_resolve_node_to_hostname()
-{
-	local node=$1
-
-	echo "${__SIMPLE_NODE_MAP[$node]}"
 }
 
 ####################################

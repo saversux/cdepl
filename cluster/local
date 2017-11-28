@@ -9,6 +9,11 @@ cdepl_cluster_node_alloc()
 	__LOCAL_TOTAL_NODES="$num_nodes"
 }
 
+cdepl_cluster_get_alloc_node_count()
+{
+	echo "$__LOCAL_TOTAL_NODES"
+}
+
 cdepl_cluster_walltime()
 {
 	local walltime=$1
@@ -62,7 +67,6 @@ cdepl_cluster_resolve_dependency()
 	fi
 }
 
-# if non resolveable, returns empty string
 cdepl_cluster_resolve_hostname_to_ip()
 {
 	local hostname=$1
@@ -82,7 +86,13 @@ cdepl_cluster_resolve_hostname_to_ip()
 	echo $ip
 }
 
-# if non resolveable, returns empty string
+cdepl_cluster_node_resolve_node_to_hostname()
+{
+	local node=$1
+
+	echo "localhost"
+}
+
 cdepl_cluster_resolve_node_to_ip()
 {
 	local node=$1
@@ -104,18 +114,6 @@ cdepl_cluster_node_cmd()
 	local cmd="$2"
 
 	eval "$cmd"
-}
-
-cdepl_cluster_get_alloc_node_count()
-{
-	echo "$__LOCAL_TOTAL_NODES"
-}
-
-cdepl_cluster_node_resolve_node_to_hostname()
-{
-	local node=$1
-
-	echo "localhost"
 }
 
 ####################################

@@ -32,6 +32,11 @@ cdepl_cluster_node_alloc()
 	__HILBERT_TOTAL_NODES="$num_nodes"
 }
 
+cdepl_cluster_get_alloc_node_count()
+{
+	echo "$__HILBERT_TOTAL_NODES"
+}
+
 cdepl_cluster_walltime()
 {
 	local walltime=$1
@@ -97,7 +102,6 @@ cdepl_cluster_resolve_dependency()
     cdepl_cluster_node_cmd $node "module load $hilbert_dep"
 }
 
-# if non resolveable, returns empty string
 cdepl_cluster_resolve_hostname_to_ip()
 {
 	local hostname=$1
@@ -112,12 +116,18 @@ cdepl_cluster_resolve_hostname_to_ip()
     fi
 }
 
-# if non resolveable, returns empty string
 cdepl_cluster_resolve_node_to_ip()
 {
 	local node=$1
 
 	cdepl_cluster_resolve_hostname_to_ip "${__HILBERT_NODE_MAPPING[$node]}"
+}
+
+cdepl_cluster_node_resolve_node_to_hostname()
+{
+	local node=$1
+
+	echo "${__HILBERT_NODE_MAPPING[$node]}"
 }
 
 cdepl_cluster_login_cmd()
@@ -159,18 +169,6 @@ cdepl_cluster_node_cmd()
 	# command before it using &&, e.g. cd ~ && nohup ...
 	# This will hang the session with controlmaster
 	ssh -o ControlMaster=auto -o ControlPath=~/.ssh/cdepl_%r@%h:%p.sock -o ControlPersist=60 ${__HILBERT_USER}@${__HILBERT_HOSTNAME} -n -f "ssh ${__HILBERT_NODE_MAPPING[$node]} \"$cmd\"" 
-}
-
-cdepl_cluster_get_alloc_node_count()
-{
-	echo "$__HILBERT_TOTAL_NODES"
-}
-
-cdepl_cluster_node_resolve_node_to_hostname()
-{
-	local node=$1
-
-	echo "${__HILBERT_NODE_MAPPING[$node]}"
 }
 
 ####################################

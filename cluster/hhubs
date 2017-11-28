@@ -49,6 +49,11 @@ cdepl_cluster_node_alloc()
 	__HHUBS_TOTAL_NODES="$num_nodes"
 }
 
+cdepl_cluster_get_alloc_node_count()
+{
+	echo "$__HHUBS_TOTAL_NODES"
+}
+
 cdepl_cluster_walltime()
 {
 	local walltime=$1
@@ -75,7 +80,6 @@ cdepl_cluster_node_cpus()
 	__HHUBS_NODES_CPUS[$node]="$cpus"
 }
 
-# mem in MB
 cdepl_cluster_node_mem()
 {
 	local node=$1
@@ -119,7 +123,6 @@ cdepl_cluster_resolve_dependency()
 	fi
 }
 
-# if non resolveable, returns empty string
 cdepl_cluster_resolve_hostname_to_ip()
 {
 	local hostname=$1
@@ -134,7 +137,6 @@ cdepl_cluster_resolve_hostname_to_ip()
     fi
 }
 
-# if non resolveable, returns empty string
 cdepl_cluster_resolve_node_to_ip()
 {
 	local node=$1
@@ -144,6 +146,13 @@ cdepl_cluster_resolve_node_to_ip()
 	fi
 
 	cdepl_cluster_resolve_hostname_to_ip "${__HHUBS_NODE_MAP[$node]}"
+}
+
+cdepl_cluster_node_resolve_node_to_hostname()
+{
+	local node=$1
+
+	echo "${__HHUBS_NODE_MAP[$node]}"
 }
 
 cdepl_cluster_login_cmd()
@@ -175,18 +184,6 @@ cdepl_cluster_node_cmd()
 	fi
 
 	__cdepl_cluster_hhubs_remote_node_cmd ${__HHUBS_NODE_MAP[$node]} "$cmd"
-}
-
-cdepl_cluster_get_alloc_node_count()
-{
-	echo "$__HHUBS_TOTAL_NODES"
-}
-
-cdepl_cluster_node_resolve_node_to_hostname()
-{
-	local node=$1
-
-	echo "${__HHUBS_NODE_MAP[$node]}"
 }
 
 ####################################
