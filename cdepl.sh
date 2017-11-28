@@ -37,8 +37,8 @@ __cdepl_cleanup_on_exit()
 # Entry point #
 ###############
 
-util_check_bash_version
-util_check_programs
+_util_check_bash_version
+_util_check_programs
 
 if [ ! "$1" ]; then
     echo "Usage: $0 <deploy_script.cdepl>"

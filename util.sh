@@ -8,6 +8,11 @@ readonly UTIL_LOG_LEVEL_OFF="0"
 
 __UTIL_LOG_LEVEL="4"
 
+##
+# Set the log level for the logger calls
+#
+# $1: Log level (refer to constants)
+##
 util_log_set_level()
 {
 	local level=$1
@@ -21,12 +26,11 @@ util_log_set_level()
 	__UTIL_LOG_LEVEL="$level"
 }
 
-######################################################
-# Print a error message and exit
-# Globals:
-# Arguments:
-#   msg: The message to print
-######################################################
+##
+# Log an error message and exit cdepl
+#
+# $1: Message to log
+##
 util_log_error_and_exit()
 {
 	local msg=$1
@@ -36,12 +40,11 @@ util_log_error_and_exit()
 	exit -1
 }
 
-######################################################
-# Print a error message
-# Globals:
-# Arguments:
-#   msg: The message to print
-######################################################
+##
+# Log an error message
+#
+# $1: Message to log
+##
 util_log_error()
 {
 	local msg=$1
@@ -51,12 +54,11 @@ util_log_error()
 	fi
 }
 
-######################################################
-# Print a warning message
-# Globals:
-# Arguments:
-#   msg: The message to print
-######################################################
+##
+# Log a warning message
+#
+# $1: Message to log
+##
 util_log_warn()
 {
 	local msg=$1
@@ -66,12 +68,11 @@ util_log_warn()
 	fi
 }
 
-######################################################
-# Print a normal log message
-# Globals:
-# Arguments:
-#   msg: The message to print
-######################################################
+##
+# Log a message
+#
+# $1: Message to log
+##
 util_log()
 {
 	local msg=$1
@@ -81,12 +82,11 @@ util_log()
 	fi
 }
 
-######################################################
-# Print a debug log message
-# Globals:
-# Arguments:
-#   msg: The message to print
-######################################################
+##
+# Log a debug message
+#
+# $1: Message to log
+##
 util_log_debug()
 {
 	local msg=$1
@@ -97,6 +97,9 @@ util_log_debug()
 	fi
 }
 
+##
+# Print the current function call trace to stdout
+##
 util_print_calltrace()
 {
 	local i=0
@@ -110,13 +113,10 @@ util_print_calltrace()
 	done
 }
 
-######################################################
-# Check if the current shell is bash and the minimum 
-# version requirements
-# Globals:
-# Arguments:
-######################################################
-util_check_bash_version()
+####################################
+# "private" functions for cdepl, not to be called by the user
+
+_util_check_bash_version()
 {
 	if [ "$(echo $SHELL | grep "bash")" = "" ] ; then
 		util_error_and_exit "Current shell not supported by deploy script, bash only"
@@ -131,13 +131,7 @@ util_check_bash_version()
 	fi
 }
 
-######################################################
-# Check for a few basic tools we need to run the 
-# scripts
-# Globals:
-# Arguments:
-######################################################
-util_check_programs()
+_util_check_programs()
 {
 	local nodes=$1
 
