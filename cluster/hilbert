@@ -124,10 +124,14 @@ cdepl_cluster_login_cmd()
 {
 	local cmd="$1"
 
-    # TODO check if on login node and execute locally
-
-    # -n -f for nohup
-    ssh ${HILBERT_USER}@${HILBERT_HOSTNAME} -n -f "$cmd"
+	# -n -f for nohup
+	# Use ControlMaster to establish the TCP connection, once and keep it active
+	# until all sessions are closed and no further session was established
+	# within 60 seconds 
+	# Note when using nohup: You must redirect stdin/stdout and not add any
+	# command before it using &&, e.g. cd ~ && nohup ...
+	# This will hang the session with controlmaster
+	ssh -o ControlMaster=auto -o ControlPath=~/.ssh/cdepl_%r@%h:%p.sock -o ControlPersist=60 ${HILBERT_USER}@${HILBERT_HOSTNAME} -n -f "$cmd"
 }
 
 cdepl_cluster_send_file_to_login()
@@ -143,14 +147,18 @@ cdepl_cluster_node_cmd()
 	local node=$1
 	local cmd="$2"
 
-    # TODO check if on current node and execute locally
-
 	if [ "${HILBERT_NODE_MAPPING[$node]}" = "" ]; then
 		util_log_error_and_exit "[hilbert][node $node] Exec node $cmd, node does not exist"
 	fi
 
-    # -n -f for nohup
-    ssh ${HILBERT_USER}@${HILBERT_HOSTNAME} -n -f "ssh ${HILBERT_NODE_MAPPING[$node]} \"$cmd\"" 
+	# -n -f for nohup
+	# Use ControlMaster to establish the TCP connection, once and keep it active
+	# until all sessions are closed and no further session was established
+	# within 60 seconds 
+	# Note when using nohup: You must redirect stdin/stdout and not add any
+	# command before it using &&, e.g. cd ~ && nohup ...
+	# This will hang the session with controlmaster
+	ssh -o ControlMaster=auto -o ControlPath=~/.ssh/cdepl_%r@%h:%p.sock -o ControlPersist=60 ${HILBERT_USER}@${HILBERT_HOSTNAME} -n -f "ssh ${HILBERT_NODE_MAPPING[$node]} \"$cmd\"" 
 }
 
 cdepl_cluster_get_alloc_node_count()
