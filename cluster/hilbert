@@ -217,8 +217,8 @@ _cdepl_cluster_on_node_setup_finish()
     # Create job script to bootstrap the cluster: allocate nodes, get node mappings
 
     local tmp_job_script="/tmp/cdepl_hilbert_deploy.job"
-    local job_script="${DEPLOY_CUR_OUT_PATH}/deploy.job"
-    local node_mappings_path="${DEPLOY_CUR_OUT_PATH}/node_mappings"
+    local job_script="${__DEPLOY_CUR_OUT_PATH}/deploy.job"
+    local node_mappings_path="${__DEPLOY_CUR_OUT_PATH}/node_mappings"
 
     local total_cpus=$(($__HILBERT_CPUS_PER_NODE * $__HILBERT_TOTAL_NODES))
 
@@ -232,10 +232,10 @@ _cdepl_cluster_on_node_setup_finish()
 #PBS -r n
 #PBS -N $__HILBERT_JOB_NAME
 #PBS -A $__HILBERT_PROJECT
-#PBS -e ${DEPLOY_CUR_OUT_PATH}/deploy.stderr
-#PBS -o ${DEPLOY_CUR_OUT_PATH}/deploy.stdout
+#PBS -e ${__DEPLOY_CUR_OUT_PATH}/deploy.stderr
+#PBS -o ${__DEPLOY_CUR_OUT_PATH}/deploy.stdout
 
-JOB_WORKING_DIR=\"${DEPLOY_CUR_OUT_PATH}\"
+JOB_WORKING_DIR=\"${__DEPLOY_CUR_OUT_PATH}\"
 NODES_COUNT=\"\"
 NODES_HOSTNAME=\"\"  
 NODE_MAPPINGS=\"\"
@@ -250,7 +250,7 @@ done
 
 echo \"Total node count: \$NODES_COUNT\"
 
-echo \"Resolving node mappings for deploy conf: \$DEPLOY_CUR_OUT_PATH\"
+echo \"Resolving node mappings for deploy conf: \$__DEPLOY_CUR_OUT_PATH\"
 
 i=0
 while [ \$i -lt \$NODES_COUNT ]; do
