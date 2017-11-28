@@ -17,6 +17,7 @@ cdepl_deploy_out_path()
 
 cdepl_deploy_loop_endless()
 {
-	# TODO endless loop with sleep
-	TODO="TODO"
+	while true; do
+		sleep 100
+	done
 }
