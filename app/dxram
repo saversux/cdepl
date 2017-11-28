@@ -321,7 +321,6 @@ __cdepl_app_dxram_check_config()
 		
 		# Don't run this on the login node (might not have java installed)
 		# Use the first actual cluster node instead
-		# sync: Ensure everything's written to disk and visible for other nodes
 		cdepl_cluster_node_cmd 0 "cd $DXRAM_PATH && java -Dlog4j.configurationFile=$DXRAM_LOG4J_CONFIG_PATH -Ddxram.config=$DXRAM_CONFIG_PATH -cp $DXRAM_CLASS_PATH $DXRAM_MAIN_CLASS > /dev/null 2>&1"
 	
 		# Sanity check
@@ -531,7 +530,9 @@ __cdepl_app_dxram_start_superpeer()
 		util_log "[$node][dxram][S] On your local machine: establish a tunnel using 'ssh <target_hostname> -L ${DXRAM_NODE_REMOTE_PROFILE_YJP_PORT[$node]}:<target_hostname>:${DXRAM_NODE_REMOTE_PROFILE_YJP_PORT[$node]}' and connect with yourkit using 'Connect to remote application' with the arguments 'localhost:${DXRAM_NODE_REMOTE_PROFILE_YJP_PORT[$node]}'"
 	fi
 
-	cdepl_cluster_node_cmd $node "cd $DXRAM_PATH && $root nohup java -D${DXRAM_PROCESS_IDENTIFIER} $vm_opts -cp $DXRAM_CLASS_PATH $DXRAM_MAIN_CLASS > $logfile 2>&1 &"
+	# Don't use && instead of ;
+	# This will hang if the ssh with controlmaster and nohup is used
+	cdepl_cluster_node_cmd $node "cd $DXRAM_PATH ; $root nohup java -D${DXRAM_PROCESS_IDENTIFIER} $vm_opts -cp $DXRAM_CLASS_PATH $DXRAM_MAIN_CLASS > $logfile 2>&1 &"
 }
 
 __cdepl_app_dxram_start_peer()
@@ -597,7 +598,9 @@ __cdepl_app_dxram_start_peer()
 		util_log "[$node][dxram][P] On your local machine: establish a tunnel using 'ssh <target_hostname> -L ${DXRAM_NODE_REMOTE_PROFILE_YJP_PORT[$node]}:<target_hostname>:${DXRAM_NODE_REMOTE_PROFILE_YJP_PORT[$node]}' and connect with yourkit using 'Connect to remote application' with the arguments 'localhost:${DXRAM_NODE_REMOTE_PROFILE_YJP_PORT[$node]}'"
 	fi
 
-	cdepl_cluster_node_cmd $node "cd $DXRAM_PATH && $root nohup java -D${DXRAM_PROCESS_IDENTIFIER} $vm_opts -cp $DXRAM_CLASS_PATH $DXRAM_MAIN_CLASS > $logfile 2>&1 &"
+	# Don't use && instead of ;
+	# This will hang if the ssh with controlmaster and nohup is used
+	cdepl_cluster_node_cmd $node "cd $DXRAM_PATH ; $root nohup java -D${DXRAM_PROCESS_IDENTIFIER} $vm_opts -cp $DXRAM_CLASS_PATH $DXRAM_MAIN_CLASS > $logfile 2>&1 &"
 }
 
 __cdepl_app_dxram_get_instance_running_pid()
