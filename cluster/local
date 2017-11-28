@@ -1,12 +1,12 @@
 #!/bin/bash
 
-LOCAL_TOTAL_NODES=""
+__LOCAL_TOTAL_NODES=""
 
 cdepl_cluster_node_alloc()
 {
 	local num_nodes=$1
 
-	LOCAL_TOTAL_NODES="$num_nodes"
+	__LOCAL_TOTAL_NODES="$num_nodes"
 }
 
 cdepl_cluster_walltime()
@@ -108,7 +108,7 @@ cdepl_cluster_node_cmd()
 
 cdepl_cluster_get_alloc_node_count()
 {
-	echo "$LOCAL_TOTAL_NODES"
+	echo "$__LOCAL_TOTAL_NODES"
 }
 
 cdepl_cluster_node_resolve_node_to_hostname()
