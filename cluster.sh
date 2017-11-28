@@ -1,5 +1,7 @@
 #!/bin/bash
 
+__CLUSTER_CLEANUP_ON_ERROR="1"
+
 cdepl_cluster_init()
 {
 	local cluster_name=$1
@@ -28,6 +30,13 @@ cdepl_cluster_init()
 
 	# Call "constructor"
 	_cdepl_cluster_on_init "$cluster_user" "${@:3}"
+}
+
+cdepl_cluster_cleanup_on_error()
+{
+	local cleanup=$1
+
+	__CLUSTER_CLEANUP_ON_ERROR="$cleanup"
 }
 
 cdepl_cluster_app_load()

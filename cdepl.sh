@@ -11,6 +11,25 @@ source ${CDEPL_SCRIPT_DIR}/util.sh
 source ${CDEPL_SCRIPT_DIR}/deploy.sh
 source ${CDEPL_SCRIPT_DIR}/cluster.sh
 
+##################################
+# Exit trap for cleanup on error #
+##################################
+
+__cdepl_cleanup_on_exit()
+{
+    if [ "$__CLUSTER_CLEANUP_ON_ERROR" != "1" ]; then
+        util_log_warn "[cdepl] Cluster cleanup on error DISABLED"
+    else
+        util_log "[cdepl] Cluster cleanup on error..."
+
+        _cdepl_cluster_before_cleanup
+        cdepl_script_cleanup
+        _cdepl_cluster_after_cleanup
+
+        util_log_error "[cdepl] Finished with error"
+    fi
+}
+
 ###############
 # Entry point #
 ###############
@@ -40,6 +59,9 @@ fi
 # Include deploy script
 source $1
 
+# Hook our exit trap
+trap __cdepl_cleanup_on_exit EXIT
+
 util_log "========================================="
 util_log "cdepl v$CDEPL_VERSION git $CDEPL_GITREV"
 util_log "Executing deployment script: $1"
@@ -64,3 +86,7 @@ util_log "[cdepl] Cluster cleanup..."
 _cdepl_cluster_before_cleanup
 cdepl_script_cleanup
 _cdepl_cluster_after_cleanup
+
+util_log "[cdepl] Finished"
+
+exit 0

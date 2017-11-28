@@ -30,10 +30,9 @@ util_log_set_level()
 util_log_error_and_exit()
 {
 	local msg=$1
-	local args=${@:2}
 
-	printf "\e[1;31m${msg}\e[m\n" $args
-    util_print_calltrace
+	printf "\e[1;31m${msg}\e[m\nCall trace:\n$(util_print_calltrace)\n"
+    
 	exit -1
 }
 
@@ -46,10 +45,9 @@ util_log_error_and_exit()
 util_log_error()
 {
 	local msg=$1
-	local args=${@:2}
 
 	if [ "$UTIL_LOG_LEVEL" -ge "1" ]; then
-		printf "\e[1;31m${msg}\e[m\n" $args
+		printf "\e[1;31m${msg}\e[m\n"
 	fi
 }
 
@@ -62,10 +60,9 @@ util_log_error()
 util_log_warn()
 {
 	local msg=$1
-	local args=${@:2}
 
 	if [ "$UTIL_LOG_LEVEL" -ge "2" ]; then
-		printf "\e[1;33m${msg}\e[m\n" $args
+		printf "\e[1;33m${msg}\e[m\n"
 	fi
 }
 
@@ -78,10 +75,9 @@ util_log_warn()
 util_log()
 {
 	local msg=$1
-	local args=${@:2}
 
 	if [ "$UTIL_LOG_LEVEL" -ge "3" ]; then
-		printf "\e[1;34m${msg}\e[m\n" $args
+		printf "\e[1;34m${msg}\e[m\n"
 	fi
 }
 
