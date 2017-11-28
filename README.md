@@ -53,6 +53,32 @@ To deploy, simply execute:
 ./cdepl.sh my_deploy_script.cdepl
 ```
 
+# Writing your own deploy scripts
+
+The *examples/null.cdepl* script is a bare skeleton to get started. It provides
+all functions (with documentation) that are required by the framework. To get
+an idea of how the deployment is executed, checkout the documented examples.
+The examples also include all necessary steps that you have to apply to your
+own script, too.
+
+# Cluster modules
+
+If you have a cluster setup that does not match or work with any of the 
+currently implemented modules, you can implement your own. The *null* module in
+the *cluster* folder contains a skeleton to get started with documentation
+of all functions creating the abstraction layer. Checkout the existing 
+implementations as well because it's very likely that you can copy/paste code
+of the already implemented functions and solved problems.
+
+# Application modules
+
+Application modules do not have to implement a common abstraction layer. 
+However, they should provide easy to use functions abstracting common tasks 
+necessary for your application deployment, e.g. starting, waiting, shutdown,
+error checking, ...
+Take a look at the already implemented modules to get an idea of how these
+tasks are abstracted.
+
 # License
 
 Copyright (C) 2017 Heinrich-Heine-Universitaet Duesseldorf, 
