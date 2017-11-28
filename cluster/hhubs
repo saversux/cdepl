@@ -124,17 +124,14 @@ cdepl_cluster_resolve_hostname_to_ip()
 {
 	local hostname=$1
 
-	local ip=""
+    # Static IPs, no need to resolve them dynamically
+    local node_id="$(echo "$hostname" | sed 's/node//')"
 
-	# TODO don't use dig etc -> just remove the id from the hostname, e.g. node65 -> 65 -> combine: 10.0.0.65
-
-	ip="$(__cdepl_cluster_hhubs_remote_sollipulli_cmd "host $hostname | cut -d ' ' -f 4 | grep -E '[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}'")"
-
-	if [ "$ip" = "" ]; then
-		ip="$(__cdepl_cluster_hhubs_remote_sollipulli_cmd "dig $hostname | grep -E '[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}' | awk '{ if (\$3 == "IN" && \$4 == "A") print \$5 }'")"
-	fi
-
-	echo $ip
+	if [ ! "$node_id" ]; then
+        echo ""
+    else
+        echo "10.0.0." "$node_id"
+    fi
 }
 
 # if non resolveable, returns empty string
