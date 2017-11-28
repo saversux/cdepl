@@ -473,6 +473,17 @@ __cdepl_cluster_hhubs_sollipulli_check()
 		HHUBS_SOLLIPULLI_MODE=1
 	fi
 
+	# Check if passwordless auth available
+	if [ "$HHUBS_SOLLIPULLI_MODE" = "1" ]; then
+		ssh -o PasswordAuthentication=no -o BatchMode=yes sollipulli exit &> /dev/null
+	else
+		ssh -p 55517 -o PasswordAuthentication=no -o BatchMode=yes ${HHUBS_SOLLIPULLI_USER}@134.99.112.82 exit &> /dev/null
+	fi
+
+	if [ "$?" != "0" ]; then
+		util_log_error_and_exit "[hhubs] Can't connect to login node, ensure passwordless auth is set up and the cluster user is valid"
+	fi
+
 	util_log_debug "[hhubs] sollipulli available, mode $HHUBS_SOLLIPULLI_MODE"
 }
 
