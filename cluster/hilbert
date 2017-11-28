@@ -1,5 +1,10 @@
 #!/bin/bash
 
+#
+# Cluster module for HILBERT HPC system of the Heinrich-Heine-University 
+# Duesseldorf
+#
+
 readonly __HILBERT_MAX_NODES="112"
 readonly __HILBERT_MAX_CPUS_PER_NODE="24"
 readonly __HILBERT_MAX_MEM_PER_NODE="106903"

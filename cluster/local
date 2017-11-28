@@ -1,5 +1,9 @@
 #!/bin/bash
 
+#
+# Cluster module to deploy to localhost
+#
+
 __LOCAL_TOTAL_NODES=""
 
 cdepl_cluster_node_alloc()

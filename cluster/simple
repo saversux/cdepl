@@ -1,5 +1,10 @@
 #!/bin/bash
 
+#
+# Simple cluster module to deploy to arbitrary clusters using a list of 
+# node id to hostname mappings
+#
+
 __SIMPLE_MAX_NODE_COUNT=""
 __SIMPLE_USER=""
 __SIMPLE_TOTAL_NODES=""

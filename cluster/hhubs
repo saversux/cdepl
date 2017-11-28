@@ -1,5 +1,10 @@
 #!/bin/bash
 
+#
+# Cluster module for the private cluster of the operating systems research 
+# group of the Heinrich-Heine-University Duesseldorf
+#
+
 # Heterogeneous hardware, 3 groups
 readonly __HHUBS_MAX_NUM_NODES=24
 readonly __HHUBS_MAX_NUM_CORES=6
