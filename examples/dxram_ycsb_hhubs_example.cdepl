@@ -35,6 +35,9 @@ DX_PEER_PORT_START="22222"
 # cluster types
 cdepl_script_cluster_node_setup()
 {
+	# Set the log level to output debug info
+	util_log_set_level "$UTIL_LOG_LEVEL_DEBUG"
+
 	# Init the cluster environment to deploy to
 	cdepl_cluster_init $CLUSTER_TYPE $CLUSTER_USER
 

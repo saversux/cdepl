@@ -1,5 +1,26 @@
 #!/bin/bash
 
+readonly UTIL_LOG_LEVEL_DEBUG="4"
+readonly UTIL_LOG_LEVEL_INFO="3"
+readonly UTIL_LOG_LEVEL_WARN="2"
+readonly UTIL_LOG_LEVEL_ERROR="1"
+readonly UTIL_LOG_LEVEL_OFF="0"
+
+UTIL_LOG_LEVEL="4"
+
+util_log_set_level()
+{
+	local level=$1
+
+	if [ "$level" -gt "4" ]; then
+		level="4"
+	elif [ "$level" -lt "0" ]; then
+		level="0"
+	fi
+
+	UTIL_LOG_LEVEL="$level"
+}
+
 ######################################################
 # Print a error message and exit
 # Globals:
@@ -16,20 +37,6 @@ util_log_error_and_exit()
 }
 
 ######################################################
-# Print a warning message
-# Globals:
-# Arguments:
-#   msg: The message to print
-######################################################
-util_log_warn()
-{
-	local msg=$1
-	local args=${@:2}
-
-	printf "\e[1;33m${msg}\e[m\n" $args
-}
-
-######################################################
 # Print a error message
 # Globals:
 # Arguments:
@@ -40,7 +47,25 @@ util_log_error()
 	local msg=$1
 	local args=${@:2}
 
-	printf "\e[1;31m${msg}\e[m\n" $args
+	if [ "$UTIL_LOG_LEVEL" -ge "1" ]; then
+		printf "\e[1;31m${msg}\e[m\n" $args
+	fi
+}
+
+######################################################
+# Print a warning message
+# Globals:
+# Arguments:
+#   msg: The message to print
+######################################################
+util_log_warn()
+{
+	local msg=$1
+	local args=${@:2}
+
+	if [ "$UTIL_LOG_LEVEL" -ge "2" ]; then
+		printf "\e[1;33m${msg}\e[m\n" $args
+	fi
 }
 
 ######################################################
@@ -54,7 +79,9 @@ util_log()
 	local msg=$1
 	local args=${@:2}
 
-	printf "\e[1;34m${msg}\e[m\n" $args
+	if [ "$UTIL_LOG_LEVEL" -ge "3" ]; then
+		printf "\e[1;34m${msg}\e[m\n" $args
+	fi
 }
 
 ######################################################
@@ -68,7 +95,9 @@ util_log_debug()
 	local msg=$1
 	local args=${@:2}
 
-	printf "\e[1;32m${msg}\e[m\n" $args
+	if [ "$UTIL_LOG_LEVEL" -ge "4" ]; then
+		printf "\e[1;32m${msg}\e[m\n" $args
+	fi
 }
 
 ######################################################

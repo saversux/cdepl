@@ -19,6 +19,7 @@ cdepl_cluster_init()
 	fi
 
 	util_log_debug "[cluster] Cluster selected on init: $cluster_name"
+	util_log_debug "[cluster] Cluster user: $cluster_user"
 
 	# Include
 	source ${CDEPL_SCRIPT_DIR}/cluster/${cluster_name}
