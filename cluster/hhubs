@@ -396,6 +396,7 @@ _cdepl_cluster_on_node_setup_finish()
 	util_log_debug "[hhubs] Node allocations: $nodes"
 
 	# Store node mappings to file
+	__cdepl_cluster_hhubs_remote_sollipulli_cmd "sync"
 	__cdepl_cluster_hhubs_remote_sollipulli_cmd "printf \"$nodes\" > ${DEPLOY_CUR_OUT_PATH}/node_mappings && sync"
 }
 
