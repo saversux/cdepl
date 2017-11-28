@@ -33,6 +33,7 @@ util_log_error_and_exit()
 	local args=${@:2}
 
 	printf "\e[1;31m${msg}\e[m\n" $args
+    util_print_calltrace
 	exit -1
 }
 
@@ -98,6 +99,19 @@ util_log_debug()
 	if [ "$UTIL_LOG_LEVEL" -ge "4" ]; then
 		printf "\e[1;32m${msg}\e[m\n" $args
 	fi
+}
+
+util_print_calltrace()
+{
+	local i=0
+	while true; do
+        if [ ! "${FUNCNAME[$i]}" ]; then
+            break;
+        fi
+
+        echo "${BASH_SOURCE[$i]}:${FUNCNAME[$i]}:${BASH_LINENO[$i]}"
+        i=$((i + 1))
+	done
 }
 
 ######################################################
