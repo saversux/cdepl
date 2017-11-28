@@ -158,8 +158,6 @@ cdepl_cluster_send_file_to_login()
     local source="$1"
     local destination="$2"
 
-    scp "$source" "${__HHUBS_SOLLIPULLI_USER}@sollipulli:${destination}"
-
 	if [ "$__HHUBS_SOLLIPULLI_MODE" = "1" ]; then
 		scp "$source" "${__HHUBS_SOLLIPULLI_USER}@sollipulli:${destination}"
 	else
