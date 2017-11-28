@@ -88,10 +88,10 @@ __cdepl_cluster_assert_function()
 	local type="$(type -t $func)"
 
 	if [ ! "$type" ]; then
-		util_error_and_exit "Missing function $func in cluster type $cluster_type"
+		util_log_error_and_exit "Missing function $func in cluster type $cluster_type"
 	fi
 
-	if [ ! "$type" != "function" ]; then
-		util_error_and_exit "$func is not a function ($type) in cluster type $cluster_type"
+	if [ "$type" != "function" ]; then
+		util_log_error_and_exit "$func is not a function ($type) in cluster type $cluster_type"
 	fi
 }
