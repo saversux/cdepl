@@ -2,6 +2,18 @@
 
 __CLUSTER_CLEANUP_ON_ERROR="1"
 
+##
+# Initialize the cluster
+#
+# This is the first function you should call before continuing with any 
+# resource allocation or deployment tasks.
+# This sets up the environment and loads the specified cluster module.
+#
+# $1: Name of the cluster module to load
+# $2: Name of the user to log into the cluster
+# ...: Further optional arguments that are passed on as parameters to the 
+#      loaded cluster module
+##
 cdepl_cluster_init()
 {
 	local cluster_name=$1
@@ -32,6 +44,11 @@ cdepl_cluster_init()
 	_cdepl_cluster_on_init "$cluster_user" "${@:3}"
 }
 
+##
+# Enable/disable calling of the cleanup callback on any error (default enabled)
+#
+# $1: Enable (1) or disable (0)
+##
 cdepl_cluster_cleanup_on_error()
 {
 	local cleanup=$1
@@ -39,6 +56,12 @@ cdepl_cluster_cleanup_on_error()
 	__CLUSTER_CLEANUP_ON_ERROR="$cleanup"
 }
 
+##
+# Load an application module of an app you want to deploy and initialize 
+# the environment
+#
+# $1: Name of the application module to load
+##
 cdepl_cluster_app_load()
 {
 	local cluster_app=$1

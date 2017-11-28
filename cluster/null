@@ -11,6 +11,10 @@
 # from it by copying great parts and tweaking it to match your setup.
 #
 
+#################################################
+# Public API for deploy scripts
+#################################################
+
 ##
 # Allocate the specified number of nodes
 #
@@ -223,4 +227,71 @@ cdepl_cluster_node_cmd()
 	local cmd="$2"
 
 	# stub
+}
+
+#################################################
+# Callbacks for cdepl
+#################################################
+
+##
+# "Constructor" of the cluster module
+#
+# Called right after the module is loaded into the cdepl environment
+#
+# $1: Name of the user to use when logging into the cluster
+# ...: Further optional arguments that can be passed to cdepl_cluster_init
+##
+_cdepl_cluster_on_init()
+{
+	local cluster_user=$1
+
+	util_log_debug "[null] on_init"
+}
+
+##
+# Callback on node setup and allocation phase finish
+##
+_cdepl_cluster_on_node_setup_finish()
+{
+	util_log_debug "[null] on_node_setup_finish"
+}
+
+##
+# Callback on environment setup finish
+##
+_cdepl_cluster_on_env_setup_finish()
+{
+	util_log_debug "[null] on_env_setup_finish"
+}
+
+##
+# Callback before deployment starts
+##
+_cdepl_cluster_before_deploy()
+{
+	util_log_debug "[null] before_deploy"
+}
+
+##
+# Callback right after deployment finished
+##
+_cdepl_cluster_after_deploy()
+{
+	util_log_debug "[null] after_deploy"
+}
+
+##
+# Callback right before cleanup
+##
+_cdepl_cluster_before_cleanup()
+{
+	util_log_debug "[null] before_cleanup"
+}
+
+##
+# Callback right after cleanup
+##
+_cdepl_cluster_after_cleanup()
+{
+	util_log_debug "[null] after_cleanup"
 }

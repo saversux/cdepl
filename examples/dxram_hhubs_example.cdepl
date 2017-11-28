@@ -1,11 +1,8 @@
 #!/bin/bash
 
+#
 # Example for (basic) dxram deployment
-
-# Every function below can be in separate files as well
-# which allows you to combine different cluster configrations 
-# with application deployments
-# just source them for your final deploy script
+#
 
 TOTAL_NODES=4
 
@@ -27,12 +24,6 @@ DX_PATH="/home/${CLUSTER_USER}/dxram"
 
 DX_PEER_PORT_START="22222"
 
-# This is called before everything else. Setup your cluster
-# environment by defining what type of cluster you want to
-# deploy to and declare the resources you want to use 
-# for allocations. Resource allocation depends on the 
-# type of cluster you used. It might be ignored for some
-# cluster types
 cdepl_script_cluster_node_setup()
 {
 	# Set the log level to output debug info
@@ -67,10 +58,6 @@ cdepl_script_cluster_node_setup()
 	cdepl_deploy_out_path $OUT_PATH
 }
 
-# Do environment setup
-# This is executed after all nodes are allocated with the
-# resources specified. Resolve dependencies, copy files
-# to the target nodes etc
 cdepl_script_environment_setup()
 {
 	for i in `seq 0 $((TOTAL_NODES - 1))`; do
@@ -79,8 +66,6 @@ cdepl_script_environment_setup()
 	done
 }
 
-# Application deployment
-# Called after environment setup
 cdepl_script_deploy()
 {
 	# Initilize zookeeper deployment
@@ -137,11 +122,6 @@ cdepl_script_deploy()
 	sleep 5
 }
 
-# Execute any cleanup of the deployment
-# Executed after application deployment
-# If you want to keep all instances running, just leave this empty
-# Otherwise, kill the running instances and execute some other
-# cleanup tasks
 cdepl_script_cleanup()
 {
 	# Kill all dxram instances
