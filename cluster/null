@@ -1,0 +1,226 @@
+#!/bin/bash
+
+#
+# This module is not an implementation of a cluster system but provides all
+# functions that must be implemented for the cluster abstraction layer.
+# Some functions or feature might not be available or necessary on your
+# cluster setup.
+#
+# You should checkout the existing implementations as well before starting your
+# own. Either there is already one that supports your setup or you can benefit
+# from it by copying great parts and tweaking it to match your setup.
+#
+
+##
+# Allocate the specified number of nodes
+#
+# Either keep track of the number of nodes allocated, actually execute
+# allocation here to physically claim the nodes or prepare to create a job
+# script if your cluster runs a job system.
+#
+# $1: Number of nodes to allocate
+##
+cdepl_cluster_node_alloc()
+{
+	local num_nodes=$1
+
+	# stub
+}
+
+##
+# Get the number of allocated nodes
+#
+# ret stdout: Number of allocated nodes
+##
+cdepl_cluster_get_alloc_node_count()
+{
+	# stub
+}
+
+##
+# Set the walltime when allocating resources
+#
+# If you are deploying against a job system, it might require you to specify
+# the walltime of your job you want to run.
+#
+# $1: Walltime, format: HH:MM:SS
+##
+cdepl_cluster_walltime()
+{
+	local walltime=$1
+
+    # stub
+}
+
+##
+# Allocate all hardware resources available on a particular node
+#
+# If multiple jobs can be executed on the same node by the job system, you 
+# can specify exclusivity here. Note: Not necessarily supported or required
+# to be implemented for every cluster
+#
+# $1: Node id of the node to allocate
+##
+cdepl_cluster_node_excl()
+{
+	local node=$1
+
+	# stub
+}
+
+##
+# Allocate a specific number of CPUs/cores on the target node
+#
+# If this feature can be implemented with your cluster, ensure that you check
+# with the amount of available resources (if possible)
+#
+# $1: Node id of the node to allocate the resource on
+# $2: Number of CPUs/cores to allocate
+##
+cdepl_cluster_node_cpus()
+{
+	local node=$1
+	local cpus=$2
+
+	# stub
+}
+
+##
+# Allocate a specific amount of RAM on the target node
+#
+# If this feature can be implemented with your cluster, ensure that you check
+# with the amount of available resources (if possible)
+#
+# $1: Node id of the node to allocate the resource on
+# $2: Amount of memory (in MB) to allocate
+##
+cdepl_cluster_node_mem()
+{
+	local node=$1
+	local mem=$2
+
+	# stub
+}
+
+##
+# Allocate a specific network type on the target node
+#
+# If this feature can be implemented with your cluster, ensure that you check
+# if the target network hardware is available
+#
+# $1: Node id of the node to allocate the resource on
+# $2: Network type to allocate: eth, ib
+##
+cdepl_cluster_node_network()
+{
+	local node=$1
+	local net=$2
+
+	# stub
+}
+
+##
+# Resolve a dependency required to run an application on a target node
+#
+# This can trigger a simple check if the dependency is available, install
+# the dependency or load it temporarily
+#
+# $1: Node id of the node to resolve the dependency on
+# $2: cmd of the dependency, e.g. java, gcc
+# $3: version of the dependency, e.g. 1.8 for java or 4.9 for gcc
+##
+cdepl_cluster_resolve_dependency()
+{
+	local node=$1
+	local cmd=$2
+	local version=$3
+
+	# stub
+}
+
+##
+# Resolve a hostname of a cluster node to the corresponding IPv4 address
+#
+# $1: hostname to resolve
+# ret stdout: IPv4 address or empty string in non resolvable
+##
+cdepl_cluster_resolve_hostname_to_ip()
+{
+	local hostname=$1
+
+    # stub
+}
+
+##
+# Resolve an abstract node id of a cluster node to the corresponding IPv4 address
+#
+# $1: node id to resolve
+# ret stdout: IPv4 address or empty string in non resolvable
+##
+cdepl_cluster_resolve_node_to_ip()
+{
+	local node=$1
+
+	# stub
+}
+
+##
+# Resolve an abstract node id of a cluster node to the hostname of the node
+#
+# $1: node id to resolve
+# ret stdout: hostname of the node or empty string in non resolvable
+##
+cdepl_cluster_node_resolve_node_to_hostname()
+{
+	local node=$1
+
+	# stub
+}
+
+##
+# Send a command to the login node of the cluster
+#
+# If your cluster doesn't have a dedicated login node you should be able to 
+# send it to any node that does not require any resource allocation before
+# being able to access it.
+#
+# $1: (ssh) command to send
+##
+cdepl_cluster_login_cmd()
+{
+	local cmd="$1"
+
+	# stub
+}
+
+##
+# Copy a file to the login node of the cluster
+#
+# If your cluster doesn't have a dedicated login node you should be able to 
+# send it to any node that does not require any resource allocation before
+# being able to access it.
+#
+# $1: Local source path of the file to copy
+# $2: Destination path to copy to
+##
+cdepl_cluster_send_file_to_login()
+{
+    local source="$1"
+    local destination="$2"
+
+	# stub
+}
+
+##
+# Send a command to a cluster node
+#
+# $1: node id of the node to send the command to
+# $2: (ssh) command to send
+##
+cdepl_cluster_node_cmd()
+{
+	local node=$1
+	local cmd="$2"
+
+	# stub
+}
