@@ -11,7 +11,7 @@ TOTAL_NODES=4
 
 # Cluster type and user selected
 CLUSTER_TYPE="hhubs"
-CLUSTER_USER="nothaas"
+CLUSTER_USER="user"
 
 # Output path for log files, config files depending
 # on the application deployed
@@ -136,7 +136,7 @@ cdepl_script_deploy()
 
 # Execute any cleanup of the deployment
 # Executed after application deployment
-# If you want to keep all instaces running, just leave this empty
+# If you want to keep all instances running, just leave this empty
 # Otherwise, kill the running instances and execute some other
 # cleanup tasks
 cdepl_script_cleanup()
