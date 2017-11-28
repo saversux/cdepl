@@ -102,8 +102,8 @@ cdepl_cluster_resolve_hostname_to_ip()
 {
 	local hostname=$1
 
-    # Quick way to resolve all hilbertXXX hostnames
-    local hilbert_id="$(sed 's/hilbert//')"
+    # Fast method to resolve all hilbertXXX hostnames
+    local node_id="$(echo "$hostname" | sed 's/hilbert//')"
 
 	if [ ! "$hilbert_id" ]; then
         echo ""
