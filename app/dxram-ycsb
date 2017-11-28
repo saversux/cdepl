@@ -63,7 +63,7 @@ cdepl_app_dxram_ycsb_init()
 	__DXRAM_YCSB_CONFIG_PATH="${__DXRAM_YCSB_PATH}/config/dxram.json"
 	__DXRAM_YCSB_LOG4J_CONFIG_PATH="${__DXRAM_YCSB_PATH}/config/log4j.xml"
 
-	__DXRAM_YCSB_OUT_PATH="${DEPLOY_CUR_OUT_PATH}/dxram_ycsb"
+	__DXRAM_YCSB_OUT_PATH="${__DEPLOY_CUR_OUT_PATH}/dxram_ycsb"
 	__DXRAM_YCSB_OUT_CONF_PATH="${__DXRAM_YCSB_OUT_PATH}/conf"
 	__DXRAM_YCSB_OUT_LOG_PATH="${__DXRAM_YCSB_OUT_PATH}/log"
 

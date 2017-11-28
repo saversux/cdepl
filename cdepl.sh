@@ -17,16 +17,19 @@ source ${CDEPL_SCRIPT_DIR}/cluster.sh
 
 __cdepl_cleanup_on_exit()
 {
-    if [ "$__CLUSTER_CLEANUP_ON_ERROR" != "1" ]; then
-        util_log_warn "[cdepl] Cluster cleanup on error DISABLED"
-    else
-        util_log "[cdepl] Cluster cleanup on error..."
+    # Check for exit code
+    if [ "$?" != "0" ]; then
+        if [ "$__CLUSTER_CLEANUP_ON_ERROR" != "1" ]; then
+            util_log_warn "[cdepl] Cluster cleanup on error DISABLED"
+        else
+            util_log "[cdepl] Cluster cleanup on error..."
 
-        _cdepl_cluster_before_cleanup
-        cdepl_script_cleanup
-        _cdepl_cluster_after_cleanup
+            _cdepl_cluster_before_cleanup
+            cdepl_script_cleanup
+            _cdepl_cluster_after_cleanup
 
-        util_log_error "[cdepl] Finished with error"
+            util_log_error "[cdepl] Finished with error"
+        fi
     fi
 }
 

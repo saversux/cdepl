@@ -130,7 +130,7 @@ cdepl_cluster_resolve_hostname_to_ip()
 	if [ ! "$node_id" ]; then
         echo ""
     else
-        echo "10.0.0." "$node_id"
+        echo "10.0.0.$node_id"
     fi
 }
 
@@ -388,7 +388,7 @@ _cdepl_cluster_on_node_setup_finish()
 		esac
 	done
 
-	util_log_debug "[hhubs] Node allocations: $nodes"
+	util_log_debug "[hhubs] Node allocations:\n$nodes"
 
 	# Store node mappings to file
 	__cdepl_cluster_hhubs_remote_sollipulli_cmd "printf \"$nodes\" > ${__DEPLOY_CUR_OUT_PATH}/node_mappings"
