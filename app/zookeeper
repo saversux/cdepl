@@ -28,9 +28,6 @@ cdepl_app_zookeeper_start()
 
 	local logfile=${ZOOKEEPER_OUT_PATH}/node${node}${ZOOKEEPER_LOG_FILE_POSTFIX}
 
-	# Check if java is available on the target node
-	cdepl_cluster_resolve_dependency $node "java" "1.8"
-
 	util_log "[$node][zookeeper] Starting, logfile: $logfile"
 
 	cdepl_cluster_node_cmd $node "mkdir -p $ZOOKEEPER_OUT_PATH"

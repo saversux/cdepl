@@ -215,9 +215,6 @@ cdepl_app_dxram_start_node()
 		logfile=${DXRAM_OUT_LOG_PATH}/node${node}${DXRAM_LOG_FILE_PEER_POSTFIX}
 	fi
 
-	# Check if java is available on the target node
-	cdepl_cluster_resolve_dependency $node "java" "1.8"
-
 	__cdepl_app_dxram_resolve_default_config_values
 	__cdepl_app_dxram_create_node_base_config $node ${DXRAM_NODE_TYPE[$node]}
 

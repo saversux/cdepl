@@ -322,9 +322,6 @@ cdepl_app_ycsb_dxram_start_node()
         util_log_error_and_exit "[$node][dxram-ycsb] Invalid node type ${DXRAM_YCSB_NODE_TYPE[$node]} cannot start instance"
     fi
 
-	# Check if java is available on the target node
-	cdepl_cluster_resolve_dependency $node "java" "1.8"
-
 	__cdepl_app_dxram_ycsb_resolve_default_config_values
 	__cdepl_app_dxram_ycsb_create_node_base_config $node ${DXRAM_YCSB_NODE_TYPE[$node]}
 
