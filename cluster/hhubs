@@ -156,6 +156,20 @@ cdepl_cluster_login_cmd()
 	__cdepl_cluster_hhubs_remote_sollipulli_cmd "$cmd"
 }
 
+cdepl_cluster_send_file_to_login()
+{
+    local source="$1"
+    local destination="$2"
+
+    scp "$source" "${HHUBS_SOLLIPULLI_USER}@sollipulli:${destination}"
+
+	if [ "$HHUBS_SOLLIPULLI_MODE" = "1" ]; then
+		scp "$source" "${HHUBS_SOLLIPULLI_USER}@sollipulli:${destination}"
+	else
+		scp -P 55517 "$source" "${HHUBS_SOLLIPULLI_USER}@134.99.112.82:${destination}"
+	fi
+}
+
 cdepl_cluster_node_cmd()
 {
 	local node=$1
