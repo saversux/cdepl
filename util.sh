@@ -6,7 +6,7 @@ readonly UTIL_LOG_LEVEL_WARN="2"
 readonly UTIL_LOG_LEVEL_ERROR="1"
 readonly UTIL_LOG_LEVEL_OFF="0"
 
-UTIL_LOG_LEVEL="4"
+__UTIL_LOG_LEVEL="4"
 
 util_log_set_level()
 {
@@ -18,7 +18,7 @@ util_log_set_level()
 		level="0"
 	fi
 
-	UTIL_LOG_LEVEL="$level"
+	__UTIL_LOG_LEVEL="$level"
 }
 
 ######################################################
@@ -46,7 +46,7 @@ util_log_error()
 {
 	local msg=$1
 
-	if [ "$UTIL_LOG_LEVEL" -ge "1" ]; then
+	if [ "$__UTIL_LOG_LEVEL" -ge "1" ]; then
 		printf "\e[1;31m${msg}\e[m\n"
 	fi
 }
@@ -61,7 +61,7 @@ util_log_warn()
 {
 	local msg=$1
 
-	if [ "$UTIL_LOG_LEVEL" -ge "2" ]; then
+	if [ "$__UTIL_LOG_LEVEL" -ge "2" ]; then
 		printf "\e[1;33m${msg}\e[m\n"
 	fi
 }
@@ -76,7 +76,7 @@ util_log()
 {
 	local msg=$1
 
-	if [ "$UTIL_LOG_LEVEL" -ge "3" ]; then
+	if [ "$__UTIL_LOG_LEVEL" -ge "3" ]; then
 		printf "\e[1;34m${msg}\e[m\n"
 	fi
 }
@@ -92,7 +92,7 @@ util_log_debug()
 	local msg=$1
 	local args=${@:2}
 
-	if [ "$UTIL_LOG_LEVEL" -ge "4" ]; then
+	if [ "$__UTIL_LOG_LEVEL" -ge "4" ]; then
 		printf "\e[1;32m${msg}\e[m\n" $args
 	fi
 }
