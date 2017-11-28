@@ -1,52 +1,52 @@
 #!/bin/bash
 
 # Heterogeneous hardware, 3 groups
-readonly HHUBS_TOTAL_NODES_AVAILABLE=24
-readonly HHUBS_MAX_NUM_CORES=6
-readonly HHUBS_MAX_RAM=65536
+readonly __HHUBS_MAX_NUM_NODES=24
+readonly __HHUBS_MAX_NUM_CORES=6
+readonly __HHUBS_MAX_RAM=65536
 
 # 4 cores, 32 GB RAM, InfiniBand
-readonly HHUBS_NODE_GROUP_1="node49 node50 node51 node52 node53 node54 node55 node56"
-readonly HHUBS_TOTAL_NODES_GROUP_1=8
-readonly HHUBS_NODE_GROUP_1_MAX_CORES=4
-readonly HHUBS_NODE_GROUP_1_MAX_RAM=32768
-readonly HHUBS_NODE_GROUP_1_MAX_NET="ib"
+readonly __HHUBS_NODE_GROUP_1="node49 node50 node51 node52 node53 node54 node55 node56"
+readonly __HHUBS_TOTAL_NODES_GROUP_1=8
+readonly __HHUBS_NODE_GROUP_1_MAX_CORES=4
+readonly __HHUBS_NODE_GROUP_1_MAX_RAM=32768
+readonly __HHUBS_NODE_GROUP_1_MAX_NET="ib"
 
 # 4 cores, 16 GB RAM
-readonly HHUBS_NODE_GROUP_2="node57 node58 node59 node60 node61 node62 node63 node64"
-readonly HHUBS_TOTAL_NODES_GROUP_2=8
-readonly HHUBS_NODE_GROUP_2_MAX_CORES=4
-readonly HHUBS_NODE_GROUP_2_MAX_RAM=16384
-readonly HHUBS_NODE_GROUP_2_MAX_NET="eth"
+readonly __HHUBS_NODE_GROUP_2="node57 node58 node59 node60 node61 node62 node63 node64"
+readonly __HHUBS_TOTAL_NODES_GROUP_2=8
+readonly __HHUBS_NODE_GROUP_2_MAX_CORES=4
+readonly __HHUBS_NODE_GROUP_2_MAX_RAM=16384
+readonly __HHUBS_NODE_GROUP_2_MAX_NET="eth"
 
 # 6 cores, 64 GB RAM, InfiniBand
-readonly HHUBS_NODE_GROUP_3="node65 node66 node67 node68 node69 node70 node71 node72"
-readonly HHUBS_TOTAL_NODES_GROUP_3=8
-readonly HHUBS_NODE_GROUP_3_MAX_CORES=6
-readonly HHUBS_NODE_GROUP_3_MAX_RAM=65536
-readonly HHUBS_NODE_GROUP_3_MAX_NET="ib"
+readonly __HHUBS_NODE_GROUP_3="node65 node66 node67 node68 node69 node70 node71 node72"
+readonly __HHUBS_TOTAL_NODES_GROUP_3=8
+readonly __HHUBS_NODE_GROUP_3_MAX_CORES=6
+readonly __HHUBS_NODE_GROUP_3_MAX_RAM=65536
+readonly __HHUBS_NODE_GROUP_3_MAX_NET="ib"
 
-HHUBS_SOLLIPULLI_MODE=0
-HHUBS_SOLLIPULLI_USER=""
+__HHUBS_SOLLIPULLI_MODE=0
+__HHUBS_SOLLIPULLI_USER=""
 
-HHUBS_TOTAL_NODES=""
+__HHUBS_TOTAL_NODES=""
 
 # Init with minimums 0 and Ethernet
-HHUBS_NODES_CPUS=(0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0)
-HHUBS_NODES_MEM=(0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0)
-HHUBS_NODES_NET=("" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "")
+__HHUBS_NODES_CPUS=(0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0)
+__HHUBS_NODES_MEM=(0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0)
+__HHUBS_NODES_NET=("" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "")
 
-HHUBS_NODE_MAP=""
+__HHUBS_NODE_MAP=""
 
 cdepl_cluster_node_alloc()
 {
 	local num_nodes=$1
 
-	if [ "$num_nodes" -gt "$HHUBS_TOTAL_NODES_AVAILABLE" ]; then
-		util_log_error_and_exit "[hhubs] Not enough nodes available to allocate $num_nodes nodes, max $HHUBS_TOTAL_NODES_AVAILABLE nodes"
+	if [ "$num_nodes" -gt "$__HHUBS_MAX_NUM_NODES" ]; then
+		util_log_error_and_exit "[hhubs] Not enough nodes available to allocate $num_nodes nodes, max $__HHUBS_MAX_NUM_NODES nodes"
 	fi
 
-	HHUBS_TOTAL_NODES="$num_nodes"
+	__HHUBS_TOTAL_NODES="$num_nodes"
 }
 
 cdepl_cluster_walltime()
@@ -68,11 +68,11 @@ cdepl_cluster_node_cpus()
 	local node=$1
 	local cpus=$2
 
-	if [ "$cpus" -gt "$HHUBS_MAX_NUM_CORES" ]; then
-		util_log_error_and_exit "[hhubs] No instance with $cpus cpus available, max cpus $HHUBS_MAX_NUM_CORES"
+	if [ "$cpus" -gt "$__HHUBS_MAX_NUM_CORES" ]; then
+		util_log_error_and_exit "[hhubs] No instance with $cpus cpus available, max cpus $__HHUBS_MAX_NUM_CORES"
 	fi
 
-	HHUBS_NODES_CPUS[$node]="$cpus"
+	__HHUBS_NODES_CPUS[$node]="$cpus"
 }
 
 # mem in MB
@@ -81,11 +81,11 @@ cdepl_cluster_node_mem()
 	local node=$1
 	local mem=$2
 
-	if [ "$mem" -gt "$HHUBS_MAX_RAM" ]; then
-		util_log_error_and_exit "[hhubs] No instance with $mem mb memory available, max mem $HHUBS_MAX_RAM mb"
+	if [ "$mem" -gt "$__HHUBS_MAX_RAM" ]; then
+		util_log_error_and_exit "[hhubs] No instance with $mem mb memory available, max mem $__HHUBS_MAX_RAM mb"
 	fi
 
-	HHUBS_NODES_MEM[$node]="$mem"
+	__HHUBS_NODES_MEM[$node]="$mem"
 }
 
 cdepl_cluster_node_network()
@@ -97,7 +97,7 @@ cdepl_cluster_node_network()
 		util_log_error_and_exit "[hhubs] No instance with network $net available, supported networks: eth, ib"
 	fi
 
-	HHUBS_NODES_NET[$node]="$net"
+	__HHUBS_NODES_NET[$node]="$net"
 }
 
 cdepl_cluster_resolve_dependency()
@@ -106,16 +106,16 @@ cdepl_cluster_resolve_dependency()
 	local cmd=$2
 	local version=$3
 
-	if [ "${HHUBS_NODE_MAP[$node]}" = "" ]; then
+	if [ "${__HHUBS_NODE_MAP[$node]}" = "" ]; then
 		util_log_error_and_exit "[hhubs][$node] Resolve dependency $cmd/$version, remote node does not exist"
 	fi
 
-	util_log_debug "[hhubs][$node: ${HHUBS_NODE_MAP[$node]}]: Resolve dependency: $cmd/$version"
+	util_log_debug "[hhubs][$node: ${__HHUBS_NODE_MAP[$node]}]: Resolve dependency: $cmd/$version"
 
-	__cdepl_cluster_hhubs_remote_node_cmd ${HHUBS_NODE_MAP[$node]} "command -v $cmd" > /dev/null 2>&1
+	__cdepl_cluster_hhubs_remote_node_cmd ${__HHUBS_NODE_MAP[$node]} "command -v $cmd" > /dev/null 2>&1
 
 	if [ "$?" != "0" ]; then
-		util_log_error_and_exit "[hhubs][$node: ${HHUBS_NODE_MAP[$node]}] Dependency $cmd/$version does not exist"
+		util_log_error_and_exit "[hhubs][$node: ${__HHUBS_NODE_MAP[$node]}] Dependency $cmd/$version does not exist"
 	fi
 }
 
@@ -142,11 +142,11 @@ cdepl_cluster_resolve_node_to_ip()
 {
 	local node=$1
 
-	if [ "${HHUBS_NODE_MAP[$node]}" = "" ]; then
+	if [ "${__HHUBS_NODE_MAP[$node]}" = "" ]; then
 		util_log_error_and_exit "[hhubs][$node] Resolve node to ip failed, remote node does not exist"
 	fi
 
-	cdepl_cluster_resolve_hostname_to_ip "${HHUBS_NODE_MAP[$node]}"
+	cdepl_cluster_resolve_hostname_to_ip "${__HHUBS_NODE_MAP[$node]}"
 }
 
 cdepl_cluster_login_cmd()
@@ -161,12 +161,12 @@ cdepl_cluster_send_file_to_login()
     local source="$1"
     local destination="$2"
 
-    scp "$source" "${HHUBS_SOLLIPULLI_USER}@sollipulli:${destination}"
+    scp "$source" "${__HHUBS_SOLLIPULLI_USER}@sollipulli:${destination}"
 
-	if [ "$HHUBS_SOLLIPULLI_MODE" = "1" ]; then
-		scp "$source" "${HHUBS_SOLLIPULLI_USER}@sollipulli:${destination}"
+	if [ "$__HHUBS_SOLLIPULLI_MODE" = "1" ]; then
+		scp "$source" "${__HHUBS_SOLLIPULLI_USER}@sollipulli:${destination}"
 	else
-		scp -P 55517 "$source" "${HHUBS_SOLLIPULLI_USER}@134.99.112.82:${destination}"
+		scp -P 55517 "$source" "${__HHUBS_SOLLIPULLI_USER}@134.99.112.82:${destination}"
 	fi
 }
 
@@ -175,23 +175,23 @@ cdepl_cluster_node_cmd()
 	local node=$1
 	local cmd="$2"
 
-	if [ "${HHUBS_NODE_MAP[$node]}" = "" ]; then
+	if [ "${__HHUBS_NODE_MAP[$node]}" = "" ]; then
 		util_log_error_and_exit "[hhubs][node $node] Exec node $cmd, node does not exist"
 	fi
 
-	__cdepl_cluster_hhubs_remote_node_cmd ${HHUBS_NODE_MAP[$node]} "$cmd"
+	__cdepl_cluster_hhubs_remote_node_cmd ${__HHUBS_NODE_MAP[$node]} "$cmd"
 }
 
 cdepl_cluster_get_alloc_node_count()
 {
-	echo "$HHUBS_TOTAL_NODES"
+	echo "$__HHUBS_TOTAL_NODES"
 }
 
 cdepl_cluster_node_resolve_node_to_hostname()
 {
 	local node=$1
 
-	echo "${HHUBS_NODE_MAP[$node]}"
+	echo "${__HHUBS_NODE_MAP[$node]}"
 }
 
 ####################################
@@ -202,7 +202,7 @@ _cdepl_cluster_on_init()
 {
 	local cluster_user=$1
 
-	HHUBS_SOLLIPULLI_USER="$cluster_user"
+	__HHUBS_SOLLIPULLI_USER="$cluster_user"
 
 	__cdepl_cluster_hhubs_sollipulli_check
 }
@@ -240,13 +240,13 @@ _cdepl_cluster_on_node_setup_finish()
 
 	# Sort by groups
 	for node in `eval $node_cmd`; do
-		if [ "$(echo $HHUBS_NODE_GROUP_1 | grep $node)" ]; then
+		if [ "$(echo $__HHUBS_NODE_GROUP_1 | grep $node)" ]; then
 			group1_avail="$group1_avail $node"
 			group1_avail_cnt=$(($group1_avail_cnt + 1))
-		elif [ "$(echo $HHUBS_NODE_GROUP_2 | grep $node)" ]; then
+		elif [ "$(echo $__HHUBS_NODE_GROUP_2 | grep $node)" ]; then
 			group2_avail="$group2_avail $node"
 			group2_avail_cnt=$(($group2_avail_cnt + 1))
-		elif [ "$(echo $HHUBS_NODE_GROUP_3 | grep $node)" ]; then
+		elif [ "$(echo $__HHUBS_NODE_GROUP_3 | grep $node)" ]; then
 			group3_avail="$group3_avail $node"
 			group3_avail_cnt=$(($group3_avail_cnt + 1))
 		fi
@@ -257,20 +257,20 @@ _cdepl_cluster_on_node_setup_finish()
 	local insufficient_cnt=0
 
 	# Assign instances with IB first
-	for i in `seq 0 $((HHUBS_TOTAL_NODES - 1))`; do
-		if [ "${HHUBS_NODES_NET[$i]}" = "ib" ]; then
-			if [ "${HHUBS_NODES_CPUS[$i]}" -le "4" ] && 
-					[ "${HHUBS_NODES_MEM[$i]}" -le "32768" ] && 
+	for i in `seq 0 $((__HHUBS_TOTAL_NODES - 1))`; do
+		if [ "${__HHUBS_NODES_NET[$i]}" = "ib" ]; then
+			if [ "${__HHUBS_NODES_CPUS[$i]}" -le "4" ] && 
+					[ "${__HHUBS_NODES_MEM[$i]}" -le "32768" ] && 
 					[ "$group1_req_cnt" -lt "$group1_avail_cnt" ]; then
 				group1_req_cnt=$(($group1_req_cnt + 1))
 				
 				# Mark what we want to alloc
-				HHUBS_NODE_MAP[$i]="group1"
+				__HHUBS_NODE_MAP[$i]="group1"
 			elif [ "$group3_req_cnt" -lt "$group3_avail_cnt" ]; then
 				group3_req_cnt=$(($group3_req_cnt + 1))
 				
 				# Mark what we want to alloc
-				HHUBS_NODE_MAP[$i]="group3"
+				__HHUBS_NODE_MAP[$i]="group3"
 			else
 				insufficient_cnt=$((insufficient_cnt + 1))
 			fi
@@ -278,27 +278,27 @@ _cdepl_cluster_on_node_setup_finish()
 	done
 
 	# Next iteration with eth, only
-	for i in `seq 0 $((HHUBS_TOTAL_NODES - 1))`; do
-		if [ "${HHUBS_NODES_NET[$i]}" != "ib" ]; then	
-			if [ "${HHUBS_NODES_CPUS[$i]}" -le "4" ] && 
-					[ "${HHUBS_NODES_MEM[$i]}" -le "16384" ] && 
+	for i in `seq 0 $((__HHUBS_TOTAL_NODES - 1))`; do
+		if [ "${__HHUBS_NODES_NET[$i]}" != "ib" ]; then	
+			if [ "${__HHUBS_NODES_CPUS[$i]}" -le "4" ] && 
+					[ "${__HHUBS_NODES_MEM[$i]}" -le "16384" ] && 
 					[ "$group2_req_cnt" -lt "$group2_avail_cnt" ]; then
 				group2_req_cnt=$(($group2_req_cnt + 1))
 
 				# Mark what we want to alloc
-				HHUBS_NODE_MAP[$i]="group2"
-			elif [ "${HHUBS_NODES_CPUS[$i]}" -le "4" ] && 
-					[ "${HHUBS_NODES_MEM[$i]}" -le "32768" ] && 
+				__HHUBS_NODE_MAP[$i]="group2"
+			elif [ "${__HHUBS_NODES_CPUS[$i]}" -le "4" ] && 
+					[ "${__HHUBS_NODES_MEM[$i]}" -le "32768" ] && 
 					[ "$group1_req_cnt" -lt "$group1_avail_cnt" ]; then
 				group1_req_cnt=$(($group1_req_cnt + 1))
 
 				# Mark what we want to alloc
-				HHUBS_NODE_MAP[$i]="group1"
+				__HHUBS_NODE_MAP[$i]="group1"
 			elif [ "$group3_req_cnt" -lt "$group3_avail_cnt" ]; then
 				group3_req_cnt=$(($group3_req_cnt + 1))
 
 				# Mark what we want to alloc
-				HHUBS_NODE_MAP[$i]="group3"
+				__HHUBS_NODE_MAP[$i]="group3"
 			else
 				insufficient_cnt=$((insufficient_cnt + 1))
 			fi
@@ -329,61 +329,61 @@ _cdepl_cluster_on_node_setup_finish()
 	# Generate node mappings using what's available
 	# Also fill in hardware specs that are still default values with max
 	# available
-	for i in `seq 0 $((HHUBS_TOTAL_NODES - 1))`; do
-		nodes="${nodes}${i} ${HHUBS_NODE_MAP[$i]}\n"
+	for i in `seq 0 $((__HHUBS_TOTAL_NODES - 1))`; do
+		nodes="${nodes}${i} ${__HHUBS_NODE_MAP[$i]}\n"
 
 		# Replace marked groups to alloc with actual node hostnames
-		case "${HHUBS_NODE_MAP[$i]}" in
+		case "${__HHUBS_NODE_MAP[$i]}" in
 			"group1")
-				HHUBS_NODE_MAP[$i]=$(echo $group1_avail | cut -d " " -f1)
+				__HHUBS_NODE_MAP[$i]=$(echo $group1_avail | cut -d " " -f1)
 				group1_avail=$(echo $group1_avail | cut -d " " -f2-)
 
-				if [ "${HHUBS_NODES_CPUS[$i]}" = "0" ]; then
-					HHUBS_NODES_CPUS[$i]="$HHUBS_NODE_GROUP_1_MAX_CORES"
+				if [ "${__HHUBS_NODES_CPUS[$i]}" = "0" ]; then
+					__HHUBS_NODES_CPUS[$i]="$__HHUBS_NODE_GROUP_1_MAX_CORES"
 				fi
 
-				if [ "${HHUBS_NODES_MEM[$i]}" = "0" ]; then
-					HHUBS_NODES_MEM[$i]="$HHUBS_NODE_GROUP_1_MAX_RAM"
+				if [ "${__HHUBS_NODES_MEM[$i]}" = "0" ]; then
+					__HHUBS_NODES_MEM[$i]="$__HHUBS_NODE_GROUP_1_MAX_RAM"
 				fi
 
-				if [ "${HHUBS_NODES_NET[$i]}" = "" ]; then
-					HHUBS_NODES_NET[$i]="$HHUBS_NODE_GROUP_1_MAX_NET"
+				if [ "${__HHUBS_NODES_NET[$i]}" = "" ]; then
+					__HHUBS_NODES_NET[$i]="$__HHUBS_NODE_GROUP_1_MAX_NET"
 				fi
 
 				;;
 
 			"group2")
-				HHUBS_NODE_MAP[$i]=$(echo $group2_avail | cut -d " " -f1)
+				__HHUBS_NODE_MAP[$i]=$(echo $group2_avail | cut -d " " -f1)
 				group2_avail=$(echo $group2_avail | cut -d " " -f2-)
 
-				if [ "${HHUBS_NODES_CPUS[$i]}" = "0" ]; then
-					HHUBS_NODES_CPUS[$i]="$HHUBS_NODE_GROUP_2_MAX_CORES"
+				if [ "${__HHUBS_NODES_CPUS[$i]}" = "0" ]; then
+					__HHUBS_NODES_CPUS[$i]="$__HHUBS_NODE_GROUP_2_MAX_CORES"
 				fi
 
-				if [ "${HHUBS_NODES_MEM[$i]}" = "0" ]; then
-					HHUBS_NODES_MEM[$i]="$HHUBS_NODE_GROUP_2_MAX_RAM"
+				if [ "${__HHUBS_NODES_MEM[$i]}" = "0" ]; then
+					__HHUBS_NODES_MEM[$i]="$__HHUBS_NODE_GROUP_2_MAX_RAM"
 				fi
 
-				if [ "${HHUBS_NODES_NET[$i]}" = "" ]; then
-					HHUBS_NODES_NET[$i]="$HHUBS_NODE_GROUP_2_MAX_NET"
+				if [ "${__HHUBS_NODES_NET[$i]}" = "" ]; then
+					__HHUBS_NODES_NET[$i]="$__HHUBS_NODE_GROUP_2_MAX_NET"
 				fi
 
 				;;
 
 			"group3")
-				HHUBS_NODE_MAP[$i]=$(echo $group3_avail | cut -d " " -f1)
+				__HHUBS_NODE_MAP[$i]=$(echo $group3_avail | cut -d " " -f1)
 				group3_avail=$(echo $group3_avail | cut -d " " -f2-)
 
-				if [ "${HHUBS_NODES_CPUS[$i]}" = "0" ]; then
-					HHUBS_NODES_CPUS[$i]="$HHUBS_NODE_GROUP_3_MAX_CORES"
+				if [ "${__HHUBS_NODES_CPUS[$i]}" = "0" ]; then
+					__HHUBS_NODES_CPUS[$i]="$__HHUBS_NODE_GROUP_3_MAX_CORES"
 				fi
 
-				if [ "${HHUBS_NODES_MEM[$i]}" = "0" ]; then
-					HHUBS_NODES_MEM[$i]="$HHUBS_NODE_GROUP_3_MAX_RAM"
+				if [ "${__HHUBS_NODES_MEM[$i]}" = "0" ]; then
+					__HHUBS_NODES_MEM[$i]="$__HHUBS_NODE_GROUP_3_MAX_RAM"
 				fi
 
-				if [ "${HHUBS_NODES_NET[$i]}" = "" ]; then
-					HHUBS_NODES_NET[$i]="$HHUBS_NODE_GROUP_3_MAX_NET"
+				if [ "${__HHUBS_NODES_NET[$i]}" = "" ]; then
+					__HHUBS_NODES_NET[$i]="$__HHUBS_NODE_GROUP_3_MAX_NET"
 				fi
 
 				;;
@@ -434,10 +434,10 @@ __cdepl_cluster_hhubs_remote_node_cmd()
 
 	local dest=""
 	
-	if [ "$HHUBS_SOLLIPULLI_MODE" = "1" ]; then
-		dest="${HHUBS_SOLLIPULLI_USER}@sollipulli"
+	if [ "$__HHUBS_SOLLIPULLI_MODE" = "1" ]; then
+		dest="${__HHUBS_SOLLIPULLI_USER}@sollipulli"
 	else
-		dest="${HHUBS_SOLLIPULLI_USER}@134.99.112.82 -p 55517"
+		dest="${__HHUBS_SOLLIPULLI_USER}@134.99.112.82 -p 55517"
 	fi
 
 	# -n -f for nohup
@@ -456,10 +456,10 @@ __cdepl_cluster_hhubs_remote_sollipulli_cmd()
 
 	local dest=""
 	
-	if [ "$HHUBS_SOLLIPULLI_MODE" = "1" ]; then
-		dest="${HHUBS_SOLLIPULLI_USER}@sollipulli"
+	if [ "$__HHUBS_SOLLIPULLI_MODE" = "1" ]; then
+		dest="${__HHUBS_SOLLIPULLI_USER}@sollipulli"
 	else
-		dest="${HHUBS_SOLLIPULLI_USER}@134.99.112.82 -p 55517"
+		dest="${__HHUBS_SOLLIPULLI_USER}@134.99.112.82 -p 55517"
 	fi
 
 	# -n -f for nohup
@@ -485,24 +485,24 @@ __cdepl_cluster_hhubs_sollipulli_check()
 		if [ "$?" != "0" ]; then
 			util_log_error_and_exit "[hhubs] Could not contact sollipulli, not available"
 		else
-			HHUBS_SOLLIPULLI_MODE=2
+			__HHUBS_SOLLIPULLI_MODE=2
 		fi
 	else
-		HHUBS_SOLLIPULLI_MODE=1
+		__HHUBS_SOLLIPULLI_MODE=1
 	fi
 
 	# Check if passwordless auth available
-	if [ "$HHUBS_SOLLIPULLI_MODE" = "1" ]; then
+	if [ "$__HHUBS_SOLLIPULLI_MODE" = "1" ]; then
 		ssh -o PasswordAuthentication=no -o BatchMode=yes sollipulli exit &> /dev/null
 	else
-		ssh -p 55517 -o PasswordAuthentication=no -o BatchMode=yes ${HHUBS_SOLLIPULLI_USER}@134.99.112.82 exit &> /dev/null
+		ssh -p 55517 -o PasswordAuthentication=no -o BatchMode=yes ${__HHUBS_SOLLIPULLI_USER}@134.99.112.82 exit &> /dev/null
 	fi
 
 	if [ "$?" != "0" ]; then
 		util_log_error_and_exit "[hhubs] Can't connect to login node, ensure passwordless auth is set up and the cluster user is valid"
 	fi
 
-	util_log_debug "[hhubs] sollipulli available, mode $HHUBS_SOLLIPULLI_MODE"
+	util_log_debug "[hhubs] sollipulli available, mode $__HHUBS_SOLLIPULLI_MODE"
 }
 
 __cdepl_cluster_hhubs_alloc_hardware_specs()
