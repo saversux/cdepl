@@ -198,7 +198,6 @@ cdepl_app_dxram_auto_detect_node_config_params()
 	util_log_error_and_exit "Auto detect node config and params not implemented, yet"
 }
 
-# port is optional
 cdepl_app_dxram_start_node()
 {
 	local node=$1
