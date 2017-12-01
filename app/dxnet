@@ -403,11 +403,7 @@ __cdepl_app_dxnet_create_node_base_config()
 	local new_config="$(echo "${node_config}" | sed '/m_nodesConfig/q')"
 	new_config="${new_config}${node_config_string}"
 	local end="$(echo "${node_config}" | sed -ne '/m_nodesConfig/{s///; :a' -e 'n;p;ba' -e '}')"
-	
 	end="$(echo "${end}" | sed -ne '/],/{s///; :a' -e 'n;p;ba' -e '}')"
-	
-	echo ">> $end"
-
 	new_config="$(echo -e "${new_config}\n${end}")"
 
 	# Write back new config
