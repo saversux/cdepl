@@ -8,7 +8,7 @@ TOTAL_NODES=2
 
 # Cluster type and user selected
 CLUSTER_TYPE="hhubs"
-CLUSTER_USER="nothaas"
+CLUSTER_USER="user"
 
 # Output path for log files, config files depending
 # on the application deployed
@@ -66,7 +66,7 @@ cdepl_script_deploy()
 
 	# Parameters
 	depl_app_dxnet_workload 0
-	depl_app_dxnet_msg_count 10000
+	depl_app_dxnet_msg_count 10000000
 	depl_app_dxnet_msg_size 128
 
 	# Both nodes send each other messages
@@ -77,7 +77,8 @@ cdepl_script_deploy()
 
 	for i in $(seq 0 $((TOTAL_NODES - 1))); do
 		cdepl_app_dxnet_node_send_threads $i 1
-		cdepl_app_dxnet_node_message_handler $i 2
+		# Set 4 message handlers for both nodes, 0 and 1
+		cdepl_app_dxnet_node_message_handler $i 4
 		cdepl_app_dxnet_run_as_sudo $i
 
 		# When running localhost, we have to assign different ports for the instances

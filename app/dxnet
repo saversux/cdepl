@@ -406,6 +406,23 @@ __cdepl_app_dxnet_create_node_base_config()
 	end="$(echo "${end}" | sed -ne '/],/{s///; :a' -e 'n;p;ba' -e '}')"
 	new_config="$(echo -e "${new_config}\n${end}")"
 
+	# Apply further parameters
+	local network=""
+
+	if [ "$__DXNET_NODE_NETWORK" = "eth" ]; then
+		network="Ethernet"
+	elif [ "$__DXNET_NODE_NETWORK" = "ib" ]; then
+		network="Infiniband"
+	elif [ "$__DXNET_NODE_NETWORK" = "lb" ]; then
+		network="Loopback"
+	fi
+
+	new_config="$(echo "$new_config" | sed "s/m_device.*/m_device\": \"${network}\"/g")"
+
+	local msg_handler_cnt="${__DXNET_NODE_MSG_HANDLER[$node]}"
+
+	new_config="$(echo "$new_config" | sed "s/m_numMessageHandlerThreads.*/m_numMessageHandlerThreads\": \"${msg_handler_cnt}\"\,/g")"
+
 	# Write back new config
 	cdepl_cluster_login_cmd "echo '$new_config' > '${node_config_path}'"
 }
