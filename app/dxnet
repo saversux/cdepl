@@ -217,8 +217,21 @@ cdepl_app_dxnet_node_wait_finished()
 
 	util_log "[$node][dxnet] Waiting until finished..."
 
+	local first_progress=1
+
 	while true; do
-		echo -n "."
+		local progress=$(cdepl_cluster_node_cmd $node "cat $logfile | grep '\[PROGRESS\]' | tail -n 1")
+
+		if [ ! "$progress" ]; then
+			echo -n "."
+		else
+			if [ "$first_progress" = "1" ]; then
+				first_progress=0
+				echo ""
+			fi
+
+			echo "[$node]${progress}"
+		fi
 
 		local pid="$(cdepl_cluster_node_cmd $node "pgrep -f '^java.*${__DXNET_PROCESS_IDENTIFIER}'")"
 		# Abort execution after an exception was thrown (every exception but NetworkResponseCancelledException)
@@ -239,6 +252,16 @@ cdepl_app_dxnet_node_wait_finished()
 
 		sleep 1.0
 	done
+}
+
+cdepl_app_dxnet_node_get_results()
+{
+	local node=$1
+
+	local logfile=${__DXNET_OUT_LOG_PATH}/node${node}
+
+	printf "%s\n" "$(cdepl_cluster_node_cmd $node "cat $logfile | grep '\[SEND'")"
+	printf "%s\n" "$(cdepl_cluster_node_cmd $node "cat $logfile | grep '\[RECV'")"
 }
 
 cdepl_app_dxnet_node_cleanup()
