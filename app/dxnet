@@ -86,7 +86,7 @@ depl_app_dxnet_msg_size()
 		util_log_error_and_exit "[$node][dxnet] Invalid msg size: $msg_size"
 	fi
 
-	__DXNET_MSG_SIZE="$msg_count"
+	__DXNET_MSG_SIZE="$msg_size"
 }
 
 cdepl_app_dxnet_node_send_threads()
