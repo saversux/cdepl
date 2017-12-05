@@ -66,20 +66,19 @@ cdepl_script_deploy()
 
 	# Parameters
 	depl_app_dxnet_workload 0
-	depl_app_dxnet_msg_count 10000000
-	depl_app_dxnet_msg_size 128
+	depl_app_dxnet_msg_count 100000
+	depl_app_dxnet_msg_size 64
 
-	# Both nodes send each other messages
+	# Both nodes send each other messages 0 -> 1 and 1 -> 0
 	cdepl_app_dxnet_node_send_targets 0 1
 	cdepl_app_dxnet_node_send_targets 1 0
 
-	depl_app_dxnet_network "ib"
+	depl_app_dxnet_network "eth"
 
 	for i in $(seq 0 $((TOTAL_NODES - 1))); do
 		cdepl_app_dxnet_node_send_threads $i 1
-		# Set 4 message handlers for both nodes, 0 and 1
-		cdepl_app_dxnet_node_message_handler $i 4
-		cdepl_app_dxnet_run_as_sudo $i
+		# Set 2 message handlers for both nodes, 0 and 1
+		cdepl_app_dxnet_node_message_handler $i 2
 
 		# When running localhost, we have to assign different ports for the instances
 		cdepl_app_dxnet_node_port $i $DXNET_PORT_START
@@ -96,6 +95,13 @@ cdepl_script_deploy()
 		cdepl_app_dxnet_node_wait_finished $i
 	done
 
+	# Print results
+	for i in $(seq 0 $((TOTAL_NODES - 1))); do
+		printf "######################\nResults node $i\n"
+		cdepl_app_dxnet_node_get_results $i
+		printf "######################\n"
+	done
+	
 	# Done
 }
 
