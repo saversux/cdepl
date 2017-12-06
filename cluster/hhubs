@@ -185,7 +185,7 @@ cdepl_cluster_node_cmd()
 	local cmd="$2"
 
 	if [ "${__HHUBS_NODE_MAP[$node]}" = "" ]; then
-		util_log_error_and_exit "[hhubs][node $node] Exec node $cmd, node does not exist"
+		util_log_error_and_exit "[hhubs][$node] Exec node $cmd, node does not exist"
 	fi
 
 	__cdepl_cluster_hhubs_remote_node_cmd ${__HHUBS_NODE_MAP[$node]} "$cmd"
