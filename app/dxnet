@@ -27,6 +27,13 @@ __DXNET_NODE_REMOTE_DEBUG_PORT=()
 __DXNET_NODE_REMOTE_PROFILE_YJP_PORT=()
 __DXNET_NODE_REMOTE_PROFILE_YJP_AGENT_LIB=()
 
+##
+# Initialize and setup dxnet environment. This must be called before any other
+# function of the dxnet module.
+#
+# $1 Path to folder containing build output of dxnet (or dxram) with dxnet.jar
+#    /dxram.jar
+##
 cdepl_app_dxnet_init()
 {
 	local path=$1
@@ -56,6 +63,11 @@ cdepl_app_dxnet_init()
 	util_log "[login][dxnet] Output: $__DXNET_OUT_PATH"
 }
 
+##
+# Set the workload type/id
+#
+# $1 Workload type/id (please refer to DXNetMain for supported workloads)
+##
 depl_app_dxnet_workload()
 {
 	local workload=$1
@@ -67,6 +79,11 @@ depl_app_dxnet_workload()
 	__DXNET_WORKLOAD="$workload"
 }
 
+##
+# Set the number of message each node has to send to another node
+#
+# $1 Message count
+##
 depl_app_dxnet_msg_count()
 {
 	local msg_count=$1
@@ -78,6 +95,11 @@ depl_app_dxnet_msg_count()
 	__DXNET_MSG_COUNT="$msg_count"
 }
 
+##
+# Set the message size of the messages/requests to send/receive
+#
+# $1 Message size in bytes
+##
 depl_app_dxnet_msg_size()
 {
 	local msg_size=$1
@@ -89,6 +111,12 @@ depl_app_dxnet_msg_size()
 	__DXNET_MSG_SIZE="$msg_size"
 }
 
+##
+# Set the number of send/application threads to use for sending the messages
+#
+# $1 node Target node id
+# $2 send_threads Number of send threads for the target node
+##
 cdepl_app_dxnet_node_send_threads()
 {
 	local node=$1
@@ -105,6 +133,14 @@ cdepl_app_dxnet_node_send_threads()
 	__DXNET_SEND_THREADS[$node]="$send_threads"
 }
 
+##
+# Set the target nodes to send data to. Use this to create send/communication
+# patterns like point-to-point, one-to-all, all-to-all etc.
+#
+# $1 node Target node id
+# $2 target_nodeids A sequence of node ids this node has to send messages to
+#    e.g. send to nodes 2 and 3 for nodes 0-3: 2 3
+##
 cdepl_app_dxnet_node_send_targets()
 {
 	local node=$1
@@ -117,6 +153,11 @@ cdepl_app_dxnet_node_send_targets()
 	__DXNET_SEND_TARGETS[$node]="$target_nodeids"
 }
 
+##
+# Set the network type
+#
+# $1 network Network type to use: Ethernet: eth, InfiniBand: ib, Loopback: lb
+##
 depl_app_dxnet_network()
 {
 	local network=$1
@@ -128,6 +169,14 @@ depl_app_dxnet_network()
 	__DXNET_NODE_NETWORK="$network"
 }
 
+##
+# Set a port (ethernet) for a node. A default port is set automatically but if
+# running on localhost, one has to set different ports for the "virtual nodes"
+# in order to run this on a single machine.
+#
+# $1 node Target node id
+# $2 port Port number to set
+##
 cdepl_app_dxnet_node_port()
 {
 	local node=$1
@@ -144,6 +193,12 @@ cdepl_app_dxnet_node_port()
 	__DXNET_NODE_PORT[$node]="$port"
 }
 
+##
+# Set the number of message handlers for a single node
+#
+# $1 node Target node id
+# $2 msg_handler Number of message handler to run on the target node
+##
 cdepl_app_dxnet_node_message_handler()
 {
 	local node=$1
@@ -156,6 +211,13 @@ cdepl_app_dxnet_node_message_handler()
 	__DXNET_NODE_MSG_HANDLER[$node]="$msg_handler"
 }
 
+##
+# Run the application as superuser on the target node. Depending on the cluster
+# and environment setup, this might be necessary for things like InfiniBand to
+# allow memory pinning.
+#
+# $1 node Target node id
+##
 cdepl_app_dxnet_run_as_sudo()
 {
 	local node=$1
@@ -167,6 +229,13 @@ cdepl_app_dxnet_run_as_sudo()
 	__DXNET_NODE_RUN_SUDO[$node]="1"
 }
 
+##
+# Hooks parameters and enables remote debugging for the application on the
+# specified node
+#
+# $1 node Target node id
+# $2 port Port for the remote debugger
+##
 cdepl_app_dxnet_remote_debug()
 {
 	local node=$1
@@ -179,6 +248,14 @@ cdepl_app_dxnet_remote_debug()
 	__DXNET_NODE_REMOTE_DEBUG_PORT[$node]="$port"
 }
 
+##
+# Hooks parameters and enables remote profiling using the YourKit Java profiler
+# on the specified node
+#
+# $1 node Target node id
+# $2 port Port for the remote profiler
+# $3 agent_lib Path on the target node with the libyjpagent.so lib
+##
 cdepl_app_dxnet_remote_profile_yjp()
 {
 	local node=$1
@@ -198,9 +275,15 @@ cdepl_app_dxnet_remote_profile_yjp()
 	__DXNET_NODE_REMOTE_PROFILE_YJP_AGENT_LIB[$node]="$agent_lib"
 }
 
+##
+# Start a dxnet instance on the target node.
+#
+# $1 node Target node id
+##
 cdepl_app_dxnet_start_node()
 {
 	local node=$1
+
 	local logfile=${__DXNET_OUT_LOG_PATH}/node${node}
 
 	__cdepl_app_dxnet_resolve_default_config_values
@@ -209,9 +292,18 @@ cdepl_app_dxnet_start_node()
 	__cdepl_app_dxnet_start $node $logfile
 }
 
+##
+# Wait for a started instance to finish
+#
+# This will also print the current progress of the target instance
+#
+# $1 node Target node id
+# $2 hide_progress Specify 1 to hide the current progress (optional parameter)
+##
 cdepl_app_dxnet_node_wait_finished()
 {
 	local node=$1
+	local hide_progress=$2
 
 	local logfile=${__DXNET_OUT_LOG_PATH}/node${node}
 
@@ -220,17 +312,21 @@ cdepl_app_dxnet_node_wait_finished()
 	local first_progress=1
 
 	while true; do
-		local progress=$(cdepl_cluster_node_cmd $node "cat $logfile | grep '\[PROGRESS\]' | tail -n 1")
+		if [ ! "$hide_progress" ]; then
+			local progress=$(cdepl_cluster_node_cmd $node "cat $logfile | grep '\[PROGRESS\]' | tail -n 1")
 
-		if [ ! "$progress" ]; then
-			echo -n "."
-		else
-			if [ "$first_progress" = "1" ]; then
-				first_progress=0
-				echo ""
+			if [ ! "$progress" ]; then
+				echo -n "."
+			else
+				if [ "$first_progress" = "1" ]; then
+					first_progress=0
+					echo ""
+				fi
+
+				echo "[$node]${progress}"
 			fi
-
-			echo "[$node]${progress}"
+		else
+			echo -n "."
 		fi
 
 		local pid="$(cdepl_cluster_node_cmd $node "pgrep -f '^java.*${__DXNET_PROCESS_IDENTIFIER}'")"
@@ -254,6 +350,11 @@ cdepl_app_dxnet_node_wait_finished()
 	done
 }
 
+##
+# Grab and print the results of the target node after execution has finished
+#
+# $1 node Target node id
+##
 cdepl_app_dxnet_node_get_results()
 {
 	local node=$1
@@ -264,6 +365,11 @@ cdepl_app_dxnet_node_get_results()
 	printf "%s\n" "$(cdepl_cluster_node_cmd $node "cat $logfile | grep '\[RECV'")"
 }
 
+##
+# Cleanup any still running or remaining/crashed instances on the target node
+#
+# $1 node Target node id
+##
 cdepl_app_dxnet_node_cleanup()
 {
 	local node=$1
@@ -358,13 +464,13 @@ __cdepl_app_dxnet_resolve_default_config_values()
 		__DXNET_NODE_NETWORK="eth"
 	fi
 
-	if [ ! "$__DXNET_NODE_PORT" ]; then
-		__DXNET_NODE_PORT="22222"
-	fi
-
 	local node_count="$(cdepl_cluster_get_alloc_node_count)"
 
 	for i in `seq 0 $((node_count - 1))`; do
+		if [ ! "${__DXNET_NODE_PORT[$i]}" ]; then
+			__DXNET_NODE_PORT[$i]="22222"
+		fi
+
 		if [ "${__DXNET_SEND_THREADS[$i]}" = "" ]; then
 			__DXNET_SEND_THREADS[$i]="1"
 		fi
