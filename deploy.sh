@@ -28,6 +28,25 @@ cdepl_deploy_out_path()
 }
 
 ##
+# Pack the contents of the currently set output folder and move the generated
+# archive to a destination (e.g. collecting results)
+#
+# $1 archive_name Name of the archive (no extension)
+# $2 dest_path Destination path to move the file to
+##
+cdepl_deploy_archive_out_path()
+{
+	local archive_name=$1
+	local dest_path=$2
+
+	local archive="${dest_path}/${archive_name}.tar.gz"
+
+	util_log "[deploy] Archiving $__DEPLOY_CUR_OUT_PATH to $archive"
+
+	cdepl_cluster_login_cmd "cd $__DEPLOY_OUT_PATH && tar -czvf $archive  $__DEPLOY_CUR_OUT_PATH > /dev/null 2>&1"
+}
+
+##
 # Endless loop to avoid exiting deployment. Useful for testing/debugging
 ##
 cdepl_deploy_loop_endless()
