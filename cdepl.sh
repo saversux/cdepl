@@ -47,13 +47,13 @@ fi
 
 # Check if script available and file
 if [ ! -f "$1" ]; then
-    util_error_and_exit "[cdepl] Script $1 not available or not a file"
+    util_log_error_and_exit "[cdepl] Script $1 not available or not a file"
 fi
 
 # Check extension
 filename=$(basename "$1")
 if [ "${filename##*.}" != "cdepl" ]; then
-    util_error_and_exit "[cdepl] Please provide a valid deploy script (.cdepl file)"
+    util_log_error_and_exit "[cdepl] Please provide a valid deploy script (.cdepl file)"
 fi
 
 ###################################
