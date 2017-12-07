@@ -43,7 +43,7 @@ cdepl_deploy_archive_out_path()
 
 	util_log "[deploy] Archiving $__DEPLOY_CUR_OUT_PATH to $archive"
 
-	cdepl_cluster_login_cmd "cd $__DEPLOY_OUT_PATH && tar -czvf $archive  $__DEPLOY_CUR_OUT_PATH > /dev/null 2>&1"
+	cdepl_cluster_login_cmd "cd $__DEPLOY_CUR_OUT_PATH && tar -czvf $archive * > /dev/null 2>&1"
 }
 
 ##
