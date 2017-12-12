@@ -153,7 +153,7 @@ cdepl_script_deploy()
 	done
 
 	# Messages multi threaded benchmark
-	for thread in threads; do
+	for thread in $threads; do
 		for size in $sizes; do
 			for node_count in $(seq 2 $TOTAL_NODES); do
 				benchmark 0 $node_count $msg_count $size $thread $msg_handler
@@ -162,7 +162,7 @@ cdepl_script_deploy()
 	done
 
 	# Request-response multi threaded benchmark
-	for thread in threads; do
+	for thread in $threads; do
 		for size in $sizes; do
 			for node_count in $(seq 2 $TOTAL_NODES); do
 				benchmark 2 $node_count $msg_count $size $thread $msg_handler
