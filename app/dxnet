@@ -361,8 +361,21 @@ cdepl_app_dxnet_node_get_results()
 
 	local logfile=${__DXNET_OUT_LOG_PATH}/node${node}
 
-	printf "%s\n" "$(cdepl_cluster_node_cmd $node "cat $logfile | grep '\[SEND'")"
-	printf "%s\n" "$(cdepl_cluster_node_cmd $node "cat $logfile | grep '\[RECV'")"
+	# Wait for results to appear
+	while true; do
+		local res_send="$(cdepl_cluster_node_cmd $node "cat $logfile | grep '\[SEND'")"
+		local res_recv="$(cdepl_cluster_node_cmd $node "cat $logfile | grep '\[RECV'")"
+
+		if [ ! "$res_send" ] || [ ! "$res_recv" ]; then
+			sleep 1
+			continue
+		fi
+
+		printf "%s\n" "$res_send" 
+		printf "%s\n" "$res_recv"
+		
+		break
+	done
 }
 
 ##
