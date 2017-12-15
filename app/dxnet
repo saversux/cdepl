@@ -368,6 +368,9 @@ cdepl_app_dxnet_node_get_results()
 
 		local res_rtt="$(cdepl_cluster_node_cmd $node "cat $logfile | grep '\[RTT'")"
 
+		# Collect timeouts
+		local res_timeouts="$(cdepl_cluster_node_cmd $node "cat $logfile" | grep '\[DXNet.*timeout' | wc -l)"
+
 		if [ ! "$res_send" ] || [ ! "$res_recv" ]; then
 			sleep 1
 			continue
@@ -380,6 +383,8 @@ cdepl_app_dxnet_node_get_results()
 		if [ "$res_rtt" ]; then
 			printf "%s\n" "$res_rtt"
 		fi
+
+		printf "[TIMEOUTS] %s\n" "$res_timeouts"
 
 		break
 	done
