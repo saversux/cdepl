@@ -366,6 +366,8 @@ cdepl_app_dxnet_node_get_results()
 		local res_send="$(cdepl_cluster_node_cmd $node "cat $logfile | grep '\[SEND'")"
 		local res_recv="$(cdepl_cluster_node_cmd $node "cat $logfile | grep '\[RECV'")"
 
+		local res_rtt="$(cdepl_cluster_node_cmd $node "cat $logfile | grep '\[RTT'")"
+
 		if [ ! "$res_send" ] || [ ! "$res_recv" ]; then
 			sleep 1
 			continue
@@ -373,7 +375,12 @@ cdepl_app_dxnet_node_get_results()
 
 		printf "%s\n" "$res_send" 
 		printf "%s\n" "$res_recv"
-		
+
+		# Not available with messages, only
+		if [ "$res_rtt" ]; then
+			printf "%s\n" "$res_rtt"
+		fi
+
 		break
 	done
 }
