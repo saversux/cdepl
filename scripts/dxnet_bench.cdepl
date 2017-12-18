@@ -1,0 +1,320 @@
+#!/bin/bash
+
+#
+# Comprehensive benchmark for DXNet
+#
+
+# Adjust parameters according to your setup
+NETWORK_TYPE="ib"
+
+# Cluster type and user selected
+CLUSTER_TYPE=""
+CLUSTER_USER=""
+
+# Total nodes to use
+TOTAL_NODES=""
+
+# Output path for log files, config files depending on the application deployed
+OUT_PATH=""
+
+# DXNet path
+DXNET_PATH=""
+
+# All results are compressed and stored here
+RESULT_ARCHIVES_OUT_PATH=""
+
+benchmark()
+{
+	local workload=$1
+	local total_nodes=$2
+	local msg_count=$3
+	local msg_size=$4
+	local threads=$5
+	local msg_handler=$6
+
+	echo "##### Benchmark: $workload $total_nodes $msg_count $msg_size $threads $msg_handler"
+
+	# Initialize dxnet deployment
+	cdepl_app_dxnet_init $DXNET_PATH
+	
+	# Kill any still running instances from previous deployments
+	for i in $(seq 0 $((total_nodes - 1))); do
+		cdepl_app_dxnet_node_cleanup $i
+	done
+
+	# Parameters
+	depl_app_dxnet_workload $workload
+	depl_app_dxnet_msg_count $(($msg_count / ($total_nodes - 1)))
+	depl_app_dxnet_msg_size $msg_size
+
+	# All to all
+	# On two nodes only -> point to point
+	for i in $(seq 0 $((total_nodes - 1))); do
+		local targets=""
+		
+		for j in $(seq 0 $((total_nodes - 1))); do
+			if [ "$i" != "$j" ]; then
+				targets="$targets $j"
+			fi
+		done
+
+		cdepl_app_dxnet_node_send_targets $i $targets
+	done
+
+    # Set network type
+	depl_app_dxnet_network $NETWORK_TYPE
+
+	# Set individual parameters for nodes
+	for i in $(seq 0 $((total_nodes - 1))); do
+		cdepl_app_dxnet_node_send_threads $i $threads
+		cdepl_app_dxnet_node_message_handler $i $msg_handler
+
+		#cdepl_app_dxnet_remote_debug $i $((11110 + i))
+
+		if [ "$NETWORK_TYPE" = "ib" ]; then
+			cdepl_app_dxnet_run_as_sudo $i
+		fi
+	done
+
+	# Start all instances
+	for i in $(seq 0 $((total_nodes - 1))); do
+		cdepl_app_dxnet_start_node $i
+	done
+
+	# Wait for all instances to finish, this also checks for runtime errors
+	for i in $(seq 0 $((total_nodes - 1))); do
+		cdepl_app_dxnet_node_wait_finished $i
+	done
+
+	# Print results
+	for i in $(seq 0 $((total_nodes - 1))); do
+		printf "######################\nResults node $i\n"
+		cdepl_app_dxnet_node_get_results $i
+		printf "######################\n"
+	done
+
+	# Kill any leftovers
+	for i in $(seq 0 $((total_nodes - 1))); do
+		cdepl_app_dxnet_node_cleanup $i
+	done
+
+	# Pack results and move
+	cdepl_deploy_archive_out_path "dxnet_${workload}_${total_nodes}_${msg_size}_${threads}_${msg_handler}" $RESULT_ARCHIVES_OUT_PATH
+
+	# Reset output path for next benchmark call
+	cdepl_deploy_out_path $OUT_PATH
+}
+
+##
+# Base line for throughput and saturation of messages with increasing node 
+# count and different payload sizes
+##
+benchmark_1()
+{
+	local nodes="2 4 8 16 24 32 40 48 56 64 72 80 88 96 104 112"
+	local sizes="1 2 4 8 16 32 64 128 256 512 1024 2048 4096"
+	local msg_count=100000000
+	local thread="1"
+	local msg_handler="2"
+
+	echo "##### benchmark 1 ######"
+
+	for node in $nodes; do
+		if [ "$node" -le "$TOTAL_NODES" ]; then
+			for size in $sizes; do
+				benchmark 0 $node $msg_count $size $thread $msg_handler
+			done
+		fi
+	done
+
+	echo "##### benchmark 1 finished ######"
+}
+
+##
+# Base line for throughput and scalability with very small messages (16 byte) 
+# with increasing node count and different thread counts
+##
+benchmark_2()
+{
+	local nodes="2 4 8 16 24 32 40 48 56 64 72 80 88 96 104 112"
+	local size="16"
+	local msg_count=100000000
+	local threads="1 2 4 8 16 32 64 128"
+	local msg_handler="8"
+
+	echo "##### benchmark 2 ######"
+
+	for node in $nodes; do
+		if [ "$node" -le "$TOTAL_NODES" ]; then
+			for thread in $threads; do
+				benchmark 0 $node $msg_count $size $thread $msg_handler
+			done
+		fi
+	done
+
+	echo "##### benchmark 2 finished ######"
+}
+
+##
+# Base line for request-response with minimal payload to measure avgerage 
+# and 95th, 99th, 99.9th percentile latencies with increasing node count on
+# different thread counts
+##
+benchmark_3()
+{
+	local nodes="2 4 8 16 24 32 40 48 56 64 72 80 88 96 104 112"
+	local size="1"
+	local msg_count=100000000
+	local threads="1 2 4 8 16 32 64 128"
+	local msg_handler="2"
+
+	echo "##### benchmark 3 ######"
+
+	for node in $nodes; do
+		if [ "$node" -le "$TOTAL_NODES" ]; then
+			for thread in $threads; do
+				benchmark 2 $node $msg_count $size $thread $msg_handler
+			done
+		fi
+	done
+
+	echo "##### benchmark 3 finished ######"
+}
+
+##
+# High request-response load with minimal payload to show latency/throughput 
+# with increasing node node and different thread counts
+##
+benchmark_4()
+{
+	local nodes="2 4 8 16 24 32 40 48 56 64 72 80 88 96 104 112"
+	local size="1"
+	local msg_count=100000000
+	local threads="1 2 4 8 16 32 64 128"
+	local msg_handler="8"
+
+	echo "##### benchmark 4 ######"
+
+	for node in $nodes; do
+		if [ "$node" -le "$TOTAL_NODES" ]; then
+			for thread in $threads; do
+				benchmark 2 $node $msg_count $size $thread $msg_handler
+			done
+		fi
+	done
+
+	echo "##### benchmark 4 finished ######"
+}
+
+##
+# Key-value storage/graph pattern, request-response with 64 byte payload to 
+# show latency/throughput with increasing node count on different thread counts
+##
+benchmark_5()
+{
+	local nodes="2 4 8 16 24 32 40 48 56 64 72 80 88 96 104 112"
+	local size="64"
+	local msg_count=100000000
+	local threads="1 2 4 8 16 32 64 128"
+	local msg_handler="8"
+
+	echo "##### benchmark 5 ######"
+
+	for node in $nodes; do
+		if [ "$node" -le "$TOTAL_NODES" ]; then
+			for thread in $threads; do
+				benchmark 2 $node $msg_count $size $thread $msg_handler
+			done
+		fi
+	done
+
+	echo "##### benchmark 5 finished ######"
+}
+
+cdepl_script_process_cmd_args()
+{
+	local user="$1"
+	local cluster_type="$2"
+	local total_nodes="$3"
+
+	if [ ! "$user" ]; then
+		util_log_error "Missing argument 'user'"
+		util_log_error_and_exit "Usage: <user> <cluster_type> <total_nodes>"
+	fi
+
+	if [ ! "$cluster_type" ]; then
+		util_log_error "Missing argument 'cluster_type'"
+		util_log_error_and_exit "Usage: <user> <cluster_type> <total_nodes>"
+	fi
+
+	if [ ! "$total_nodes" ]; then
+		util_log_error "Missing argument 'total_nodes'"
+		util_log_error_and_exit "Usage: <user> <cluster_type> <total_nodes>"
+	fi
+
+	CLUSTER_USER="$user"
+	CLUSTER_TYPE="$cluster_type"
+	TOTAL_NODES="$total_nodes"
+
+	OUT_PATH="/home/${CLUSTER_USER}/scratch"
+	DXNET_PATH="/home/${CLUSTER_USER}/dxnet"
+
+	RESULT_ARCHIVES_OUT_PATH="${OUT_PATH}/dxnet_results"
+}
+
+cdepl_script_cluster_node_setup()
+{
+	# Set the log level to output debug info
+	util_log_set_level "$UTIL_LOG_LEVEL_DEBUG"
+
+	# Init the cluster environment to deploy to
+	cdepl_cluster_init $CLUSTER_TYPE $CLUSTER_USER
+
+	# Load application modules of apps you want to deploy
+	cdepl_cluster_app_load "dxnet"
+
+	# Alloc total number of nodes for this deployment
+	cdepl_cluster_node_alloc $TOTAL_NODES
+
+	# Walltime for your deployment, might be ignored depending
+	# on cluster environment selected
+	cdepl_cluster_walltime "01:00:00"
+
+	# Reserve all nodes exclusive (all resources available)
+	for i in $(seq 0 $((TOTAL_NODES - 1))); do
+		cdepl_cluster_node_excl $i
+	done
+
+	# Set our output path for log files and configurations 
+	# for the applications deployed
+	cdepl_deploy_out_path $OUT_PATH
+}
+
+cdepl_script_environment_setup()
+{
+	for i in $(seq 0 $((TOTAL_NODES - 1))); do
+		cdepl_cluster_resolve_dependency $i "java" "1.8"
+	done
+}
+
+cdepl_script_deploy()
+{
+	cdepl_cluster_login_cmd "mkdir -p $RESULT_ARCHIVES_OUT_PATH"
+
+	benchmark_1
+	benchmark_2
+	benchmark_3
+	benchmark_4
+	benchmark_5
+
+	# Done
+	echo "Archived results can be found in $RESULT_ARCHIVES_OUT_PATH"
+}
+
+cdepl_script_cleanup()
+{
+	# Kill any leftovers
+	for i in $(seq 0 $((TOTAL_NODES - 1))); do
+		cdepl_app_dxnet_node_cleanup $i
+	done
+}
