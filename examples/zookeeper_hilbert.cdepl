@@ -23,6 +23,11 @@ ZK_PATH="/home/${CLUSTER_USER}/zookeeper"
 ZK_NODE=0
 ZK_PORT=2181
 
+cdepl_script_process_cmd_args()
+{
+	local stub=""
+}
+
 cdepl_script_cluster_node_setup()
 {
 	# Set the log level to output debug info

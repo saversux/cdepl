@@ -24,6 +24,11 @@ DX_PATH="/home/${CLUSTER_USER}/dxram"
 
 DX_PEER_PORT_START="22222"
 
+cdepl_script_process_cmd_args()
+{
+	local stub=""
+}
+
 cdepl_script_cluster_node_setup()
 {
 	# Set the log level to output debug info
