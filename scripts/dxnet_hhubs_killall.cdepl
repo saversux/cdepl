@@ -1,0 +1,86 @@
+#!/bin/bash
+
+#
+# Kill all (still) running dxnet instances on reserved nodes on
+# the HHUBS cluster
+#
+
+TOTAL_NODES=""
+CLUSTER_USER=""
+
+# Output path for log files, config files depending
+# on the application deployed
+OUT_PATH=""
+
+# DXNET path
+DXNET_PATH=""
+
+# Cluster type
+CLUSTER_TYPE="hhubs"
+
+cdepl_script_process_cmd_args()
+{
+	local user="$1"
+	local node_count="$2"
+
+	if [ ! "$user" ]; then
+		util_log_error "Missing argument 'user'"
+		util_log_error_and_exit "Usage: <user> <node_count>"
+	fi
+
+	if [ ! "$node_count" ]; then
+		util_log_error "Missing argument 'node count'"
+		util_log_error_and_exit "Usage: <user> <node_count>"
+	fi
+
+	CLUSTER_USER="$user"
+	TOTAL_NODES="$node_count"
+
+	OUT_PATH="/home/${CLUSTER_USER}/scratch"
+	DXNET_PATH="/home/${CLUSTER_USER}/dxnet"
+}
+
+cdepl_script_cluster_node_setup()
+{
+	# Set the log level to output debug info
+	util_log_set_level "$UTIL_LOG_LEVEL_DEBUG"
+
+	# Init the cluster environment to deploy to
+	cdepl_cluster_init $CLUSTER_TYPE $CLUSTER_USER
+
+	# Load application modules of apps you want to deploy
+	cdepl_cluster_app_load "dxnet"
+
+	# Alloc total number of nodes for this deployment
+	cdepl_cluster_node_alloc $TOTAL_NODES
+
+	# Reserve all nodes exclusive (all resources available)
+	for i in $(seq 0 $((TOTAL_NODES - 1))); do
+		cdepl_cluster_node_excl $i
+	done
+
+	# Set our output path for log files and configurations 
+	# for the applications deployed
+	cdepl_deploy_out_path $OUT_PATH
+}
+
+cdepl_script_environment_setup()
+{
+	local stub=""
+}
+
+cdepl_script_deploy()
+{
+	# Initialize dxnet deployment
+	cdepl_app_dxnet_init $DXNET_PATH
+	
+	# Kill any still running instances from previous deployments
+	for i in $(seq 0 $((TOTAL_NODES - 1))); do
+		cdepl_app_dxnet_node_cleanup $i
+	done
+}
+
+cdepl_script_cleanup()
+{
+	local stub=""
+}
