@@ -11,10 +11,13 @@ source ${CDEPL_SCRIPT_DIR}/util.sh
 source ${CDEPL_SCRIPT_DIR}/deploy.sh
 source ${CDEPL_SCRIPT_DIR}/cluster.sh
 
-##################################
-# Exit trap for cleanup on error #
-##################################
+##############################
+# "Private"/helper functions #
+##############################
 
+##
+# Exit trap for cleanup on error
+##
 __cdepl_cleanup_on_exit()
 {
     # Check for exit code
@@ -33,6 +36,25 @@ __cdepl_cleanup_on_exit()
     fi
 }
 
+##
+# Check and assert deploy script interface
+##
+__cdepl_script_assert_function()
+{
+	local func=$1
+	local script=$2
+	
+	local type="$(type -t $func)"
+
+	if [ ! "$type" ]; then
+		util_log_error_and_exit "[cdepl] Missing function $func in script $script"
+	fi
+
+	if [ "$type" != "function" ]; then
+		util_log_error_and_exit "[cdepl] $func is not a function ($type) in script $script"
+	fi
+}
+
 ###############
 # Entry point #
 ###############
@@ -41,7 +63,7 @@ _util_check_bash_version
 _util_check_programs
 
 if [ ! "$1" ]; then
-    echo "Usage: $0 <deploy_script.cdepl>"
+    echo "Usage: $0 <deploy_script.cdepl> [args ...]"
     exit -1
 fi
 
@@ -56,15 +78,6 @@ if [ "${filename##*.}" != "cdepl" ]; then
     util_log_error_and_exit "[cdepl] Please provide a valid deploy script (.cdepl file)"
 fi
 
-###################################
-# Start cluster deployment stages #
-###################################
-# Include deploy script
-source $1
-
-# Hook our exit trap
-trap __cdepl_cleanup_on_exit EXIT
-
 util_log "========================================="
 util_log "cdepl v$CDEPL_VERSION git $CDEPL_GITREV"
 util_log "Executing deployment script: $1"
@@ -72,6 +85,23 @@ util_log "Working directory: $WORKING_DIRECTORY"
 util_log "$(date '+%Y-%m-%d %H:%M:%S:%3N')"
 util_log "========================================="
 
+# Include deploy script
+source $1
+
+# Check if script implements all required functions
+__cdepl_script_assert_function cdepl_script_process_cmd_args
+__cdepl_script_assert_function cdepl_script_cluster_node_setup
+__cdepl_script_assert_function cdepl_script_environment_setup
+__cdepl_script_assert_function cdepl_script_deploy
+__cdepl_script_assert_function cdepl_script_cleanup
+
+# Allow arguments to be passed to scripts
+cdepl_script_process_cmd_args "${@:2}"
+
+# Hook our exit trap now
+trap __cdepl_cleanup_on_exit EXIT
+
+# Start cluster deployment stages
 util_log "[cdepl] Cluster node setup..."
 cdepl_script_cluster_node_setup
 _cdepl_cluster_on_node_setup_finish
