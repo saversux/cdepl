@@ -247,6 +247,184 @@ create_csv_single_benchmark()
     printf "$node_details" >> "$out_file"
 }
 
+create_csv_single_benchmark_progress()
+{
+    local deployment_out_dir=$1
+    local out_path=$2
+
+    if [ ! -d "$deployment_out_dir" ]; then
+        echo "Deployment out dir $deployment_out_dir does not exist"
+        exit 1
+    fi
+
+    mkdir -p $out_path
+
+    # Check if directory structure is correct
+    if [ ! -d "${deployment_out_dir}/dxnet/log" ]; then
+        echo "Invalid directory structure in $deployment_out_dir"
+        exit 1
+    fi
+
+    echo "Creating progress table of log output from ${deployment_out_dir}"
+
+    # Detect parameters using the directory
+    local out_file=""
+
+    local node_count=$(ls -1 "${deployment_out_dir}/dxnet/log" | wc -l)
+
+    for logfile in ${deployment_out_dir}/dxnet/log/*; do
+        local file="$(basename $logfile)"
+        local filename="${file%}"
+        local node_id=$(echo $filename | sed -n -E "s/node([0-9]*)/\1/p")
+        echo "Parsing $filename..."
+
+        local workload=$(cat $logfile | sed -n -E "s/\[SEND WORKLOAD\] ([0-9.]*)/\1/p")
+
+        if [ ! "$workload" ]; then
+            workload="unkn"
+        fi
+
+        local msg_size=$(cat $logfile |sed -n -E "s/\[SEND MSG SIZE\] ([0-9.]*)/\1/p")
+
+        if [ ! "$msg_size" ]; then
+            msg_size="unkn"
+        fi
+
+        local threads=$(cat $logfile | sed -n -E "s/\[SEND THREADS\] ([0-9.]*)/\1/p")
+
+        if [ ! "$threads" ]; then
+            threads="unkn"
+        fi
+
+        local msg_handlers=$(cat $logfile | sed -n -E "s/\[SEND MSG HANDLERS\] ([0-9.]*)/\1/p")
+
+        if [ ! "$msg_handlers" ]; then
+            msg_handlers="unkn"
+        fi
+
+        out_file="${out_path}/dxnet_bench_progress_${node_id}_${workload}_${node_count}_${msg_size}_${threads}_${msg_handlers}.csv"
+
+        # Print header with metadata
+        printf "#node_id $node_id, workload $workload, nodes $node_count, msg_size $msg_size, threads $threads, msg_handlers $msg_handlers\n" >> "$out_file"
+        printf "#timestamp_sec;tx_mb_sec;rx_mb_sec;txo_mb_sec;rxo_mb_sec\n" >> "$out_file"
+
+        # Filter data and print
+        cat $logfile | sed -n -E 's/.*\[PROGRESS\] ([0-9]*).*TX ([0-9.]*).*RX ([0-9.]*).*TXO ([0-9.]*).*RXO ([0-9.]*)/\1;\2;\3;\4;\5/p' >> "$out_file"
+    done 
+}
+
+# Create a table with the progress of all nodes of a single benchmark iteration
+# to compare the send and recv throughputs of the nodes
+create_csvs_nodes_benchmark_progress()
+{
+    local table_path=$1
+    local out_table_path=$2
+
+    mkdir -p $out_table_path
+
+    # First, iterate the single bench progress tables and collect the different 
+    # combinations
+    local list_count="0"
+    local list=()
+    local out_table_header=()
+
+    for f in ${table_path}/*; do
+        local file="$(basename $f)"
+        local filename="${file%.csv}"
+
+        if [[ "$filename" == "dxnet_bench_progress_"* ]]; then
+            local file_node_id=$(cat $f | sed -n -E "s/.*node_id ([0-9]*).*/\1/p")
+            local file_workload=$(cat $f | sed -n -E "s/.*workload ([0-9]*).*/\1/p")
+            local file_nodes=$(cat $f | sed -n -E "s/.*nodes ([0-9]*).*/\1/p")
+            local file_msg_size=$(cat $f | sed -n -E "s/.*msg_size ([0-9]*).*/\1/p")
+            local file_threads=$(cat $f | sed -n -E "s/.*threads ([0-9]*).*/\1/p")
+            local file_msg_handlers=$(cat $f | sed -n -E "s/.*msg_handlers ([0-9]*).*/\1/p")
+
+            # check if entry exists
+            local exists=""
+            for i in $(seq 0 $list_count); do
+                if [ "{list[$i]}" = "*_${file_workload}_${file_nodes}_${file_msg_size}_${file_threads}_${file_msg_handlers}" ]; then
+                    exists="1"
+                    break
+                fi
+            done
+
+            if [ ! "$exists" ]; then
+                list[$list_count]="*_${file_workload}_${file_nodes}_${file_msg_size}_${file_threads}_${file_msg_handlers}"
+                out_table_header[$list_count]="#workload ${file_workload}, nodes ${file_nodes}, msg_size ${file_msg_size}, threads ${file_threads}, msg_handlers ${file_msg_handlers}"
+                list_count=$((list_count + 1))
+            fi
+        fi
+    done 
+
+    # Now, for each combination we found, grab the benchmark outputs with 
+    # different node ids and create the tables
+    for i in $(seq 0 $((list_count - 1))); do
+        local out_file="${out_table_path}/dxnet_bench_progress_${list[$i]}.csv"
+
+        echo "Parsing for nodes progress table dxnet_bench_progress_${list[$i]}..."
+
+        # replace * with x for filename
+        out_file=$(echo "$out_file" | sed -e 's/\*/x/')
+
+        local max_data_count="0"
+
+        local max_node_count="0"
+        local max_time_sec="0"
+        local data_txo=()
+        local data_rxo=()
+
+        # Iterate all files matching the pattern
+        for file in ${table_path}/dxnet_bench_progress_${list[$i]}.csv; do
+            local file_txo=$(cat $file | tail -n+3 | cut -d ';' -f 4)
+            local file_rxo=$(cat $file | tail -n+3 | cut -d ';' -f 5)
+
+            local file_node_id=$(cat $file | sed -n -E "s/.*node_id ([0-9]*).*/\1/p")
+
+            if [ "$((file_node_id + 1))" -gt "$max_node_count" ]; then
+                max_node_count="$((file_node_id + 1))"
+            fi
+
+            local time_count="$(echo "$file_txo" | wc -l)"
+
+            if [ "$time_count" -gt "$max_time_sec" ]; then
+                max_time_sec="$time_count"
+            fi
+
+            data_txo[$file_node_id]="$file_txo"
+            data_rxo[$file_node_id]="$file_rxo"
+        done
+
+        # Table header
+        echo "#node_count $max_node_count" > "$out_file"
+
+        header="#time_sec"
+
+        # Assemble header
+        for k in $(seq 0 $((max_node_count - 1))); do
+            header="${header};node_${k}_txo_mb;node_${k}_rxo_mb"
+        done
+
+        echo "$header" >> "$out_file"
+
+        # Table lines
+        for j in $(seq 1 $max_time_sec); do
+            # First column is time in sec
+            line="${j}"
+            
+            # Assemble lines
+            for k in $(seq 0 $((max_node_count - 1))); do
+                txo_item=$(echo "${data_txo[$k]}" | head -n $j | tail -n 1)
+                rxo_item=$(echo "${data_rxo[$k]}" | head -n $j | tail -n 1)
+
+                line="${line};${txo_item};${rxo_item}"
+            done
+
+            echo "$line" >> "$out_file"
+        done
+    done 
+}
+
 create_csvs_increasing_node_counts()
 {
     local table_path=$1
@@ -549,7 +727,52 @@ plot_single_benchmark()
     echo "\"${in_table}\" using 9:xtic(1) title \"Recv full message\" ls 4, \\" >> ${plot_script}
 
 	# Execute plot
-	gnuplot ${plot_script} > /dev/null 2>&1
+	gnuplot ${plot_script}
+}
+
+# Plot a single benchmark progress with rx, tx, rxo and txo
+plot_single_benchmark_progress()
+{
+    local in_table=$1
+    local out_dir=$2
+
+    local file="$(basename $in_table)"
+    local filename="${file%.csv}"
+
+    mkdir -p "${out_dir}/gp"
+
+    local plot_script="${out_dir}/gp/${filename}.gp"
+
+    # Generate gnuplot script
+	echo "set terminal pdf" > ${plot_script}
+	echo "set output \"${out_dir}/${filename}.pdf\"" >> ${plot_script}
+
+	echo "set xlabel 'Time (sec)'" >> ${plot_script}
+	echo "set ylabel 'Throughput (MB)'" >> ${plot_script}
+
+	echo "set key horiz" >> ${plot_script}
+	echo "set key right top" >> ${plot_script}
+
+    echo "set style line 1 lt 1 lc rgb '#696969'" >> ${plot_script}
+	echo "set style line 2 lt 2 lc rgb '#9ACD32'" >> ${plot_script}
+	echo "set style line 3 lt 3 lc rgb '#1E90FF'" >> ${plot_script}
+	echo "set style line 4 lt 4 lc rgb '#A52A2A'" >> ${plot_script}
+
+	# Set thousands separator. Depends on locale settings
+	echo "set decimal locale" >> ${plot_script}
+	echo "set format y \"%'g\"" >> ${plot_script}
+
+    echo "set datafile separator \";\"" >> ${plot_script}
+
+	echo "plot \\" >> ${plot_script}
+
+    echo "\"${in_table}\" using 1:2 with lines title \"Send payload\" ls 1, \\" >> ${plot_script}
+    echo "\"${in_table}\" using 1:3 with lines title \"Send full message\" ls 2, \\" >> ${plot_script}
+    echo "\"${in_table}\" using 1:4 with lines title \"Recv payload\" ls 3, \\" >> ${plot_script}
+    echo "\"${in_table}\" using 1:5 with lines title \"Recv full message\" ls 4, \\" >> ${plot_script}
+
+	# Execute plot
+	gnuplot ${plot_script}
 }
 
 plot_increasing_node_count()
@@ -606,7 +829,7 @@ plot_increasing_node_count()
     echo "\"\" using 1:9:17:24 with yerrorbars title \"Avg. recv payload + overhead\" ls 4" >> ${plot_script}
 
 	# Execute plot
-	gnuplot ${plot_script} #> /dev/null 2>&1
+	gnuplot ${plot_script}
 }
 
 # Use multiple tables and plots the avg, min and max with increasing node count, msg size or thread count (x axis)
@@ -658,7 +881,7 @@ plot_increasing_msg_size_or_thread_count()
     echo "\"\" using 1:9:17:24 with yerrorbars title \"Avg. recv payload + overhead\" ls 4" >> ${plot_script}
 
 	# Execute plot
-	gnuplot ${plot_script} > /dev/null 2>&1
+	gnuplot ${plot_script}
 }
 
 ###############
@@ -688,9 +911,13 @@ table_path="${out_path}/tables"
 # Iterate unpacked folders and create one table for each folder
 for f in ${unpacked_path}/*; do
     create_csv_single_benchmark $f ${table_path}/single
+    create_csv_single_benchmark_progress $f ${table_path}/single_progress
 done
 
 # Use the single benchmark results to create further tables
+
+# Progress of all nodes on one benchmark
+create_csvs_nodes_benchmark_progress ${table_path}/single_progress ${table_path}/nodes_progress
 
 # With increasing node count
 create_csvs_increasing_node_counts ${table_path}/single ${table_path}/node_count
@@ -712,6 +939,11 @@ mkdir -p $plot_path
 # Results of single benchmark
 for f in ${table_path}/single/*; do
     plot_single_benchmark $f ${plot_path}/single
+done
+
+# Progress of single benchmark
+for f in ${table_path}/single_progress/*; do
+    plot_single_benchmark_progress $f ${plot_path}/single_progress
 done
 
 # Node counts
