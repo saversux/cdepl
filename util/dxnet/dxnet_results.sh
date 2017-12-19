@@ -522,7 +522,7 @@ plot_single_benchmark()
 	echo "set ylabel 'Throughput MB/sec'" >> ${plot_script}
 
 	echo "set key horiz" >> ${plot_script}
-	echo "set key left top" >> ${plot_script}
+	echo "set key right top" >> ${plot_script}
 
     echo "set style data histogram" >> ${plot_script}
     echo "set style histogram cluster gap 1" >> ${plot_script}
@@ -581,7 +581,7 @@ plot_increasing_node_count()
 	echo "set ylabel 'Throughput MB/sec'" >> ${plot_script}
 
 	echo "set key horiz" >> ${plot_script}
-	echo "set key left top" >> ${plot_script}
+	echo "set key right top" >> ${plot_script}
 
     echo "set style line 1 lt 1 lc rgb '#696969'" >> ${plot_script}
 	echo "set style line 2 lt 2 lc rgb '#9ACD32'" >> ${plot_script}
@@ -599,11 +599,11 @@ plot_increasing_node_count()
     echo "\"${in_table}\" using 1:4 with lines notitle ls 1, \\" >> ${plot_script}
     echo "\"\" using 1:4:12:20 with yerrorbars title \"Avg. send payload\" ls 1, \\" >> ${plot_script}
     echo "\"${in_table}\" using 1:5 with lines notitle ls 2, \\" >> ${plot_script}
-    echo "\"\" using 1:5:13:21 with yerrorbars title \"Avg. send payload\" ls 2, \\" >> ${plot_script}
+    echo "\"\" using 1:5:13:21 with yerrorbars title \"Avg. send payload + overhead\" ls 2, \\" >> ${plot_script}
     echo "\"${in_table}\" using 1:8 with lines notitle ls 3, \\" >> ${plot_script}
-    echo "\"\" using 1:8:16:24 with yerrorbars title \"Avg. send payload\" ls 3, \\" >> ${plot_script}
+    echo "\"\" using 1:8:16:24 with yerrorbars title \"Avg. recv payload\" ls 3, \\" >> ${plot_script}
     echo "\"${in_table}\" using 1:9 with lines notitle ls 4, \\" >> ${plot_script}
-    echo "\"\" using 1:9:17:24 with yerrorbars title \"Avg. send payload\" ls 4" >> ${plot_script}
+    echo "\"\" using 1:9:17:24 with yerrorbars title \"Avg. recv payload + overhead\" ls 4" >> ${plot_script}
 
 	# Execute plot
 	gnuplot ${plot_script} #> /dev/null 2>&1
@@ -633,7 +633,7 @@ plot_increasing_msg_size_or_thread_count()
 	echo "set ylabel 'Throughput MB/sec'" >> ${plot_script}
 
 	echo "set key horiz" >> ${plot_script}
-	echo "set key left top" >> ${plot_script}
+	echo "set key right top" >> ${plot_script}
 
     echo "set style line 1 lt 1 lc rgb '#696969'" >> ${plot_script}
 	echo "set style line 2 lt 2 lc rgb '#9ACD32'" >> ${plot_script}
@@ -651,11 +651,11 @@ plot_increasing_msg_size_or_thread_count()
     echo "\"${in_table}\" using 1:4 with lines notitle ls 1, \\" >> ${plot_script}
     echo "\"\" using 1:4:12:20 with yerrorbars title \"Avg. send payload\" ls 1, \\" >> ${plot_script}
     echo "\"${in_table}\" using 1:5 with lines notitle ls 2, \\" >> ${plot_script}
-    echo "\"\" using 1:5:13:21 with yerrorbars title \"Avg. send payload\" ls 2, \\" >> ${plot_script}
+    echo "\"\" using 1:5:13:21 with yerrorbars title \"Avg. send payload + overhead\" ls 2, \\" >> ${plot_script}
     echo "\"${in_table}\" using 1:8 with lines notitle ls 3, \\" >> ${plot_script}
-    echo "\"\" using 1:8:16:24 with yerrorbars title \"Avg. send payload\" ls 3, \\" >> ${plot_script}
+    echo "\"\" using 1:8:16:24 with yerrorbars title \"Avg. recv payload\" ls 3, \\" >> ${plot_script}
     echo "\"${in_table}\" using 1:9 with lines notitle ls 4, \\" >> ${plot_script}
-    echo "\"\" using 1:9:17:24 with yerrorbars title \"Avg. send payload\" ls 4" >> ${plot_script}
+    echo "\"\" using 1:9:17:24 with yerrorbars title \"Avg. recv payload + overhead\" ls 4" >> ${plot_script}
 
 	# Execute plot
 	gnuplot ${plot_script} > /dev/null 2>&1
