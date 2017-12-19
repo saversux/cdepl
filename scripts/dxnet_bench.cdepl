@@ -31,6 +31,7 @@ benchmark()
 	local msg_size=$4
 	local threads=$5
 	local msg_handler=$6
+	local benchmark_name=$7
 
 	echo "##### Benchmark: $workload $total_nodes $msg_count $msg_size $threads $msg_handler"
 
@@ -99,7 +100,7 @@ benchmark()
 	done
 
 	# Pack results and move
-	cdepl_deploy_archive_out_path "dxnet_${workload}_${total_nodes}_${msg_size}_${threads}_${msg_handler}" $RESULT_ARCHIVES_OUT_PATH
+	cdepl_deploy_archive_out_path "dxnet_${workload}_${total_nodes}_${msg_size}_${threads}_${msg_handler}" ${RESULT_ARCHIVES_OUT_PATH}/${benchmark_name}
 
 	# Reset output path for next benchmark call
 	cdepl_deploy_out_path $OUT_PATH
@@ -115,14 +116,14 @@ benchmark_1()
 	local sizes="1 2 4 8 16 32 64 128 256 512 1024 2048 4096"
 	local msg_count=100000000
 	local thread="1"
-	local msg_handler="2"
+	local msg_handler="4"
 
 	echo "##### benchmark 1 ######"
 
 	for node in $nodes; do
 		if [ "$node" -le "$TOTAL_NODES" ]; then
 			for size in $sizes; do
-				benchmark 0 $node $msg_count $size $thread $msg_handler
+				benchmark 0 $node $msg_count $size $thread $msg_handler "benchmark_1"
 			done
 		fi
 	done
@@ -147,7 +148,7 @@ benchmark_2()
 	for node in $nodes; do
 		if [ "$node" -le "$TOTAL_NODES" ]; then
 			for thread in $threads; do
-				benchmark 0 $node $msg_count $size $thread $msg_handler
+				benchmark 0 $node $msg_count $size $thread $msg_handler "benchmark_2"
 			done
 		fi
 	done
@@ -173,7 +174,7 @@ benchmark_3()
 	for node in $nodes; do
 		if [ "$node" -le "$TOTAL_NODES" ]; then
 			for thread in $threads; do
-				benchmark 2 $node $msg_count $size $thread $msg_handler
+				benchmark 2 $node $msg_count $size $thread $msg_handler "benchmark_3"
 			done
 		fi
 	done
@@ -198,7 +199,7 @@ benchmark_4()
 	for node in $nodes; do
 		if [ "$node" -le "$TOTAL_NODES" ]; then
 			for thread in $threads; do
-				benchmark 2 $node $msg_count $size $thread $msg_handler
+				benchmark 2 $node $msg_count $size $thread $msg_handler "benchmark_4"
 			done
 		fi
 	done
@@ -223,7 +224,7 @@ benchmark_5()
 	for node in $nodes; do
 		if [ "$node" -le "$TOTAL_NODES" ]; then
 			for thread in $threads; do
-				benchmark 2 $node $msg_count $size $thread $msg_handler
+				benchmark 2 $node $msg_count $size $thread $msg_handler "benchmark_5"
 			done
 		fi
 	done
@@ -259,7 +260,7 @@ cdepl_script_process_cmd_args()
 	OUT_PATH="/home/${CLUSTER_USER}/scratch"
 	DXNET_PATH="/home/${CLUSTER_USER}/dxnet"
 
-	RESULT_ARCHIVES_OUT_PATH="${OUT_PATH}/dxnet_results"
+	RESULT_ARCHIVES_OUT_PATH="${OUT_PATH}/dxnet_bench_results"
 }
 
 cdepl_script_cluster_node_setup()
