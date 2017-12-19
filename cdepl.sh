@@ -101,6 +101,8 @@ cdepl_script_process_cmd_args "${@:2}"
 # Hook our exit trap now
 trap __cdepl_cleanup_on_exit EXIT
 
+start_time=$(date +%s)
+
 # Start cluster deployment stages
 util_log "[cdepl] Cluster node setup..."
 cdepl_script_cluster_node_setup
@@ -121,5 +123,9 @@ cdepl_script_cleanup
 _cdepl_cluster_after_cleanup
 
 util_log "[cdepl] Finished"
+
+end_time=$(date +%s)
+
+util_log "[cdepl] Deployment runtime: $((end_time - start_time)) sec"
 
 exit 0
