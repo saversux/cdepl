@@ -775,6 +775,53 @@ plot_single_benchmark_progress()
 	gnuplot ${plot_script}
 }
 
+# Plot txo and rxo progress of all nodes of one benchmark execution
+plot_nodes_benchmark_progress()
+{
+    local in_table=$1
+    local out_dir=$2
+
+    local file="$(basename $in_table)"
+    local filename="${file%.csv}"
+
+    mkdir -p "${out_dir}/gp"
+
+    local plot_script="${out_dir}/gp/${filename}.gp"
+
+    local node_count="$(cat $in_table | sed -n -E 's/.*node_count ([0-9]*)/\1/p')"
+
+    # Generate gnuplot script
+	echo "set terminal pdf" > ${plot_script}
+	echo "set output \"${out_dir}/${filename}.pdf\"" >> ${plot_script}
+
+	echo "set xlabel 'Time (sec)'" >> ${plot_script}
+	echo "set ylabel 'Throughput (MB)'" >> ${plot_script}
+
+	echo "set key horiz" >> ${plot_script}
+	echo "set key right top" >> ${plot_script}
+
+    echo "set style line 1 lt 1 lc rgb '#696969'" >> ${plot_script}
+	echo "set style line 2 lt 2 lc rgb '#9ACD32'" >> ${plot_script}
+	echo "set style line 3 lt 3 lc rgb '#1E90FF'" >> ${plot_script}
+	echo "set style line 4 lt 4 lc rgb '#A52A2A'" >> ${plot_script}
+
+	# Set thousands separator. Depends on locale settings
+	echo "set decimal locale" >> ${plot_script}
+	echo "set format y \"%'g\"" >> ${plot_script}
+
+    echo "set datafile separator \";\"" >> ${plot_script}
+
+	echo "plot \\" >> ${plot_script}
+
+    for i in $(seq 0 $((node_count - 1))); do
+        echo "\"${in_table}\" using 1:$((2 + 2 * $i)) with lines title \"${i}_TXO\", \\" >> ${plot_script}
+        echo "\"${in_table}\" using 1:$((3 + 2 * $i)) with lines title \"${i}_RXO\", \\" >> ${plot_script}
+    done
+
+	# Execute plot
+	gnuplot ${plot_script}
+}
+
 plot_increasing_node_count()
 {
     local in_table=$1
@@ -920,13 +967,13 @@ done
 create_csvs_nodes_benchmark_progress ${table_path}/single_progress ${table_path}/nodes_progress
 
 # With increasing node count
-create_csvs_increasing_node_counts ${table_path}/single ${table_path}/node_count
+#create_csvs_increasing_node_counts ${table_path}/single ${table_path}/node_count
 
 # With increasing msg size
-create_csvs_increasing_msg_size ${table_path}/single ${table_path}/msg_size
+#create_csvs_increasing_msg_size ${table_path}/single ${table_path}/msg_size
 
 # With increasing (send) threads
-create_csvs_increasing_thread_count ${table_path}/single ${table_path}/threads
+#create_csvs_increasing_thread_count ${table_path}/single ${table_path}/threads
 
 # Remove unpacked logs
 rm -r $unpacked_path
@@ -937,26 +984,31 @@ plot_path="${out_path}/plot"
 mkdir -p $plot_path
 
 # Results of single benchmark
-for f in ${table_path}/single/*; do
-    plot_single_benchmark $f ${plot_path}/single
-done
+#for f in ${table_path}/single/*; do
+#    plot_single_benchmark $f ${plot_path}/single
+#done
 
 # Progress of single benchmark
-for f in ${table_path}/single_progress/*; do
-    plot_single_benchmark_progress $f ${plot_path}/single_progress
+#for f in ${table_path}/single_progress/*; do
+#    plot_single_benchmark_progress $f ${plot_path}/single_progress
+#done
+
+# Progress of nodes of one benchmark execution
+for f in ${table_path}/nodes_progress/*; do
+    plot_nodes_benchmark_progress $f ${plot_path}/nodes_progress
 done
 
 # Node counts
-for f in ${table_path}/node_count/*; do
-    plot_increasing_node_count $f ${plot_path}/node_count
-done
+#for f in ${table_path}/node_count/*; do
+#    plot_increasing_node_count $f ${plot_path}/node_count
+#done
 
 # Msg sizes
-for f in ${table_path}/msg_size/*; do
-    plot_increasing_msg_size_or_thread_count $f ${plot_path}/msg_size "Msg size (bytes)"
-done
+#for f in ${table_path}/msg_size/*; do
+#    plot_increasing_msg_size_or_thread_count $f ${plot_path}/msg_size "Msg size (bytes)"
+#done
 
 # Threads
-for f in ${table_path}/threads/*; do
-    plot_increasing_msg_size_or_thread_count $f ${plot_path}/threads "(Send) threads"
-done
+#for f in ${table_path}/threads/*; do
+#    plot_increasing_msg_size_or_thread_count $f ${plot_path}/threads "(Send) threads"
+#done
