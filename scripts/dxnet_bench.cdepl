@@ -23,17 +23,34 @@ DXNET_PATH=""
 # All results are compressed and stored here
 RESULT_ARCHIVES_OUT_PATH=""
 
-benchmark()
+##
+# Run an all-to-all benchmark. Use this to run point-to-point benchmarks by
+# setting the number of nodes to 2.
+#
+# $1 Workload id (0, 1, 2, 3)
+# $2 Total number of nodes to use for the benchmark
+# $3 Number of messages per node to send to other nodes (in total)
+# $4 Payload size for the messages to send
+# $5 Number of application/send threads
+# $6 Number of message handlers for receiving incoming messages
+# $7 Name of the benchmark configuration (for grouping the archives of the 
+#    benchmark results)
+##
+benchmark_all_to_all()
 {
 	local workload=$1
 	local total_nodes=$2
-	local msg_count=$3
+	local msg_per_node=$3
 	local msg_size=$4
 	local threads=$5
 	local msg_handler=$6
 	local benchmark_name=$7
 
-	echo "##### Benchmark: $workload $total_nodes $msg_count $msg_size $threads $msg_handler"
+	echo "##### All-to-all benchmark: $workload $total_nodes $msg_per_node $msg_size $threads $msg_handler"
+
+	if [ "$total_nodes" -lt "2" ]; then
+		util_log_error_and_exit "Benchmark needs at least two nodes, provided: $total_nodes"
+	fi
 
 	# Initialize dxnet deployment
 	cdepl_app_dxnet_init $DXNET_PATH
@@ -42,11 +59,6 @@ benchmark()
 	for i in $(seq 0 $((total_nodes - 1))); do
 		cdepl_app_dxnet_node_cleanup $i
 	done
-
-	# Parameters
-	depl_app_dxnet_workload $workload
-	depl_app_dxnet_msg_count $(($msg_count / ($total_nodes - 1)))
-	depl_app_dxnet_msg_size $msg_size
 
 	# All to all
 	# On two nodes only -> point to point
@@ -65,12 +77,15 @@ benchmark()
     # Set network type
 	depl_app_dxnet_network $NETWORK_TYPE
 
-	# Set individual parameters for nodes
+	# Set further parameters for nodes
 	for i in $(seq 0 $((total_nodes - 1))); do
+		depl_app_dxnet_workload $i $workload
+		depl_app_dxnet_msg_send_count $i $msg_per_node
+		depl_app_dxnet_msg_recv_count $i $((msg_per_node * (total_nodes - 1)))
+		depl_app_dxnet_msg_size $i $msg_size
+
 		cdepl_app_dxnet_node_send_threads $i $threads
 		cdepl_app_dxnet_node_message_handler $i $msg_handler
-
-		#cdepl_app_dxnet_remote_debug $i $((11110 + i))
 
 		if [ "$NETWORK_TYPE" = "ib" ]; then
 			cdepl_app_dxnet_run_as_sudo $i
@@ -107,35 +122,409 @@ benchmark()
 }
 
 ##
-# Base line for throughput and saturation of messages with increasing node 
-# count and different payload sizes
+# Run a benchmark which creates a ring structure with the specified number of
+# nodes. One node will always send to its predecessor and receive from its
+# successor.
+#
+# $1 Workload id (0, 1, 2, 3)
+# $2 Total number of nodes to use for the benchmark
+# $3 Number of messages per node to send to its successor
+# $4 Payload size for the messages to send
+# $5 Number of application/send threads
+# $6 Number of message handlers for receiving incoming messages
+# $7 Name of the benchmark configuration (for grouping the archives of the 
+#    benchmark results)
 ##
-benchmark_1()
+benchmark_ring()
 {
-	local nodes="2 4 8 16 24 32 40 48 56 64 72 80 88 96 104 112"
-	local sizes="1 2 4 8 16 32 64 128 256 512 1024 2048 4096"
-	local msg_count=100000000
-	local thread="1"
-	local msg_handler="4"
+	local workload=$1
+	local total_nodes=$2
+	local msg_per_node=$3
+	local msg_size=$4
+	local threads=$5
+	local msg_handler=$6
+	local benchmark_name=$7
 
-	echo "##### benchmark 1 ######"
+	echo "##### Ring benchmark: $workload $total_nodes $msg_per_node $msg_size $threads $msg_handler"
 
-	for node in $nodes; do
-		if [ "$node" -le "$TOTAL_NODES" ]; then
-			for size in $sizes; do
-				benchmark 0 $node $msg_count $size $thread $msg_handler "benchmark_1"
-			done
+	if [ "$total_nodes" -lt "2" ]; then
+		util_log_error_and_exit "Benchmark needs at least two nodes, provided: $total_nodes"
+	fi
+
+	# Initialize dxnet deployment
+	cdepl_app_dxnet_init $DXNET_PATH
+	
+	# Kill any still running instances from previous deployments
+	for i in $(seq 0 $((total_nodes - 1))); do
+		cdepl_app_dxnet_node_cleanup $i
+	done
+
+	# Ring structure
+	# One node sends to its successor and receives from its predecessor
+	for i in $(seq 0 $((total_nodes - 2))); do
+		cdepl_app_dxnet_node_send_targets $i $(i + 1)
+	done
+
+	# Last node sends to first
+	cdepl_app_dxnet_node_send_targets $((total_nodes - 1)) 0
+
+    # Set network type
+	depl_app_dxnet_network $NETWORK_TYPE
+
+	# Set further parameters for nodes
+	for i in $(seq 0 $((total_nodes - 1))); do
+		depl_app_dxnet_workload $i $workload
+		depl_app_dxnet_msg_send_count $i $msg_per_node
+		depl_app_dxnet_msg_recv_count $i $msg_per_node
+		depl_app_dxnet_msg_size $i $msg_size
+
+		cdepl_app_dxnet_node_send_threads $i $threads
+		cdepl_app_dxnet_node_message_handler $i $msg_handler
+
+		if [ "$NETWORK_TYPE" = "ib" ]; then
+			cdepl_app_dxnet_run_as_sudo $i
 		fi
 	done
 
-	echo "##### benchmark 1 finished ######"
+	# Start all instances
+	for i in $(seq 0 $((total_nodes - 1))); do
+		cdepl_app_dxnet_start_node $i
+	done
+
+	# Wait for all instances to finish, this also checks for runtime errors
+	for i in $(seq 0 $((total_nodes - 1))); do
+		cdepl_app_dxnet_node_wait_finished $i
+	done
+
+	# Print results
+	for i in $(seq 0 $((total_nodes - 1))); do
+		printf "######################\nResults node $i\n"
+		cdepl_app_dxnet_node_get_results $i
+		printf "######################\n"
+	done
+
+	# Kill any leftovers
+	for i in $(seq 0 $((total_nodes - 1))); do
+		cdepl_app_dxnet_node_cleanup $i
+	done
+
+	# Pack results and move
+	cdepl_deploy_archive_out_path "dxnet_${workload}_${total_nodes}_${msg_size}_${threads}_${msg_handler}" ${RESULT_ARCHIVES_OUT_PATH}/${benchmark_name}
+
+	# Reset output path for next benchmark call
+	cdepl_deploy_out_path $OUT_PATH
 }
 
 ##
-# Base line for throughput and scalability with very small messages (16 byte) 
-# with increasing node count and different thread counts
+# Run a one-to-all benchmark. A single send only node sends to all other
+# receive only nodes.
+#
+# $1 Workload id (0, 1, 2, 3)
+# $2 Total number of nodes to use for the benchmark
+# $3 Number of messages to send to _each_ other node
+# $4 Payload size for the messages to send
+# $5 Number of application/send threads
+# $6 Number of message handlers for receiving incoming messages
+# $7 Name of the benchmark configuration (for grouping the archives of the 
+#    benchmark results)
 ##
-benchmark_2()
+benchmark_one_to_all()
+{
+	local workload=$1
+	local total_nodes=$2
+	local msg_per_node=$3
+	local msg_size=$4
+	local threads=$5
+	local msg_handler=$6
+	local benchmark_name=$7
+
+	echo "##### One-to-all benchmark: $workload $total_nodes $msg_per_node $msg_size $threads $msg_handler"
+
+	if [ "$total_nodes" -lt "2" ]; then
+		util_log_error_and_exit "Benchmark needs at least two nodes, provided: $total_nodes"
+	fi
+
+	# Initialize dxnet deployment
+	cdepl_app_dxnet_init $DXNET_PATH
+	
+	# Kill any still running instances from previous deployments
+	for i in $(seq 0 $((total_nodes - 1))); do
+		cdepl_app_dxnet_node_cleanup $i
+	done
+
+	# One-to-all
+	# One node send only, other nodes recv only
+	cdepl_app_dxnet_node_send_targets 0 "$(seq 1 $((total_nodes - 1)))"
+
+	# Parameters sender
+	depl_app_dxnet_msg_send_count 0 $((msg_per_node * (total_nodes - 1)))
+	depl_app_dxnet_msg_recv_count 0 0
+	cdepl_app_dxnet_node_send_threads 0 $threads
+
+	# Sender might need message handlers for request-response
+	cdepl_app_dxnet_node_message_handler 0 $msg_handler
+	
+	# Parameters receivers
+	for i in $(seq 1 $((total_nodes - 1))); do
+		depl_app_dxnet_msg_send_count $i 0
+		depl_app_dxnet_msg_recv_count $i $msg_per_node
+
+		# Receiver doesn't need send threads
+		cdepl_app_dxnet_node_send_threads 0 0
+		cdepl_app_dxnet_node_message_handler 0 $msg_handler
+	done
+
+	# Set further parameters for all nodes
+	for i in $(seq 0 $((total_nodes - 1))); do
+		depl_app_dxnet_workload $i $workload
+		depl_app_dxnet_msg_size $i $msg_size
+
+		if [ "$NETWORK_TYPE" = "ib" ]; then
+			cdepl_app_dxnet_run_as_sudo $i
+		fi
+	done
+
+    # Set network type
+	depl_app_dxnet_network $NETWORK_TYPE
+
+	# Start all instances
+	for i in $(seq 0 $((total_nodes - 1))); do
+		cdepl_app_dxnet_start_node $i
+	done
+
+	# Wait for all instances to finish, this also checks for runtime errors
+	for i in $(seq 0 $((total_nodes - 1))); do
+		cdepl_app_dxnet_node_wait_finished $i
+	done
+
+	# Print results
+	for i in $(seq 0 $((total_nodes - 1))); do
+		printf "######################\nResults node $i\n"
+		cdepl_app_dxnet_node_get_results $i
+		printf "######################\n"
+	done
+
+	# Kill any leftovers
+	for i in $(seq 0 $((total_nodes - 1))); do
+		cdepl_app_dxnet_node_cleanup $i
+	done
+
+	# Pack results and move
+	cdepl_deploy_archive_out_path "dxnet_${workload}_${total_nodes}_${msg_size}_${threads}_${msg_handler}" ${RESULT_ARCHIVES_OUT_PATH}/${benchmark_name}
+
+	# Reset output path for next benchmark call
+	cdepl_deploy_out_path $OUT_PATH
+}
+
+##
+# Run a all-to-one benchmark. A single receiver node receives messages from
+# all other send only nodes.
+#
+# $1 Workload id (0, 1, 2, 3)
+# $2 Total number of nodes to use for the benchmark
+# $3 Number of messages to send from each other node to single receiver
+# $4 Payload size for the messages to send
+# $5 Number of application/send threads
+# $6 Number of message handlers for receiving incoming messages
+# $7 Name of the benchmark configuration (for grouping the archives of the 
+#    benchmark results)
+##
+benchmark_all_to_one()
+{
+	local workload=$1
+	local total_nodes=$2
+	local msg_per_node=$3
+	local msg_size=$4
+	local threads=$5
+	local msg_handler=$6
+	local benchmark_name=$7
+
+	echo "##### All-to-one benchmark: $workload $total_nodes $msg_per_node $msg_size $threads $msg_handler"
+
+	if [ "$total_nodes" -lt "2" ]; then
+		util_log_error_and_exit "Benchmark needs at least two nodes, provided: $total_nodes"
+	fi
+
+	# Initialize dxnet deployment
+	cdepl_app_dxnet_init $DXNET_PATH
+	
+	# Kill any still running instances from previous deployments
+	for i in $(seq 0 $((total_nodes - 1))); do
+		cdepl_app_dxnet_node_cleanup $i
+	done
+
+	# All-to-one
+	# One recv only, other nodes send only
+
+	# Parameters receiver
+	depl_app_dxnet_msg_send_count 0 0
+	depl_app_dxnet_msg_recv_count 0 $((msg_per_node * (total_nodes - 1)))
+	cdepl_app_dxnet_node_message_handler 0 $msg_handler
+	# Receiver doesn't need send threads
+	cdepl_app_dxnet_node_send_threads 0 0
+
+	# Sender target
+	for i in $(seq 1 $((total_nodes - 1))); do
+		cdepl_app_dxnet_node_send_targets $i 0
+	done
+	
+	# Parameters senders
+	for i in $(seq 1 $((total_nodes - 1))); do
+		depl_app_dxnet_msg_send_count $i $msg_per_node
+		depl_app_dxnet_msg_recv_count $i 0
+
+		# Receiver doesn't need send threads
+		cdepl_app_dxnet_node_send_threads 0 0
+		cdepl_app_dxnet_node_message_handler 0 $msg_handler
+	done
+
+	# Set further parameters for all nodes
+	for i in $(seq 0 $((total_nodes - 1))); do
+		depl_app_dxnet_workload $i $workload
+		depl_app_dxnet_msg_size $i $msg_size
+
+		if [ "$NETWORK_TYPE" = "ib" ]; then
+			cdepl_app_dxnet_run_as_sudo $i
+		fi
+	done
+
+    # Set network type
+	depl_app_dxnet_network $NETWORK_TYPE
+
+	# Start all instances
+	for i in $(seq 0 $((total_nodes - 1))); do
+		cdepl_app_dxnet_start_node $i
+	done
+
+	# Wait for all instances to finish, this also checks for runtime errors
+	for i in $(seq 0 $((total_nodes - 1))); do
+		cdepl_app_dxnet_node_wait_finished $i
+	done
+
+	# Print results
+	for i in $(seq 0 $((total_nodes - 1))); do
+		printf "######################\nResults node $i\n"
+		cdepl_app_dxnet_node_get_results $i
+		printf "######################\n"
+	done
+
+	# Kill any leftovers
+	for i in $(seq 0 $((total_nodes - 1))); do
+		cdepl_app_dxnet_node_cleanup $i
+	done
+
+	# Pack results and move
+	cdepl_deploy_archive_out_path "dxnet_${workload}_${total_nodes}_${msg_size}_${threads}_${msg_handler}" ${RESULT_ARCHIVES_OUT_PATH}/${benchmark_name}
+
+	# Reset output path for next benchmark call
+	cdepl_deploy_out_path $OUT_PATH
+}
+
+##
+# Benchmark 01
+#
+# End-to-end base line for throughput and saturation of messages with increasing 
+# payload size
+##
+benchmark_01()
+{
+	local node="2"
+	local msg_count=100000000
+	local sizes="1 2 4 8 16 32 64 128 256 512 1024 2048 4096 8192 16384"
+	local thread="1"
+	local msg_handler="2"
+
+	echo "##### benchmark 01 ######"
+
+	for size in $sizes; do
+		benchmark_all_to_all 0 $node $msg_count $size $thread $msg_handler "benchmark_01"
+	done
+
+	echo "##### benchmark 01 finished ######"
+}
+
+##
+# Benchmark 02
+#
+# End-to-end base line for throughput and latency with request-response pattern
+# with increasing payload size
+##
+benchmark_02()
+{
+	local node="2"
+	local msg_count=10000000
+	local sizes="1 2 4 8 16 32 64 128 256 512 1024 2048 4096 8192 16384"
+	local thread="1"
+	local msg_handler="2"
+
+	echo "##### benchmark 02 ######"
+
+	for size in $sizes; do
+		benchmark_all_to_all 2 $node $msg_count $size $thread $msg_handler "benchmark_02"
+	done
+
+	echo "##### benchmark 02 finished ######"
+}
+
+##
+# Benchmark 03
+#
+# End-to-end latency baseline for minimal payload request-response latency
+# with increasing application thread and message handler count
+##
+benchmark_03()
+{
+	local node="2"
+	local msg_count=10000000
+	local sizes="1"
+	local threads="1 2 4 8 16 32 64 128"
+	local msg_handlers="2 4 8 16"
+
+	echo "##### benchmark 03 ######"
+
+	for msg_handler in $msg_handlers; do
+		for thread in $threads; do
+			benchmark_all_to_all 2 $node $msg_count $size $thread $msg_handler "benchmark_03"
+		done
+	done
+
+	echo "##### benchmark 03 finished ######"
+}
+
+##
+# Benchmark 04
+#
+# Base line for throughput and saturation of messages with increasing node 
+# count and different payload sizes
+##
+benchmark_04()
+{
+	local nodes="2 4 8 16 24 32 40 48 56 64 72 80 88 96 104 112"
+	local sizes="1 2 4 8 16 32 64 128 256 512 1024 2048 4096 8192"
+	local msg_count=100000000
+	local thread="1"
+	local msg_handler="2"
+
+	echo "##### benchmark 04 ######"
+
+	for size in $sizes; do
+		for node in $nodes; do
+			if [ "$node" -le "$TOTAL_NODES" ]; then
+				benchmark_all_to_all 0 $node $msg_count $size $thread $msg_handler "benchmark_04"
+			fi
+		done
+	done
+
+	echo "##### benchmark 04 finished ######"
+}
+
+##
+# Benchmark 05
+#
+# Throughput and scalability with very small messages (16 byte) with increasing 
+# node count and different thread counts
+##
+benchmark_05()
 {
 	local nodes="2 4 8 16 24 32 40 48 56 64 72 80 88 96 104 112"
 	local size="16"
@@ -143,50 +532,26 @@ benchmark_2()
 	local threads="1 2 4 8 16 32 64 128"
 	local msg_handler="8"
 
-	echo "##### benchmark 2 ######"
+	echo "##### benchmark 05 ######"
 
 	for node in $nodes; do
 		if [ "$node" -le "$TOTAL_NODES" ]; then
 			for thread in $threads; do
-				benchmark 0 $node $msg_count $size $thread $msg_handler "benchmark_2"
+				benchmark_all_to_all 0 $node $msg_count $size $thread $msg_handler "benchmark_05"
 			done
 		fi
 	done
 
-	echo "##### benchmark 2 finished ######"
+	echo "##### benchmark 05 finished ######"
 }
 
 ##
-# Base line for request-response with minimal payload to measure avgerage 
-# and 95th, 99th, 99.9th percentile latencies with increasing node count on
-# different thread counts
-##
-benchmark_3()
-{
-	local nodes="2 4 8 16 24 32 40 48 56 64 72 80 88 96 104 112"
-	local size="1"
-	local msg_count=100000000
-	local threads="1 2 4 8 16 32 64 128"
-	local msg_handler="2"
-
-	echo "##### benchmark 3 ######"
-
-	for node in $nodes; do
-		if [ "$node" -le "$TOTAL_NODES" ]; then
-			for thread in $threads; do
-				benchmark 2 $node $msg_count $size $thread $msg_handler "benchmark_3"
-			done
-		fi
-	done
-
-	echo "##### benchmark 3 finished ######"
-}
-
-##
+# Benchmark 06
+#
 # High request-response load with minimal payload to show latency/throughput 
 # with increasing node node and different thread counts
 ##
-benchmark_4()
+benchmark_06()
 {
 	local nodes="2 4 8 16 24 32 40 48 56 64 72 80 88 96 104 112"
 	local size="1"
@@ -194,24 +559,26 @@ benchmark_4()
 	local threads="1 2 4 8 16 32 64 128"
 	local msg_handler="8"
 
-	echo "##### benchmark 4 ######"
+	echo "##### benchmark 06 ######"
 
 	for node in $nodes; do
 		if [ "$node" -le "$TOTAL_NODES" ]; then
 			for thread in $threads; do
-				benchmark 2 $node $msg_count $size $thread $msg_handler "benchmark_4"
+				benchmark_all_to_all 2 $node $msg_count $size $thread $msg_handler "benchmark_06"
 			done
 		fi
 	done
 
-	echo "##### benchmark 4 finished ######"
+	echo "##### benchmark 06 finished ######"
 }
 
 ##
+# Benchmark 07
+#
 # Key-value storage/graph pattern, request-response with 64 byte payload to 
 # show latency/throughput with increasing node count on different thread counts
 ##
-benchmark_5()
+benchmark_07()
 {
 	local nodes="2 4 8 16 24 32 40 48 56 64 72 80 88 96 104 112"
 	local size="64"
@@ -219,18 +586,98 @@ benchmark_5()
 	local threads="1 2 4 8 16 32 64 128"
 	local msg_handler="8"
 
-	echo "##### benchmark 5 ######"
+	echo "##### benchmark 07 ######"
 
 	for node in $nodes; do
 		if [ "$node" -le "$TOTAL_NODES" ]; then
 			for thread in $threads; do
-				benchmark 2 $node $msg_count $size $thread $msg_handler "benchmark_5"
+				benchmark_all_to_all 2 $node $msg_count $size $thread $msg_handler "benchmark_07"
 			done
 		fi
 	done
 
-	echo "##### benchmark 5 finished ######"
+	echo "##### benchmark 07 finished ######"
 }
+
+##
+# Benchmark 08
+#
+# All to one messages with increasing node and thread counts
+##
+benchmark_08()
+{
+	local nodes="2 4 8 16 24 32 40 48 56 64 72 80 88 96 104 112"
+	local size="64"
+	local msg_count=100000000
+	local threads="1 2 4 8 16 32 64 128"
+	local msg_handler="8"
+
+	echo "##### benchmark 08 ######"
+
+	for node in $nodes; do
+		if [ "$node" -le "$TOTAL_NODES" ]; then
+			for thread in $threads; do
+				benchmark_all_to_one 0 $node $msg_count $size $thread $msg_handler "benchmark_08"
+			done
+		fi
+	done
+
+	echo "##### benchmark 08 finished ######"
+}
+
+##
+# Benchmark 09
+#
+# All to one request-response with increasing node and thread counts
+##
+benchmark_09()
+{
+	local nodes="2 4 8 16 24 32 40 48 56 64 72 80 88 96 104 112"
+	local size="64"
+	local msg_count=100000000
+	local threads="1 2 4 8 16 32 64 128"
+	local msg_handler="8"
+
+	echo "##### benchmark 09 ######"
+
+	for node in $nodes; do
+		if [ "$node" -le "$TOTAL_NODES" ]; then
+			for thread in $threads; do
+				benchmark_all_to_one 2 $node $msg_count $size $thread $msg_handler "benchmark_09"
+			done
+		fi
+	done
+
+	echo "##### benchmark 09 finished ######"
+}
+
+##
+# Benchmark 10
+#
+# One to all messages with increasing node and thread counts
+##
+benchmark_10()
+{
+	local nodes="2 4 8 16 24 32 40 48 56 64 72 80 88 96 104 112"
+	local size="64"
+	local msg_count=100000000
+	local threads="1 2 4 8 16 32 64 128"
+	local msg_handler="8"
+
+	echo "##### benchmark 10 ######"
+
+	for node in $nodes; do
+		if [ "$node" -le "$TOTAL_NODES" ]; then
+			for thread in $threads; do
+				benchmark_one_to_all 0 $node $msg_count $size $thread $msg_handler "benchmark_10"
+			done
+		fi
+	done
+
+	echo "##### benchmark 10 finished ######"
+}
+
+################################################################################
 
 cdepl_script_process_cmd_args()
 {
@@ -302,11 +749,19 @@ cdepl_script_deploy()
 {
 	cdepl_cluster_login_cmd "mkdir -p $RESULT_ARCHIVES_OUT_PATH"
 
-	benchmark_1
-	benchmark_2
-	benchmark_3
-	benchmark_4
-	benchmark_5
+	# All benchmarks are executed here. If you aren't interested in all 
+	# benchmarks, just remove what you don't need
+
+	benchmark_01
+	#benchmark_02
+	#benchmark_03
+	#benchmark_04
+	#benchmark_05
+	#benchmark_06
+	#benchmark_07
+	#benchmark_08
+	#benchmark_09
+	#benchmark_10
 
 	# Done
 	echo "Archived results can be found in $RESULT_ARCHIVES_OUT_PATH"
