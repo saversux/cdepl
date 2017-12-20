@@ -69,11 +69,6 @@ cdepl_script_deploy()
 		cdepl_app_dxnet_node_cleanup $i
 	done
 
-	# Parameters
-	depl_app_dxnet_workload 0
-	depl_app_dxnet_msg_count 100000
-	depl_app_dxnet_msg_size 64
-
 	# Both nodes send each other messages 0 -> 1 and 1 -> 0
 	cdepl_app_dxnet_node_send_targets 0 1
 	cdepl_app_dxnet_node_send_targets 1 0
@@ -81,6 +76,11 @@ cdepl_script_deploy()
 	depl_app_dxnet_network "eth"
 
 	for i in $(seq 0 $((TOTAL_NODES - 1))); do
+		depl_app_dxnet_workload $i 0
+		depl_app_dxnet_msg_count $i 100000
+		depl_app_dxnet_msg_size $i 64
+
+		# One send thread for both nodes
 		cdepl_app_dxnet_node_send_threads $i 1
 		# Set 2 message handlers for both nodes, 0 and 1
 		cdepl_app_dxnet_node_message_handler $i 2
