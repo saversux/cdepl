@@ -967,13 +967,13 @@ done
 create_csvs_nodes_benchmark_progress ${table_path}/single_progress ${table_path}/nodes_progress
 
 # With increasing node count
-#create_csvs_increasing_node_counts ${table_path}/single ${table_path}/node_count
+create_csvs_increasing_node_counts ${table_path}/single ${table_path}/node_count
 
 # With increasing msg size
-#create_csvs_increasing_msg_size ${table_path}/single ${table_path}/msg_size
+create_csvs_increasing_msg_size ${table_path}/single ${table_path}/msg_size
 
 # With increasing (send) threads
-#create_csvs_increasing_thread_count ${table_path}/single ${table_path}/threads
+create_csvs_increasing_thread_count ${table_path}/single ${table_path}/threads
 
 # Remove unpacked logs
 rm -r $unpacked_path
@@ -984,14 +984,14 @@ plot_path="${out_path}/plot"
 mkdir -p $plot_path
 
 # Results of single benchmark
-#for f in ${table_path}/single/*; do
-#    plot_single_benchmark $f ${plot_path}/single
-#done
+for f in ${table_path}/single/*; do
+    plot_single_benchmark $f ${plot_path}/single
+done
 
 # Progress of single benchmark
-#for f in ${table_path}/single_progress/*; do
-#    plot_single_benchmark_progress $f ${plot_path}/single_progress
-#done
+for f in ${table_path}/single_progress/*; do
+    plot_single_benchmark_progress $f ${plot_path}/single_progress
+done
 
 # Progress of nodes of one benchmark execution
 for f in ${table_path}/nodes_progress/*; do
@@ -999,16 +999,16 @@ for f in ${table_path}/nodes_progress/*; do
 done
 
 # Node counts
-#for f in ${table_path}/node_count/*; do
-#    plot_increasing_node_count $f ${plot_path}/node_count
-#done
+for f in ${table_path}/node_count/*; do
+    plot_increasing_node_count $f ${plot_path}/node_count
+done
 
 # Msg sizes
-#for f in ${table_path}/msg_size/*; do
-#    plot_increasing_msg_size_or_thread_count $f ${plot_path}/msg_size "Msg size (bytes)"
-#done
+for f in ${table_path}/msg_size/*; do
+    plot_increasing_msg_size_or_thread_count $f ${plot_path}/msg_size "Msg size (bytes)"
+done
 
 # Threads
-#for f in ${table_path}/threads/*; do
-#    plot_increasing_msg_size_or_thread_count $f ${plot_path}/threads "(Send) threads"
-#done
+for f in ${table_path}/threads/*; do
+    plot_increasing_msg_size_or_thread_count $f ${plot_path}/threads "(Send) threads"
+done
