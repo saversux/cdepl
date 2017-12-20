@@ -14,9 +14,10 @@ __DXNET_OUT_PATH=""
 __DXNET_OUT_CONF_PATH=""
 __DXNET_OUT_LOG_PATH=""
 
-__DXNET_WORKLOAD=""
-__DXNET_MSG_COUNT=""
-__DXNET_MSG_SIZE=""
+__DXNET_WORKLOAD=()
+__DXNET_MSG_SEND_COUNT=()
+__DXNET_MSG_RECV_COUNT=()
+__DXNET_MSG_SIZE=()
 __DXNET_SEND_THREADS=()
 __DXNET_SEND_TARGETS=()
 __DXNET_NODE_NETWORK=""
@@ -66,49 +67,89 @@ cdepl_app_dxnet_init()
 ##
 # Set the workload type/id
 #
-# $1 Workload type/id (please refer to DXNetMain for supported workloads)
+# $1 node Target node id
+# $2 Workload type/id (please refer to DXNetMain for supported workloads)
 ##
 depl_app_dxnet_workload()
 {
-	local workload=$1
+	local node=$1
+	local workload=$2
+
+	if [ "$node" -ge "$(cdepl_cluster_get_alloc_node_count)" ]; then
+		util_log_error_and_exit "[$node][dxnet] Invalid node id $node > $(cdepl_cluster_get_alloc_node_count)"
+	fi
 
 	if [ "$workload" -lt "0" ] || [ "$workload" -gt "3" ]; then
 		util_log_error_and_exit "[$node][dxnet] Invalid workload: $workload"
 	fi
 
-	__DXNET_WORKLOAD="$workload"
+	__DXNET_WORKLOAD[$node]="$workload"
 }
 
 ##
-# Set the number of message each node has to send to another node
+# Set the number of message  each node has to send to another node
 #
-# $1 Message count
+# $1 node Target node id
+# $2 Message count
 ##
-depl_app_dxnet_msg_count()
+depl_app_dxnet_msg_send_count()
 {
-	local msg_count=$1
+	local node=$1
+	local msg_count=$2
 
-	if [ "$msg_count" -lt "0" ]; then
-		util_log_error_and_exit "[$node][dxnet] Invalid msg count: $msg_count"
+	if [ "$node" -ge "$(cdepl_cluster_get_alloc_node_count)" ]; then
+		util_log_error_and_exit "[$node][dxnet] Invalid node id $node > $(cdepl_cluster_get_alloc_node_count)"
 	fi
 
-	__DXNET_MSG_COUNT="$msg_count"
+	if [ "$msg_count" -lt "0" ]; then
+		util_log_error_and_exit "[$node][dxnet] Invalid msg send count: $msg_count"
+	fi
+
+	__DXNET_MSG_SEND_COUNT[$node]="$msg_count"
+}
+
+##
+# Set the number of message each node has to recv from other nodes
+#
+# $1 node Target node id
+# $2 Message count
+##
+depl_app_dxnet_msg_recv_count()
+{
+	local node=$1
+	local msg_count=$2
+
+	if [ "$node" -ge "$(cdepl_cluster_get_alloc_node_count)" ]; then
+		util_log_error_and_exit "[$node][dxnet] Invalid node id $node > $(cdepl_cluster_get_alloc_node_count)"
+	fi
+
+	if [ "$msg_count" -lt "0" ]; then
+		util_log_error_and_exit "[$node][dxnet] Invalid msg recv count: $msg_count"
+	fi
+
+	__DXNET_MSG_RECV_COUNT[$node]="$msg_count"
 }
 
 ##
 # Set the message size of the messages/requests to send/receive
 #
-# $1 Message size in bytes
+# $1 node Target node id
+# $2 Message size in bytes
 ##
 depl_app_dxnet_msg_size()
 {
-	local msg_size=$1
+	local node=$1
+	local msg_size=$2
+
+	if [ "$node" -ge "$(cdepl_cluster_get_alloc_node_count)" ]; then
+		util_log_error_and_exit "[$node][dxnet] Invalid node id $node > $(cdepl_cluster_get_alloc_node_count)"
+	fi
 
 	if [ "$msg_size" -lt "0" ]; then
 		util_log_error_and_exit "[$node][dxnet] Invalid msg size: $msg_size"
 	fi
 
-	__DXNET_MSG_SIZE="$msg_size"
+	__DXNET_MSG_SIZE[$node]="$msg_size"
 }
 
 ##
@@ -473,18 +514,6 @@ __cdepl_app_dxnet_check_config()
 
 __cdepl_app_dxnet_resolve_default_config_values()
 {
-	if [ ! "$__DXNET_WORKLOAD" ]; then
-		__DXNET_WORKLOAD="0"
-	fi
-
-	if [ ! "$__DXNET_MSG_COUNT" ]; then
-		__DXNET_MSG_COUNT="10000"
-	fi
-
-	if [ ! "$__DXNET_MSG_SIZE" ]; then
-		__DXNET_MSG_SIZE="128"
-	fi
-
 	if [ ! "$__DXNET_NODE_NETWORK" ]; then
 		__DXNET_NODE_NETWORK="eth"
 	fi
@@ -492,6 +521,22 @@ __cdepl_app_dxnet_resolve_default_config_values()
 	local node_count="$(cdepl_cluster_get_alloc_node_count)"
 
 	for i in `seq 0 $((node_count - 1))`; do
+		if [ ! "${__DXNET_WORKLOAD[$i]}" ]; then
+			__DXNET_WORKLOAD[$i]="0"
+		fi
+
+		if [ ! "${__DXNET_MSG_SEND_COUNT[$i]}" ]; then
+			__DXNET_MSG_SEND_COUNT[$i]="10000"
+		fi
+
+		if [ ! "${__DXNET_MSG_RECV_COUNT[$i]}" ]; then
+			__DXNET_MSG_RECV_COUNT[$i]="10000"
+		fi
+
+		if [ ! "${__DXNET_MSG_SIZE[$i]}" ]; then
+			__DXNET_MSG_SIZE[$i]="128"
+		fi
+
 		if [ ! "${__DXNET_NODE_PORT[$i]}" ]; then
 			__DXNET_NODE_PORT[$i]="22222"
 		fi
@@ -617,7 +662,7 @@ __cdepl_app_dxnet_start()
 		util_log "[$node][dxnet] On your local machine: establish a tunnel using 'ssh <target_hostname> -L ${__DXNET_NODE_REMOTE_PROFILE_YJP_PORT[$node]}:<target_hostname>:${__DXNET_NODE_REMOTE_PROFILE_YJP_PORT[$node]}' and connect with yourkit using 'Connect to remote application' with the arguments 'localhost:${__DXNET_NODE_REMOTE_PROFILE_YJP_PORT[$node]}'"
 	fi
 
-	local args="$node_config_path $__DXNET_WORKLOAD $__DXNET_MSG_COUNT $__DXNET_MSG_SIZE ${__DXNET_SEND_THREADS[$node]} $node ${__DXNET_SEND_TARGETS[$node]}"
+	local args="$node_config_path ${__DXNET_WORKLOAD[$node]} ${__DXNET_MSG_SEND_COUNT[$node]} ${__DXNET_MSG_RECV_COUNT[$node]} ${__DXNET_MSG_SIZE[$node]} ${__DXNET_SEND_THREADS[$node]} $node ${__DXNET_SEND_TARGETS[$node]}"
 
 	# Don't use && instead of ;
 	# This will hang if the ssh with controlmaster and nohup is used
