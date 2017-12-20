@@ -162,7 +162,7 @@ benchmark_ring()
 	# Ring structure
 	# One node sends to its successor and receives from its predecessor
 	for i in $(seq 0 $((total_nodes - 2))); do
-		cdepl_app_dxnet_node_send_targets $i $(i + 1)
+		cdepl_app_dxnet_node_send_targets $i $((i + 1))
 	done
 
 	# Last node sends to first
