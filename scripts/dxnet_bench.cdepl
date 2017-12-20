@@ -753,15 +753,15 @@ cdepl_script_deploy()
 	# benchmarks, just remove what you don't need
 
 	benchmark_01
-	#benchmark_02
-	#benchmark_03
-	#benchmark_04
-	#benchmark_05
-	#benchmark_06
-	#benchmark_07
-	#benchmark_08
-	#benchmark_09
-	#benchmark_10
+	benchmark_02
+	benchmark_03
+	benchmark_04
+	benchmark_05
+	benchmark_06
+	benchmark_07
+	benchmark_08
+	benchmark_09
+	benchmark_10
 
 	# Done
 	echo "Archived results can be found in $RESULT_ARCHIVES_OUT_PATH"
