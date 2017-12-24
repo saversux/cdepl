@@ -1,5 +1,10 @@
 #!/bin/bash
 
+##
+# App module to run DXNetMain, DXNet's build in benchmark to test throughput
+# and latency with various parameters
+##
+
 readonly __DXNET_MAIN_CLASS="de.hhu.bsinfo.dxnet.DXNetMain"
 readonly __DXNET_CLASS_PATH="lib/gson-2.7.jar:lib/log4j-api-2.7.jar:lib/log4j-core-2.7.jar"
 readonly __DXNET_PROCESS_IDENTIFIER="dxnetdeployscript"
