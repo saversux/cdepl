@@ -267,7 +267,11 @@ cdepl_app_dxnet_run_as_sudo()
 		util_log_error_and_exit "[$node][dxnet] Invalid node id $node > $(cdepl_cluster_get_alloc_node_count)"
 	fi
 
-	__DXNET_NODE_RUN_SUDO[$node]="1"
+	if [ "$cdepl_cluster_allows_sudo" ]; then
+		__DXNET_NODE_RUN_SUDO[$node]="1"
+	else
+		util_log_warn "[$node][dxnet] Cluster type does not allow running commands as sudo, ignored"
+	fi
 }
 
 ##

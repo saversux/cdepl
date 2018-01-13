@@ -170,7 +170,11 @@ cdepl_app_dxram_ycsb_run_as_sudo()
 		util_log_error_and_exit "[$node][dxram-ycsb] Invalid node id $node > $(cdepl_cluster_get_alloc_node_count)"
 	fi
 
-	__DXRAM_YCSB_NODE_RUN_SUDO[$node]="1"
+	if [ "$cdepl_cluster_allows_sudo" ]; then
+		__DXRAM_YCSB_NODE_RUN_SUDO[$node]="1"
+	else
+		util_log_warn "[$node][dxram-ycsb] Cluster type does not allow running commands as sudo, ignored"
+	fi
 }
 
 cdepl_app_dxram_ycsb_remote_debug()

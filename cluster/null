@@ -229,6 +229,16 @@ cdepl_cluster_node_cmd()
 	# stub
 }
 
+##
+# Tell the caller if the current cluster allows executing commands using sudo
+#
+# $ret Empty string if not allowed and non empty string if allowed (e.g. "1")
+##
+cdepl_cluster_allows_sudo()
+{
+	echo ""
+}
+
 #################################################
 # Callbacks for cdepl
 #################################################

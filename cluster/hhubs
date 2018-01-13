@@ -191,6 +191,11 @@ cdepl_cluster_node_cmd()
 	__cdepl_cluster_hhubs_remote_node_cmd ${__HHUBS_NODE_MAP[$node]} "$cmd"
 }
 
+cdepl_cluster_allows_sudo()
+{
+	echo "1"
+}
+
 ####################################
 # "private" callback methods that should not be called by the user
 

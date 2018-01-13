@@ -149,6 +149,11 @@ cdepl_cluster_node_cmd()
 	ssh -o ControlMaster=auto -o ControlPath=~/.ssh/cdepl_%r@%h:%p.sock -o ControlPersist=60 ${__SIMPLE_USER}@${__SIMPLE_NODE_MAP[$node]} -n -f "$cmd"
 }
 
+cdepl_cluster_allows_sudo()
+{
+	echo ""
+}
+
 ####################################
 # "private" callback methods that should not be called by the user
 
