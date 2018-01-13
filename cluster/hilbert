@@ -11,6 +11,9 @@ readonly __HILBERT_MAX_MEM_PER_NODE="106903"
 readonly __HILBERT_ETH_BASE_IP="10.28.5."
 readonly __HILBERT_HOSTNAME="hpc.rz.uni-duesseldorf.de"
 
+readonly __HILBERT_QSUB="/opt/pbs/bin/qsub"
+readonly __HILBERT_QDEL="/opt/pbs/bin/qdel"
+
 __HILBERT_TOTAL_NODES="0"
 __HILBERT_WALLTIME=""
 __HILBERT_CPUS_PER_NODE="0"
@@ -273,11 +276,11 @@ sleep \$run_time
 echo \"Job finished\"
 " > $tmp_job_script
 
-    cdepl_cluster_send_file_to_login "$tmp_job_script" "$job_script" > /dev/null 2>&1
+    cdepl_cluster_send_file_to_login "$tmp_job_script" "$job_script"
 
     # Submit the job script and wait for the node mappings to be written to disk
 
-    local qsub_output=$(cdepl_cluster_login_cmd "qsub $job_script")
+    local qsub_output=$(cdepl_cluster_login_cmd "$__HILBERT_QSUB $job_script")
 
     if [ "$?" != "0" ]; then
         util_log_error_and_exit "Submitting job script $job_script failed"
@@ -340,5 +343,5 @@ _cdepl_cluster_after_cleanup()
 	util_log_debug "[hilbert] after_cleanup"
 
     util_log_debug "[hilbert] Deployment finished, delete job $__HILBERT_JOB_ID"
-    cdepl_cluster_login_cmd "qdel $__HILBERT_JOB_ID"
+    cdepl_cluster_login_cmd "$__HILBERT_QDEL $__HILBERT_JOB_ID"
 }
