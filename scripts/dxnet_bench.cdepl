@@ -514,9 +514,9 @@ benchmark_all_to_one()
 }
 
 ##
-# One-to-one base line for throughput and saturation of messages with increasing 
-# payload size (mainly used for debugging to check for differences with 
-# end-to-end full duplex)
+# One-to-one uni-directional base line for throughput and saturation of messages
+# with increasing payload size (mainly used for debugging to check for 
+# differences with end-to-end full duplex)
 ##
 benchmark_01()
 {
@@ -556,8 +556,8 @@ benchmark_02()
 }
 
 ##
-# One-to-one base line for throughput and latency with request-response pattern
-# with increasing payload size
+# One-to-one uni-directional base line for throughput and latency with 
+# request-response pattern swith increasing payload size
 ##
 benchmark_03()
 {
@@ -576,8 +576,8 @@ benchmark_03()
 }
 
 ##
-# End-to-end base line for throughput and latency with request-response pattern
-# with increasing payload size
+# End-to-end full duplex base line for throughput and latency with 
+# request-response pattern with increasing payload size
 ##
 benchmark_04()
 {
