@@ -30,6 +30,7 @@ __HILBERT_NODE_MAPPING=()
 
 declare -gA __HILBERT_DEPENDENCY_MAP
 __HILBERT_DEPENDENCY_MAP["java/1.8"]="Java/1.8.0"
+__HILBERT_DEPENDENCY_MAP["gcc/6.1"]="gcc/6.1.0"
 
 cdepl_cluster_node_alloc()
 {
@@ -101,25 +102,6 @@ cdepl_cluster_node_network()
 	# All nodes are supporting eth and ib
 }
 
-cdepl_cluster_resolve_dependency()
-{
-	local node=$1
-	local cmd=$2
-	local version=$3
-
-	util_log_debug "[hilbert][$node] Resolve dependency: $cmd/$version"
-
-    local key="$cmd/$version"
-
-    local hilbert_dep=${__HILBERT_DEPENDENCY_MAP[$key]}
-
-    if [ ! "$hilbert_dep" ]; then
-        util_log_error_and_exit "[hilbert][$node] Could not resolve dependency $cmd/$version, no mapping available"
-    fi
-
-    cdepl_cluster_node_cmd $node "module load $hilbert_dep"
-}
-
 cdepl_cluster_resolve_hostname_to_ip()
 {
 	local hostname=$1
@@ -151,6 +133,25 @@ cdepl_cluster_node_resolve_node_to_hostname()
 cdepl_cluster_login_cmd()
 {
 	local cmd="$1"
+    local required_env="$2"
+
+    local env=""
+
+    if [ "$required_env" ]; then
+        local hilbert_env=""
+
+        for entry in $required_env; do
+            local hilbert_dep=${__HILBERT_DEPENDENCY_MAP[$entry]}
+
+            if [ ! "$hilbert_dep" ]; then
+                util_log_error_and_exit "[hilbert][$node] Could not resolve environment $entry, no mapping available"
+            fi
+
+            hilbert_env="$hilbert_env $hilbert_dep"
+        done
+
+        env="module load $hilbert_env ; "
+    fi
 
 	# -n -f for nohup
 	# Use ControlMaster to establish the TCP connection, once and keep it active
@@ -159,7 +160,7 @@ cdepl_cluster_login_cmd()
 	# Note when using nohup: You must redirect stdin/stdout and not add any
 	# command before it using &&, e.g. cd ~ && nohup ...
 	# This will hang the session with controlmaster
-	ssh -o ControlMaster=auto -o ControlPath=~/.ssh/cdepl_%r@%h:%p.sock -o ControlPersist=60 ${__HILBERT_USER}@${__HILBERT_HOSTNAME} -n -f "$cmd"
+	ssh -o ServerAliveInterval=60 -o ControlMaster=auto -o ControlPath=~/.ssh/cdepl_%r@%h:%p.sock -o ControlPersist=60 ${__HILBERT_USER}@${__HILBERT_HOSTNAME} -n -f "$env $cmd"
 }
 
 cdepl_cluster_send_file_to_login()
@@ -174,10 +175,25 @@ cdepl_cluster_node_cmd()
 {
 	local node=$1
 	local cmd="$2"
+    local required_env="$3"
 
-	if [ "${__HILBERT_NODE_MAPPING[$node]}" = "" ]; then
-		util_log_error_and_exit "[hilbert][node $node] Exec node $cmd, node does not exist"
-	fi
+    local env=""
+
+    if [ "$required_env" ]; then
+        local hilbert_env=""
+
+        for entry in $required_env; do
+            local hilbert_dep=${__HILBERT_DEPENDENCY_MAP[$entry]}
+
+            if [ ! "$hilbert_dep" ]; then
+                util_log_error_and_exit "[hilbert][$node] Could not resolve environment $entry, no mapping available"
+            fi
+
+            hilbert_env="$hilbert_env $hilbert_dep"
+        done
+
+        env="module load $hilbert_env ; "
+    fi
 
 	# -n -f for nohup
 	# Use ControlMaster to establish the TCP connection, once and keep it active
@@ -186,7 +202,7 @@ cdepl_cluster_node_cmd()
 	# Note when using nohup: You must redirect stdin/stdout and not add any
 	# command before it using &&, e.g. cd ~ && nohup ...
 	# This will hang the session with controlmaster
-	ssh -o ControlMaster=auto -o ControlPath=~/.ssh/cdepl_%r@%h:%p.sock -o ControlPersist=60 ${__HILBERT_USER}@${__HILBERT_HOSTNAME} -n -f "ssh -q ${__HILBERT_NODE_MAPPING[$node]} \"$cmd\"" 
+	ssh -o ServerAliveInterval=60 -o ControlMaster=auto -o ControlPath=~/.ssh/cdepl_%r@%h:%p.sock -o ControlPersist=60 ${__HILBERT_USER}@${__HILBERT_HOSTNAME} -n -f "ssh -q ${__HILBERT_NODE_MAPPING[$node]} \"$env $cmd\"" 
 }
 
 cdepl_cluster_allows_sudo()
@@ -345,11 +361,6 @@ echo \"Job finished\"
     done
 
     util_log_debug "[hilbert] Job started, node allocations:\n${node_mappings}"
-}
-
-_cdepl_cluster_on_env_setup_finish()
-{
-	util_log_debug "[hilbert] on_env_setup_finish"
 }
 
 _cdepl_cluster_before_deploy()

@@ -61,25 +61,6 @@ cdepl_cluster_node_network()
 	# Not supporting resource allocation, ignore
 }
 
-cdepl_cluster_resolve_dependency()
-{
-	local node=$1
-	local cmd=$2
-	local version=$3
-
-	if [ "${__SIMPLE_NODE_MAP[$node]}" = "" ]; then
-		util_log_error_and_exit "[simple][$node] Resolve dependency $cmd/$version, remote node does not exist"
-	fi
-
-	util_log_debug "[simple][$node: ${__SIMPLE_NODE_MAP[$node]}]: Resolve dependency: $cmd/$version"
-
-	cdepl_cluster_login_cmd ${__SIMPLE_NODE_MAP[$node]} "command -v $cmd" > /dev/null 2>&1
-
-	if [ "$?" != "0" ]; then
-		util_log_error_and_exit "[simple][$node: ${__SIMPLE_NODE_MAP[$node]}] Dependency $cmd/$version does not exist"
-	fi
-}
-
 cdepl_cluster_resolve_hostname_to_ip()
 {
 	local hostname=$1
@@ -109,6 +90,7 @@ cdepl_cluster_resolve_node_to_ip()
 cdepl_cluster_login_cmd()
 {
 	local cmd="$1"
+	local required_env="$2"
 
 	# For a very simple cluster, we don't expect a dedicated login node
 	cdepl_cluster_node_cmd 0 "$cmd"
@@ -134,6 +116,7 @@ cdepl_cluster_node_cmd()
 {
 	local node=$1
 	local cmd="$2"
+	local required_env="$3"
 
 	if [ "${__SIMPLE_NODE_MAP[$node]}" = "" ]; then
 		util_log_error_and_exit "[simple][node $node] Exec node $cmd, node does not exist"
@@ -201,11 +184,6 @@ _cdepl_cluster_on_node_setup_finish()
 
 	# Store node mappings to file
 	cdepl_cluster_login_cmd "printf \"$nodes\" > ${__DEPLOY_CUR_OUT_PATH}/node_mappings"
-}
-
-_cdepl_cluster_on_env_setup_finish()
-{
-	util_log_debug "[simple] on_env_setup_finish"
 }
 
 _cdepl_cluster_before_deploy()

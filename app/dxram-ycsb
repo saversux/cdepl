@@ -15,6 +15,8 @@ readonly __DXRAM_YCSB_PROCESS_IDENTIFIER="-Ddxramdeployscript"
 readonly __DXRAM_YCSB_DEFAULT_STARTUP_CONDITION="!---ooo---!"
 readonly __DXRAM_YCSB_RUN_OR_LOAD_DONE_CONDITION="!---YCSB---!"
 
+readonly __DXRAM_YCSB_REQUIRED_ENVIRONMENT="java/1.8 gcc/6.1"
+
 __DXRAM_YCSB_PATH=""
 __DXRAM_YCSB_CONFIG_PATH=""
 __DXRAM_YCSB_LOG4J_CONFIG_PATH=""
@@ -492,7 +494,7 @@ __cdepl_app_dxram_ycsb_check_config()
 		# Don't run this on the login node (might not have java installed)
 		# Use the first actual cluster node instead
 		# sync: Ensure everything's written to disk and visible for other nodes
-		cdepl_cluster_node_cmd 0 "cd $__DXRAM_YCSB_PATH && java -Dlog4j.configurationFile=$__DXRAM_YCSB_LOG4J_CONFIG_PATH -Ddxram.config=$__DXRAM_YCSB_CONFIG_PATH -cp $__DXRAM_YCSB_CLASS_PATH $__DXRAM_YCSB_MAIN_CLASS > /dev/null 2>&1"
+		cdepl_cluster_node_cmd 0 "cd $__DXRAM_YCSB_PATH && java -Dlog4j.configurationFile=$__DXRAM_YCSB_LOG4J_CONFIG_PATH -Ddxram.config=$__DXRAM_YCSB_CONFIG_PATH -cp $__DXRAM_YCSB_CLASS_PATH $__DXRAM_YCSB_MAIN_CLASS > /dev/null 2>&1" "$__DXRAM_YCSB_REQUIRED_ENVIRONMENT"
 	
 		# Sanity check
 		if [ "$(cdepl_cluster_node_cmd 0 "[ -f $__DXRAM_YCSB_CONFIG_PATH ] && echo \"1\"")" != "1" ]; then
@@ -507,7 +509,7 @@ __cdepl_app_dxram_ycsb_check_config()
 			util_log "[0][dxram-ycsb] Configuration file $__DXRAM_YCSB_CONFIG_PATH corrupted, deleting and creating default"
 
 			# Configuration file seems to be corrupted -> start dxram once to create new configuration
-			cdepl_cluster_node_cmd 0 "rm $__DXRAM_YCSB_CONFIG_PATH && cd $__DXRAM_YCSB_PATH && java -Dlog4j.configurationFile=$__DXRAM_YCSB_LOG4J_CONFIG_PATH -Ddxram.config=$__DXRAM_YCSB_CONFIG_PATH -cp $__DXRAM_YCSB_CLASS_PATH $__DXRAM_YCSB_MAIN_CLASS > /dev/null 2>&1"
+			cdepl_cluster_node_cmd 0 "rm $__DXRAM_YCSB_CONFIG_PATH && cd $__DXRAM_YCSB_PATH && java -Dlog4j.configurationFile=$__DXRAM_YCSB_LOG4J_CONFIG_PATH -Ddxram.config=$__DXRAM_YCSB_CONFIG_PATH -cp $__DXRAM_YCSB_CLASS_PATH $__DXRAM_YCSB_MAIN_CLASS > /dev/null 2>&1" "$__DXRAM_YCSB_REQUIRED_ENVIRONMENT"
 	
 			# Sanity check
 			if [ "$(cdepl_cluster_node_cmd 0 "[ -f $__DXRAM_YCSB_CONFIG_PATH ] && echo \"1\"")" != "1" ]; then
@@ -693,7 +695,7 @@ __cdepl_app_dxram_ycsb_start_superpeer()
 
 	# Don't use && instead of ;
 	# This will hang if the ssh with controlmaster and nohup is used
-	cdepl_cluster_node_cmd $node "cd $__DXRAM_YCSB_PATH ; $root nohup java ${__DXRAM_YCSB_PROCESS_IDENTIFIER} $vm_opts -cp $__DXRAM_YCSB_CLASS_PATH $__DXRAM_YCSB_MAIN_CLASS > $logfile 2>&1 &"
+	cdepl_cluster_node_cmd $node "cd $__DXRAM_YCSB_PATH ; $root nohup java ${__DXRAM_YCSB_PROCESS_IDENTIFIER} $vm_opts -cp $__DXRAM_YCSB_CLASS_PATH $__DXRAM_YCSB_MAIN_CLASS > $logfile 2>&1 &" "$__DXRAM_YCSB_REQUIRED_ENVIRONMENT"
 }
 
 __cdepl_app_dxram_ycsb_start_peer()

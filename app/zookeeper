@@ -6,6 +6,8 @@ __ZOOKEEPER_OUT_PATH=""
 readonly __ZOOKEEPER_LOG_FILE_POSTFIX="_server"
 readonly __ZOOKEEPER_LOG_FILE_CLIENT_POSTFIX="_client"
 
+readonly __ZOOKEEPER_REQUIRED_ENVIRONMENT="java/1.8"
+
 cdepl_app_zookeeper_init()
 {
 	local path=$1
@@ -33,7 +35,7 @@ cdepl_app_zookeeper_start()
 	cdepl_cluster_node_cmd $node "mkdir -p $__ZOOKEEPER_OUT_PATH"
 	# Go to zookeeper out dir before execution to get all output, zookeeper 
 	# data dir if relative path and zookeeper.out folder in the same dir
-	cdepl_cluster_node_cmd $node "sed -i -e \"s/clientPort=[0-9]*/clientPort=$port/g\" \"${__ZOOKEEPER_PATH}/conf/zoo.cfg\" && cd ${__ZOOKEEPER_OUT_PATH} && ${__ZOOKEEPER_PATH}/bin/zkServer.sh start ${__ZOOKEEPER_PATH}/conf/zoo.cfg >> $logfile 2>&1"
+	cdepl_cluster_node_cmd $node "sed -i -e \"s/clientPort=[0-9]*/clientPort=$port/g\" \"${__ZOOKEEPER_PATH}/conf/zoo.cfg\" && cd ${__ZOOKEEPER_OUT_PATH} && ${__ZOOKEEPER_PATH}/bin/zkServer.sh start ${__ZOOKEEPER_PATH}/conf/zoo.cfg >> $logfile 2>&1" "$__ZOOKEEPER_REQUIRED_ENVIRONMENT"
 
 	if [ "$?" != "0" ]; then
 		util_log_error_and_exit "[$node][zookeeper] Starting failed, also check logfile $logfile"
@@ -49,7 +51,7 @@ cdepl_app_zookeeper_remove()
 	
 	util_log "[$node][zookeeper] Remove path $path"
 
-	cdepl_cluster_node_cmd $node "cd ${__ZOOKEEPER_OUT_PATH} && echo \"rmr ${path}\" | zkCli.sh >> $logfile 2>&1"
+	cdepl_cluster_node_cmd $node "cd ${__ZOOKEEPER_OUT_PATH} && echo \"rmr ${path}\" | zkCli.sh >> $logfile 2>&1" "$__ZOOKEEPER_REQUIRED_ENVIRONMENT"
 }
 
 cdepl_app_zookeeper_wait_started()

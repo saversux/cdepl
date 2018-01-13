@@ -42,18 +42,6 @@ cdepl_script_cluster_node_setup()
 }
 
 ##
-# Second phase, environment setup.
-#
-# Your cluster is set up, resources allocated and ready to go.
-# Now, resolve dependencies, load/install/copy packages/software etc. before
-# starting your applications.
-##
-cdepl_script_environment_setup()
-{
-	local stub=""
-}
-
-##
 # Third phase, application deployment
 #
 # Now that the environment is set up, deploy your application and execute your

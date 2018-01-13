@@ -91,7 +91,6 @@ source $1
 # Check if script implements all required functions
 __cdepl_script_assert_function cdepl_script_process_cmd_args
 __cdepl_script_assert_function cdepl_script_cluster_node_setup
-__cdepl_script_assert_function cdepl_script_environment_setup
 __cdepl_script_assert_function cdepl_script_deploy
 __cdepl_script_assert_function cdepl_script_cleanup
 
@@ -107,10 +106,6 @@ start_time=$(date +%s)
 util_log "[cdepl] Cluster node setup..."
 cdepl_script_cluster_node_setup
 _cdepl_cluster_on_node_setup_finish
-
-util_log "[cdepl] Cluster environment setup..."
-cdepl_script_environment_setup
-_cdepl_cluster_on_env_setup_finish
 
 util_log "[cdepl] Cluster application deployment..."
 _cdepl_cluster_before_deploy

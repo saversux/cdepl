@@ -56,14 +56,6 @@ cdepl_script_cluster_node_setup()
 	cdepl_deploy_out_path $OUT_PATH
 }
 
-cdepl_script_environment_setup()
-{
-	# On hilbert, this loads the java module on the nodes
-	for i in `seq 0 $((TOTAL_NODES - 1))`; do
-		cdepl_cluster_resolve_dependency $i "java" "1.8"
-	done
-}
-
 cdepl_script_deploy()
 {
 	# Initilize zookeeper deployment

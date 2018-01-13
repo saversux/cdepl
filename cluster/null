@@ -124,25 +124,6 @@ cdepl_cluster_node_network()
 }
 
 ##
-# Resolve a dependency required to run an application on a target node
-#
-# This can trigger a simple check if the dependency is available, install
-# the dependency or load it temporarily
-#
-# $1: Node id of the node to resolve the dependency on
-# $2: cmd of the dependency, e.g. java, gcc
-# $3: version of the dependency, e.g. 1.8 for java or 4.9 for gcc
-##
-cdepl_cluster_resolve_dependency()
-{
-	local node=$1
-	local cmd=$2
-	local version=$3
-
-	# stub
-}
-
-##
 # Resolve a hostname of a cluster node to the corresponding IPv4 address
 #
 # $1: hostname to resolve
@@ -189,10 +170,13 @@ cdepl_cluster_node_resolve_node_to_hostname()
 # being able to access it.
 #
 # $1: (ssh) command to send
+# $2: An optional space separated list of required environments/dependencies 
+#     for this command, e.g. java/1.8 gcc/6.1
 ##
 cdepl_cluster_login_cmd()
 {
 	local cmd="$1"
+	local required_env="$2"
 
 	# stub
 }
@@ -220,11 +204,14 @@ cdepl_cluster_send_file_to_login()
 #
 # $1: node id of the node to send the command to
 # $2: (ssh) command to send
+# $3: An optional space separated list of required environments/dependencies 
+#     for this command, e.g. java/1.8 gcc/6.1
 ##
 cdepl_cluster_node_cmd()
 {
 	local node=$1
 	local cmd="$2"
+	local required_env="$3"
 
 	# stub
 }
@@ -264,14 +251,6 @@ _cdepl_cluster_on_init()
 _cdepl_cluster_on_node_setup_finish()
 {
 	util_log_debug "[null] on_node_setup_finish"
-}
-
-##
-# Callback on environment setup finish
-##
-_cdepl_cluster_on_env_setup_finish()
-{
-	util_log_debug "[null] on_env_setup_finish"
 }
 
 ##

@@ -109,25 +109,6 @@ cdepl_cluster_node_network()
 	__HHUBS_NODES_NET[$node]="$net"
 }
 
-cdepl_cluster_resolve_dependency()
-{
-	local node=$1
-	local cmd=$2
-	local version=$3
-
-	if [ "${__HHUBS_NODE_MAP[$node]}" = "" ]; then
-		util_log_error_and_exit "[hhubs][$node] Resolve dependency $cmd/$version, remote node does not exist"
-	fi
-
-	util_log_debug "[hhubs][$node: ${__HHUBS_NODE_MAP[$node]}]: Resolve dependency: $cmd/$version"
-
-	__cdepl_cluster_hhubs_remote_node_cmd ${__HHUBS_NODE_MAP[$node]} "command -v $cmd" > /dev/null 2>&1
-
-	if [ "$?" != "0" ]; then
-		util_log_error_and_exit "[hhubs][$node: ${__HHUBS_NODE_MAP[$node]}] Dependency $cmd/$version does not exist"
-	fi
-}
-
 cdepl_cluster_resolve_hostname_to_ip()
 {
 	local hostname=$1
@@ -163,6 +144,7 @@ cdepl_cluster_node_resolve_node_to_hostname()
 cdepl_cluster_login_cmd()
 {
 	local cmd="$1"
+	local required_env="$2"
 
 	__cdepl_cluster_hhubs_remote_sollipulli_cmd "$cmd"
 }
@@ -183,6 +165,7 @@ cdepl_cluster_node_cmd()
 {
 	local node=$1
 	local cmd="$2"
+	local required_env="$3"
 
 	if [ "${__HHUBS_NODE_MAP[$node]}" = "" ]; then
 		util_log_error_and_exit "[hhubs][$node] Exec node $cmd, node does not exist"
@@ -399,11 +382,6 @@ _cdepl_cluster_on_node_setup_finish()
 
 	# Store node mappings to file
 	__cdepl_cluster_hhubs_remote_sollipulli_cmd "printf \"$nodes\" > ${__DEPLOY_CUR_OUT_PATH}/node_mappings"
-}
-
-_cdepl_cluster_on_env_setup_finish()
-{
-	util_log_debug "[hhubs] on_env_setup_finish"
 }
 
 _cdepl_cluster_before_deploy()
