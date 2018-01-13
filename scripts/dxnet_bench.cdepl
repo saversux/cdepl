@@ -516,14 +516,20 @@ benchmark_all_to_one()
 ##
 benchmark_00()
 {
-	local msg_count=100000000
+	local msg_count=10000000
 	local size="16384"
 	local thread="1"
 	local msg_handler="2"
 
-	echo "##### benchmark 00 (DEBUG/CHECK CLUSTER) ######"
+	echo "##### benchmark 00 (DEBUG/CHECK CLUSTER THROUGHPUT) ######"
 
-	benchmark_one_to_one 0 $msg_count $size $thread $msg_handler "benchmark_00"
+	# Throughput
+	benchmark_one_to_one 0 10000000 16384 $thread $msg_handler "benchmark_00"
+
+	echo "##### benchmark 00 (DEBUG/CHECK CLUSTER LATENCY) ######"
+
+	# Latency
+	benchmark_one_to_one 2 2000000 1 $thread $msg_handler "benchmark_00"
 
 	echo "##### benchmark 00 finished ######"
 }
