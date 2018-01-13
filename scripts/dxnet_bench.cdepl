@@ -79,9 +79,6 @@ benchmark_one_to_one()
 		depl_app_dxnet_workload $i $workload
 		depl_app_dxnet_msg_size $i $msg_size
 
-		# TODO remove
-		#cdepl_app_dxnet_remote_debug $i $((11112 + i))
-
 		if [ "$NETWORK_TYPE" = "ib" ]; then
 			cdepl_app_dxnet_run_as_sudo $i
 		fi
@@ -514,6 +511,24 @@ benchmark_all_to_one()
 }
 
 ##
+# One-to-one uni-directional warm up to quickly check if the max throughput
+# is ok on the target cluster before continuing with the other benchmarks
+##
+benchmark_00()
+{
+	local msg_count=100000000
+	local size="16384"
+	local thread="1"
+	local msg_handler="2"
+
+	echo "##### benchmark 00 (DEBUG/CHECK CLUSTER) ######"
+
+	benchmark_one_to_one 0 $msg_count $size $thread $msg_handler "benchmark_00"
+
+	echo "##### benchmark 00 finished ######"
+}
+
+##
 # One-to-one uni-directional base line for throughput and saturation of messages
 # with increasing payload size (mainly used for debugging to check for 
 # differences with end-to-end full duplex)
@@ -896,6 +911,7 @@ cdepl_script_deploy()
 
 	# TODO benchmarks dedicated to loopback
 
+	benchmark_00
 	benchmark_01
 	benchmark_02
 	benchmark_03
