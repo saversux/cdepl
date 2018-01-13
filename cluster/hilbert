@@ -14,6 +14,8 @@ readonly __HILBERT_HOSTNAME="hpc.rz.uni-duesseldorf.de"
 readonly __HILBERT_QSUB="/opt/pbs/bin/qsub"
 readonly __HILBERT_QDEL="/opt/pbs/bin/qdel"
 
+__HILBERT_NODE_EXCL_FIRST_CALL=""
+
 __HILBERT_TOTAL_NODES="0"
 __HILBERT_WALLTIME=""
 __HILBERT_CPUS_PER_NODE="0"
@@ -56,8 +58,16 @@ cdepl_cluster_node_excl()
 {
 	local node=$1
 
-	# TODO reserve exclusively?
-    util_log_error_and_exit "Reserve exclusive not implemented for hilbert"
+    # Max out for all instances, I don't think it's possible to allocate
+    # different amounts of cpu and ram for different instances 
+    __HILBERT_CPUS_PER_NODE="$__HILBERT_MAX_CPUS_PER_NODE"
+    __HILBERT_MEM_MB_PER_NODE="$__HILBERT_MAX_MEM_PER_NODE"
+
+    # Print this once
+    if [ ! "$__HILBERT_NODE_EXCL_FIRST_CALL" ]; then
+        __HILBERT_NODE_EXCL_FIRST_CALL="0"
+        util_log "All nodes ($__HILBERT_TOTAL_NODES) allocated exclusively. Depending on the number of nodes selected, your job might have to wait a little longer until you get all the nodes exclusively"
+    fi
 }
 
 cdepl_cluster_node_cpus()
@@ -157,7 +167,7 @@ cdepl_cluster_send_file_to_login()
     local source="$1"
     local destination="$2"
 
-    scp "$source" "${__HILBERT_USER}@${__HILBERT_HOSTNAME}:${destination}"
+    scp "$source" "${__HILBERT_USER}@${__HILBERT_HOSTNAME}:${destination}" > /dev/null
 }
 
 cdepl_cluster_node_cmd()
@@ -176,7 +186,7 @@ cdepl_cluster_node_cmd()
 	# Note when using nohup: You must redirect stdin/stdout and not add any
 	# command before it using &&, e.g. cd ~ && nohup ...
 	# This will hang the session with controlmaster
-	ssh -o ControlMaster=auto -o ControlPath=~/.ssh/cdepl_%r@%h:%p.sock -o ControlPersist=60 ${__HILBERT_USER}@${__HILBERT_HOSTNAME} -n -f "ssh ${__HILBERT_NODE_MAPPING[$node]} \"$cmd\"" 
+	ssh -o ControlMaster=auto -o ControlPath=~/.ssh/cdepl_%r@%h:%p.sock -o ControlPersist=60 ${__HILBERT_USER}@${__HILBERT_HOSTNAME} -n -f "ssh -q ${__HILBERT_NODE_MAPPING[$node]} \"$cmd\"" 
 }
 
 ####################################
@@ -214,6 +224,12 @@ _cdepl_cluster_on_init()
 	if [ "$?" != "0" ]; then
 		util_log_error_and_exit "[hilbert] Can't connect to login node, ensure passwordless auth is set up and the cluster user is valid"
 	fi
+
+    # Force create socket for ssh connection
+    # There seems to be a weird bug that the first command sent over the newly
+    # created socket is silently failing
+    # e.g. mkdir doesn't create the directory but doesn't error
+    cdepl_cluster_login_cmd "echo ping > /dev/null"
 }
 
 _cdepl_cluster_on_node_setup_finish()
@@ -226,13 +242,11 @@ _cdepl_cluster_on_node_setup_finish()
     local job_script="${__DEPLOY_CUR_OUT_PATH}/deploy.job"
     local node_mappings_path="${__DEPLOY_CUR_OUT_PATH}/node_mappings"
 
-    local total_cpus=$(($__HILBERT_CPUS_PER_NODE * $__HILBERT_TOTAL_NODES))
-
     # TODO add parameter for email notification (see pbs doc)
 
     printf '%s' "#!/bin/bash
 
-#PBS -l select=${__HILBERT_TOTAL_NODES}:ncpus=${total_cpus}:mem=${__HILBERT_MEM_MB_PER_NODE}MB:arch=ivybridge
+#PBS -l select=${__HILBERT_TOTAL_NODES}:ncpus=${__HILBERT_CPUS_PER_NODE}:mem=${__HILBERT_MEM_MB_PER_NODE}MB:arch=ivybridge
 #PBS -l place=scatter
 #PBS -l walltime=${__HILBERT_WALLTIME}
 #PBS -r n
@@ -256,7 +270,7 @@ done
 
 echo \"Total node count: \$NODES_COUNT\"
 
-echo \"Resolving node mappings for deploy conf: \$__DEPLOY_CUR_OUT_PATH\"
+echo \"Resolving node mappings for deployment: \"${__DEPLOY_CUR_OUT_PATH}\"\"
 
 i=0
 while [ \$i -lt \$NODES_COUNT ]; do
@@ -276,7 +290,10 @@ sleep \$run_time
 echo \"Job finished\"
 " > $tmp_job_script
 
+    sync
+
     cdepl_cluster_send_file_to_login "$tmp_job_script" "$job_script"
+    cdepl_cluster_login_cmd "chmod +x $job_script"
 
     # Submit the job script and wait for the node mappings to be written to disk
 
@@ -314,6 +331,13 @@ echo \"Job finished\"
     done
 
     echo ""
+
+    # Now that node setup is finished and we know the allocated nodes
+    # do the same as in on_init for the login node:
+    # Force create sockets for ssh connection
+    for i in $((__HILBERT_TOTAL_NODES - 1)); do
+        cdepl_cluster_node_cmd $i "echo ping > /dev/null"
+    done
 
     util_log_debug "[hilbert] Job started, node allocations:\n${node_mappings}"
 }
