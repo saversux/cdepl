@@ -8,7 +8,6 @@
 readonly __HILBERT_MAX_NODES="112"
 readonly __HILBERT_MAX_CPUS_PER_NODE="24"
 readonly __HILBERT_MAX_MEM_PER_NODE="106903"
-readonly __HILBERT_ETH_BASE_IP="10.28.5."
 readonly __HILBERT_HOSTNAME="hpc.rz.uni-duesseldorf.de"
 
 readonly __HILBERT_QSUB="/opt/pbs/bin/qsub"
@@ -260,7 +259,7 @@ _cdepl_cluster_on_node_setup_finish()
 
     printf '%s' "#!/bin/bash
 
-#PBS -l select=${__HILBERT_TOTAL_NODES}:ncpus=${__HILBERT_CPUS_PER_NODE}:mem=${__HILBERT_MEM_MB_PER_NODE}MB:arch=ivybridge
+#PBS -l select=${__HILBERT_TOTAL_NODES}:ncpus=12:mem=30000MB:arch=ivybridge
 #PBS -l place=scatter
 #PBS -l walltime=${__HILBERT_WALLTIME}
 #PBS -r n

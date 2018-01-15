@@ -646,10 +646,14 @@ benchmark_05()
 ##
 benchmark_06()
 {
-	local nodes="2 4 8 16 24 32 40 48 56 64 72 80 88 96 104 112"
-	local sizes="1 2 4 8 16 32 64 128 256 512 1024 2048 4096 8192 16384"
-	local msg_count=100000000
+	#local nodes="2 4 8 16 24 32 40 48 56 64 72 80 88 96 104 112"
+	local nodes="2 16 24 32 40 48 56 64 72 80 88 96 104 112"
+	local sizes="16384"
+	#local sizes="1 2 4 8 16 32 64 128 256 512 1024 2048 4096 8192 16384"
+	local msg_count=10000000
+	#local thread="1"
 	local thread="1"
+	#local msg_handler="2"
 	local msg_handler="2"
 
 	echo "##### benchmark_06 ######"
@@ -910,12 +914,12 @@ cdepl_script_deploy()
 
 	# TODO benchmarks dedicated to loopback
 
-	benchmark_00
-	benchmark_01
-	benchmark_02
-	benchmark_03
-	benchmark_04
-	benchmark_05
+	#benchmark_00
+	#benchmark_01
+	#benchmark_02
+	#benchmark_03
+	#benchmark_04
+	#benchmark_05
 	benchmark_06
 	benchmark_07
 	benchmark_08
