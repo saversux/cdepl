@@ -106,14 +106,7 @@ cdepl_cluster_resolve_hostname_to_ip()
 {
 	local hostname=$1
 
-    # Fast method to resolve all hilbertXXX hostnames
-    local node_id="$(echo "$hostname" | sed 's/hilbert//')"
-
-	if [ ! "$hilbert_id" ]; then
-        echo ""
-    else
-        echo "$__HILBERT_ETH_BASE_IP" "$hilbert_id"
-    fi
+    echo "$(cdepl_cluster_login_cmd "getent hosts $hostname | sed -E 's/([0-9]*.[0-9]*.[0-9]*.[0-9]*).*/\1/p' | head -n 1")"
 }
 
 cdepl_cluster_resolve_node_to_ip()
@@ -341,7 +334,7 @@ echo \"Job finished\"
                 local id=$(echo "$line" | cut -d ' ' -f 1)
                 local hostname=$(echo "$line" | cut -d ' ' -f 2)
 
-                __HILBERT_NODE_MAPPING[$id]="$hostname"
+                __HILBERT_NODE_MAPPING["$id"]="$hostname"
             done <<< "$node_mappings"
 
             break
