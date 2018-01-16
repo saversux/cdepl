@@ -344,7 +344,7 @@ benchmark_one_to_all()
 
 	# One-to-all
 	# One node send only, other nodes recv only
-	cdepl_app_dxnet_node_send_targets 0 "$(seq 1 $((total_nodes - 1)))"
+	cdepl_app_dxnet_node_send_targets 0 "$(seq -s ' ' 1 $((total_nodes - 1)))"
 
 	# Parameters sender
 	depl_app_dxnet_msg_send_count 0 $((msg_per_node * (total_nodes - 1)))
@@ -360,8 +360,8 @@ benchmark_one_to_all()
 		depl_app_dxnet_msg_recv_count $i $msg_per_node
 
 		# Receiver doesn't need send threads
-		cdepl_app_dxnet_node_send_threads 0 0
-		cdepl_app_dxnet_node_message_handler 0 $msg_handler
+		cdepl_app_dxnet_node_send_threads $i 0
+		cdepl_app_dxnet_node_message_handler $i $msg_handler
 	done
 
 	# Set further parameters for all nodes
@@ -646,14 +646,10 @@ benchmark_05()
 ##
 benchmark_06()
 {
-	#local nodes="2 4 8 16 24 32 40 48 56 64 72 80 88 96 104 112"
-	local nodes="2 16 24 32 40 48 56 64 72 80 88 96 104 112"
-	local sizes="16384"
-	#local sizes="1 2 4 8 16 32 64 128 256 512 1024 2048 4096 8192 16384"
+	local nodes="2 4 8 16 24 32 40 48 56 64 72 80 88 96 104 112"
+	local sizes="1 2 4 8 16 32 64 128 256 512 1024 2048 4096 8192 16384"
 	local msg_count=10000000
-	#local thread="1"
 	local thread="1"
-	#local msg_handler="2"
 	local msg_handler="2"
 
 	echo "##### benchmark_06 ######"
@@ -914,12 +910,12 @@ cdepl_script_deploy()
 
 	# TODO benchmarks dedicated to loopback
 
-	#benchmark_00
-	#benchmark_01
-	#benchmark_02
-	#benchmark_03
-	#benchmark_04
-	#benchmark_05
+	benchmark_00
+	benchmark_01
+	benchmark_02
+	benchmark_03
+	benchmark_04
+	benchmark_05
 	benchmark_06
 	benchmark_07
 	benchmark_08
