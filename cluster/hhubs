@@ -315,8 +315,6 @@ _cdepl_cluster_on_node_setup_finish()
 	# Also fill in hardware specs that are still default values with max
 	# available
 	for i in `seq 0 $((__HHUBS_TOTAL_NODES - 1))`; do
-		nodes="${nodes}${i} ${__HHUBS_NODE_MAP[$i]}\n"
-
 		# Replace marked groups to alloc with actual node hostnames
 		case "${__HHUBS_NODE_MAP[$i]}" in
 			"group1")
@@ -376,6 +374,8 @@ _cdepl_cluster_on_node_setup_finish()
 			*)
 				;;
 		esac
+
+		nodes="${nodes}${i} ${__HHUBS_NODE_MAP[$i]}\n"
 	done
 
 	util_log_debug "[hhubs] Node allocations:\n$nodes"
