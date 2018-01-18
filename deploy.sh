@@ -22,7 +22,7 @@ cdepl_deploy_out_path()
 	__DEPLOY_OUT_PATH="$path"
 	__DEPLOY_CUR_OUT_PATH="${__DEPLOY_OUT_PATH}/${filename}_$(date '+%Y-%m-%d_%H-%M-%S-%3N')"
 
-	cdepl_cluster_login_cmd "mkdir -p $__DEPLOY_CUR_OUT_PATH"
+	cdepl_cluster_file_system_cmd "mkdir -p $__DEPLOY_CUR_OUT_PATH"
 
 	util_log "[deploy] Deployment output path: $__DEPLOY_CUR_OUT_PATH"
 }
@@ -41,11 +41,13 @@ cdepl_deploy_archive_out_path()
 
 	local archive="${dest_path}/${archive_name}.tar.gz"
 
-	cdepl_cluster_login_cmd "mkdir -p ${dest_path}"
+	cdepl_cluster_node_cmd 0 "mkdir -p ${dest_path}"
 
 	util_log "[deploy] Archiving $__DEPLOY_CUR_OUT_PATH to $archive"
 
-	cdepl_cluster_login_cmd "cd $__DEPLOY_CUR_OUT_PATH && tar -czvf $archive * > /dev/null 2>&1"
+	cdepl_cluster_gather_log_files $__DEPLOY_OUT_PATH $__DEPLOY_CUR_OUT_PATH
+
+	cdepl_cluster_node_cmd 0 "cd $__DEPLOY_CUR_OUT_PATH && tar -czvf $archive * > /dev/null 2>&1"
 }
 
 ##

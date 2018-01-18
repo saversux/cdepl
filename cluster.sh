@@ -5,19 +5,20 @@ __CLUSTER_CLEANUP_ON_ERROR="1"
 ##
 # Initialize the cluster
 #
-# This is the first function you should call before continuing with any 
+# This is the first function you should call before continuing with any
 # resource allocation or deployment tasks.
 # This sets up the environment and loads the specified cluster module.
 #
 # $1: Name of the cluster module to load
 # $2: Name of the user to log into the cluster
-# ...: Further optional arguments that are passed on as parameters to the 
+# ...: Further optional arguments that are passed on as parameters to the
 #      loaded cluster module
 ##
 cdepl_cluster_init()
 {
 	local cluster_name=$1
 	local cluster_user=$2
+	local cluster_params=${@:3}
 
 	local available=0
 
@@ -41,7 +42,7 @@ cdepl_cluster_init()
 	__cdepl_cluster_check_cluster_api $cluster_name
 
 	# Call "constructor"
-	_cdepl_cluster_on_init "$cluster_user" "${@:3}"
+	_cdepl_cluster_on_init "$cluster_user" "$cluster_params"
 }
 
 ##
@@ -57,7 +58,7 @@ cdepl_cluster_cleanup_on_error()
 }
 
 ##
-# Load an application module of an app you want to deploy and initialize 
+# Load an application module of an app you want to deploy and initialize
 # the environment
 #
 # $1: Name of the application module to load
@@ -97,9 +98,9 @@ __cdepl_cluster_check_cluster_api()
 	__cdepl_cluster_assert_function cdepl_cluster_node_network
 	__cdepl_cluster_assert_function cdepl_cluster_resolve_hostname_to_ip
 	__cdepl_cluster_assert_function cdepl_cluster_resolve_node_to_ip
-	__cdepl_cluster_assert_function cdepl_cluster_login_cmd
-	__cdepl_cluster_assert_function cdepl_cluster_send_file_to_login
 	__cdepl_cluster_assert_function cdepl_cluster_node_cmd
+	__cdepl_cluster_assert_function cdepl_cluster_file_system_cmd
+	__cdepl_cluster_assert_function cdepl_cluster_gather_log_files
 	__cdepl_cluster_assert_function cdepl_cluster_get_alloc_node_count
 	__cdepl_cluster_assert_function cdepl_cluster_node_resolve_node_to_hostname
 	__cdepl_cluster_assert_function cdepl_cluster_allows_sudo
@@ -116,7 +117,7 @@ __cdepl_cluster_assert_function()
 {
 	local func=$1
 	local cluster_type=$2
-	
+
 	local type="$(type -t $func)"
 
 	if [ ! "$type" ]; then

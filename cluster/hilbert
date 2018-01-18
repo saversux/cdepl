@@ -1,7 +1,7 @@
 #!/bin/bash
 
 #
-# Cluster module for HILBERT HPC system of the Heinrich-Heine-University 
+# Cluster module for HILBERT HPC system of the Heinrich-Heine-University
 # Duesseldorf
 #
 
@@ -35,9 +35,9 @@ cdepl_cluster_node_alloc()
 {
 	local num_nodes=$1
 
-    if [ "$num_nodes" -gt "$__HILBERT_MAX_NODES" ]; then
-        util_log_error_and_exit "[hilbert] Cannot allocate $num_nodes, max: $__HILBERT_MAX_NODES"
-    fi
+	if [ "$num_nodes" -gt "$__HILBERT_MAX_NODES" ]; then
+		util_log_error_and_exit "[hilbert] Cannot allocate $num_nodes, max: $__HILBERT_MAX_NODES"
+	fi
 
 	__HILBERT_TOTAL_NODES="$num_nodes"
 }
@@ -58,16 +58,16 @@ cdepl_cluster_node_excl()
 {
 	local node=$1
 
-    # Max out for all instances, I don't think it's possible to allocate
-    # different amounts of cpu and ram for different instances 
-    __HILBERT_CPUS_PER_NODE="$__HILBERT_MAX_CPUS_PER_NODE"
-    __HILBERT_MEM_MB_PER_NODE="$__HILBERT_MAX_MEM_PER_NODE"
+	# Max out for all instances, I don't think it's possible to allocate
+	# different amounts of cpu and ram for different instances
+	__HILBERT_CPUS_PER_NODE="$__HILBERT_MAX_CPUS_PER_NODE"
+	__HILBERT_MEM_MB_PER_NODE="$__HILBERT_MAX_MEM_PER_NODE"
 
-    # Print this once
-    if [ ! "$__HILBERT_NODE_EXCL_FIRST_CALL" ]; then
-        __HILBERT_NODE_EXCL_FIRST_CALL="0"
-        util_log "All nodes ($__HILBERT_TOTAL_NODES) allocated exclusively. Depending on the number of nodes selected, your job might have to wait a little longer until you get all the nodes exclusively"
-    fi
+	# Print this once
+	if [ ! "$__HILBERT_NODE_EXCL_FIRST_CALL" ]; then
+		__HILBERT_NODE_EXCL_FIRST_CALL="0"
+		util_log "All nodes ($__HILBERT_TOTAL_NODES) allocated exclusively. Depending on the number of nodes selected, your job might have to wait a little longer until you get all the nodes exclusively"
+	fi
 }
 
 cdepl_cluster_node_cpus()
@@ -76,11 +76,11 @@ cdepl_cluster_node_cpus()
 	local cpus=$2
 
 	# I don't think it's possible to allocate a different number of cpus
-    # per instance
-    # Just use the highest number and allocate that amount on every node
-    if [ "$cpus" -gt "$__HILBERT_CPUS_PER_NODE" ] && [ "$cpus" -le "$__HILBERT_MAX_CPUS_PER_NODE" ]; then
-        __HILBERT_CPUS_PER_NODE="$cpus"
-    fi
+	# per instance
+	# Just use the highest number and allocate that amount on every node
+	if [ "$cpus" -gt "$__HILBERT_CPUS_PER_NODE" ] && [ "$cpus" -le "$__HILBERT_MAX_CPUS_PER_NODE" ]; then
+		__HILBERT_CPUS_PER_NODE="$cpus"
+	fi
 }
 
 cdepl_cluster_node_mem()
@@ -88,9 +88,9 @@ cdepl_cluster_node_mem()
 	local node=$1
 	local mem=$2
 
-    if [ "$mem" -gt "$__HILBERT_MEM_MB_PER_NODE" ] && [ "$mem" -le "$__HILBERT_MAX_MEM_PER_NODE" ]; then
-        __HILBERT_MEM_MB_PER_NODE="$mem"
-    fi	
+	if [ "$mem" -gt "$__HILBERT_MEM_MB_PER_NODE" ] && [ "$mem" -le "$__HILBERT_MAX_MEM_PER_NODE" ]; then
+		__HILBERT_MEM_MB_PER_NODE="$mem"
+	fi
 }
 
 cdepl_cluster_node_network()
@@ -105,7 +105,14 @@ cdepl_cluster_resolve_hostname_to_ip()
 {
 	local hostname=$1
 
-    echo "$(cdepl_cluster_login_cmd "getent hosts $hostname | sed -E 's/([0-9]*.[0-9]*.[0-9]*.[0-9]*).*/\1/p' | head -n 1")"
+	# Fast method to resolve all hilbertXXX hostnames
+	local node_id="$(echo "$hostname" | sed 's/hilbert//')"
+
+	if [ ! "$hilbert_id" ]; then
+		echo ""
+	else
+		echo "$__HILBERT_ETH_BASE_IP" "$hilbert_id"
+	fi
 }
 
 cdepl_cluster_resolve_node_to_ip()
@@ -122,84 +129,57 @@ cdepl_cluster_node_resolve_node_to_hostname()
 	echo "${__HILBERT_NODE_MAPPING[$node]}"
 }
 
-cdepl_cluster_login_cmd()
-{
-	local cmd="$1"
-    local required_env="$2"
-
-    local env=""
-
-    if [ "$required_env" ]; then
-        local hilbert_env=""
-
-        for entry in $required_env; do
-            local hilbert_dep=${__HILBERT_DEPENDENCY_MAP[$entry]}
-
-            if [ ! "$hilbert_dep" ]; then
-                util_log_error_and_exit "[hilbert][$node] Could not resolve environment $entry, no mapping available"
-            fi
-
-            hilbert_env="$hilbert_env $hilbert_dep"
-        done
-
-        env="module load $hilbert_env ; "
-    fi
-
-	# -n -f for nohup
-	# Use ControlMaster to establish the TCP connection, once and keep it active
-	# until all sessions are closed and no further session was established
-	# within 60 seconds 
-	# Note when using nohup: You must redirect stdin/stdout and not add any
-	# command before it using &&, e.g. cd ~ && nohup ...
-	# This will hang the session with controlmaster
-	ssh -o ServerAliveInterval=60 -o ControlMaster=auto -o ControlPath=~/.ssh/cdepl_%r@%h:%p.sock -o ControlPersist=60 ${__HILBERT_USER}@${__HILBERT_HOSTNAME} -n -f "$env $cmd"
-}
-
-cdepl_cluster_send_file_to_login()
-{
-    local source="$1"
-    local destination="$2"
-
-    scp "$source" "${__HILBERT_USER}@${__HILBERT_HOSTNAME}:${destination}" > /dev/null
-}
-
 cdepl_cluster_node_cmd()
 {
 	local node=$1
 	local cmd="$2"
-    local required_env="$3"
+	local required_env="$3"
 
-    local env=""
+	local env=""
 
-    if [ "$required_env" ]; then
-        local hilbert_env=""
+	if [ "$required_env" ]; then
+		local hilbert_env=""
 
-        for entry in $required_env; do
-            local hilbert_dep=${__HILBERT_DEPENDENCY_MAP[$entry]}
+		for entry in $required_env; do
+			local hilbert_dep=${__HILBERT_DEPENDENCY_MAP[$entry]}
 
-            if [ ! "$hilbert_dep" ]; then
-                util_log_error_and_exit "[hilbert][$node] Could not resolve environment $entry, no mapping available"
-            fi
+			if [ ! "$hilbert_dep" ]; then
+				util_log_error_and_exit "[hilbert][$node] Could not resolve environment $entry, no mapping available"
+			fi
 
-            hilbert_env="$hilbert_env $hilbert_dep"
-        done
+			hilbert_env="$hilbert_env $hilbert_dep"
+		done
 
-        env="module load $hilbert_env ; "
-    fi
+		env="module load $hilbert_env ; "
+	fi
 
 	# -n -f for nohup
 	# Use ControlMaster to establish the TCP connection, once and keep it active
 	# until all sessions are closed and no further session was established
-	# within 60 seconds 
+	# within 60 seconds
 	# Note when using nohup: You must redirect stdin/stdout and not add any
 	# command before it using &&, e.g. cd ~ && nohup ...
 	# This will hang the session with controlmaster
-	ssh -o ServerAliveInterval=60 -o ControlMaster=auto -o ControlPath=~/.ssh/cdepl_%r@%h:%p.sock -o ControlPersist=60 ${__HILBERT_USER}@${__HILBERT_HOSTNAME} -n -f "ssh -q ${__HILBERT_NODE_MAPPING[$node]} \"$env $cmd\"" 
+	ssh -o ServerAliveInterval=60 -o ControlMaster=auto -o ControlPath=~/.ssh/cdepl_%r@%h:%p.sock -o ControlPersist=60 ${__HILBERT_USER}@${__HILBERT_HOSTNAME} -n -f "ssh -q ${__HILBERT_NODE_MAPPING[$node]} \"$env $cmd\""
 }
 
 cdepl_cluster_allows_sudo()
 {
 	echo ""
+}
+
+cdepl_cluster_file_system_cmd()
+{
+	local cmd="$1"
+
+	# We use a scratch file system for hilbert -> send command to node 0, only
+	cdepl_cluster_node_cmd 0 "$cmd"
+}
+
+cdepl_cluster_gather_log_files()
+{
+	# We use a scratch file system for hilbert -> nothing to do here
+>>>>>>> - added cluster_params to dxnet_bench script
 }
 
 ####################################
@@ -209,55 +189,57 @@ cdepl_cluster_allows_sudo()
 _cdepl_cluster_on_init()
 {
 	local cluster_user=$1
-    # Required for job system
-    local project_name=$2
-    # Optional args
-    local job_name=$3
+	# Required for job system
+	local project_name=$2
+	# Optional args
+	local job_name=$3
 
 	util_log_debug "[hilbert] on_init: user $cluster_user project $project_name"
 
 	__HILBERT_USER="$cluster_user"
-    
-    if [ ! "$project_name" ]; then
-        util_log_error_and_exit "[hilbert] No project name specified on init"
-    fi
-    
-    __HILBERT_PROJECT="$project_name"
 
-    # If no job name specified, default
-    if [ "$job_name" ]; then
-        __HILBERT_JOB_NAME="$job_name"
-    else
-        __HILBERT_JOB_NAME="${__HILBERT_PROJECT}_job"
-    fi
+	if [ ! "$project_name" ]; then
+		util_log_error_and_exit "[hilbert] No project name specified on init"
+	fi
 
-    # Check if passwordless auth available
+	__HILBERT_PROJECT="$project_name"
+
+	# If no job name specified, default
+	if [ "$job_name" ]; then
+		__HILBERT_JOB_NAME="$job_name"
+	else
+		__HILBERT_JOB_NAME="${__HILBERT_PROJECT}_job"
+	fi
+
+	# Check if passwordless auth available
 	ssh -o PasswordAuthentication=no -o BatchMode=yes ${__HILBERT_USER}@${__HILBERT_HOSTNAME} exit &> /dev/null
 
 	if [ "$?" != "0" ]; then
 		util_log_error_and_exit "[hilbert] Can't connect to login node, ensure passwordless auth is set up and the cluster user is valid"
 	fi
 
-    # Force create socket for ssh connection
-    # There seems to be a weird bug that the first command sent over the newly
-    # created socket is silently failing
-    # e.g. mkdir doesn't create the directory but doesn't error
-    cdepl_cluster_login_cmd "echo ping > /dev/null"
+	# Force create socket for ssh connection
+	# There seems to be a weird bug that the first command sent over the newly
+	# created socket is silently failing
+	# e.g. mkdir doesn't create the directory but doesn't error
+	cdepl_cluster_login_cmd "echo ping > /dev/null"
 }
 
 _cdepl_cluster_on_node_setup_finish()
 {
 	util_log_debug "[local] on_node_setup_finish"
 
-    # Create job script to bootstrap the cluster: allocate nodes, get node mappings
+	# Create job script to bootstrap the cluster: allocate nodes, get node mappings
 
-    local tmp_job_script="/tmp/cdepl_hilbert_deploy.job"
-    local job_script="${__DEPLOY_CUR_OUT_PATH}/deploy.job"
-    local node_mappings_path="${__DEPLOY_CUR_OUT_PATH}/node_mappings"
+	local tmp_job_script="/tmp/cdepl_hilbert_deploy.job"
+	local job_script="${__DEPLOY_CUR_OUT_PATH}/deploy.job"
+	local node_mappings_path="${__DEPLOY_CUR_OUT_PATH}/node_mappings"
 
-    # TODO add parameter for email notification (see pbs doc)
+	local total_cpus=$(($__HILBERT_CPUS_PER_NODE * $__HILBERT_TOTAL_NODES))
 
-    printf '%s' "#!/bin/bash
+	# TODO add parameter for email notification (see pbs doc)
+
+	printf '%s' "#!/bin/bash
 
 #PBS -l select=${__HILBERT_TOTAL_NODES}:ncpus=12:mem=30000MB:arch=ivybridge
 #PBS -l place=scatter
@@ -270,15 +252,15 @@ _cdepl_cluster_on_node_setup_finish()
 
 JOB_WORKING_DIR=\"${__DEPLOY_CUR_OUT_PATH}\"
 NODES_COUNT=\"\"
-NODES_HOSTNAME=\"\"  
+NODES_HOSTNAME=\"\"
 NODE_MAPPINGS=\"\"
 
 echo \"Getting reserved nodes...\"
 
 NODES_COUNT=0
 for NODE in \$(cat \$PBS_NODEFILE); do
-    NODES_HOSTNAME[\$NODES_COUNT]=\$NODE
-    NODES_COUNT=\$[NODES_COUNT + 1]
+	NODES_HOSTNAME[\$NODES_COUNT]=\$NODE
+	NODES_COUNT=\$[NODES_COUNT + 1]
 done
 
 echo \"Total node count: \$NODES_COUNT\"
@@ -287,9 +269,9 @@ echo \"Resolving node mappings for deployment: \"${__DEPLOY_CUR_OUT_PATH}\"\"
 
 i=0
 while [ \$i -lt \$NODES_COUNT ]; do
-    NODE_MAPPINGS=\"\${NODE_MAPPINGS}\${i} \${NODES_HOSTNAME[i]}\\n\"
-    i=\$[i + 1]
-done 
+	NODE_MAPPINGS=\"\${NODE_MAPPINGS}\${i} \${NODES_HOSTNAME[i]}\\n\"
+	i=\$[i + 1]
+done
 
 printf \"\$NODE_MAPPINGS\" > \"$node_mappings_path\"
 sync
@@ -303,56 +285,49 @@ sleep \$run_time
 echo \"Job finished\"
 " > $tmp_job_script
 
-    sync
+	sync
 
-    cdepl_cluster_send_file_to_login "$tmp_job_script" "$job_script"
-    cdepl_cluster_login_cmd "chmod +x $job_script"
+	cdepl_cluster_cmd 0 "scp $tmp_job_script ${__HILBERT_USER}@${__HILBERT_HOSTNAME}:$job_script" > /dev/null 2>&1
+	cdepl_cluster_login_cmd "chmod +x $job_script"
 
-    # Submit the job script and wait for the node mappings to be written to disk
+	# Submit the job script and wait for the node mappings to be written to disk
 
-    local qsub_output=$(cdepl_cluster_login_cmd "$__HILBERT_QSUB $job_script")
+	local qsub_output=$(cdepl_cluster_login_cmd "$__HILBERT_QSUB $job_script")
 
-    if [ "$?" != "0" ]; then
-        util_log_error_and_exit "Submitting job script $job_script failed"
-    fi
+	if [ "$?" != "0" ]; then
+		util_log_error_and_exit "Submitting job script $job_script failed"
+	fi
 
-    # Wait for node_mappings file to appear
+	# Wait for node_mappings file to appear
 
-    __HILBERT_JOB_ID=$(echo $qsub_output | cut -d '.' -f 1)
+	__HILBERT_JOB_ID=$(echo $qsub_output | cut -d '.' -f 1)
 
-    util_log_debug "[hilbert] Job submitted $__HILBERT_JOB_ID ($qsub_output), waiting for job to start..."
+	util_log_debug "[hilbert] Job submitted $__HILBERT_JOB_ID ($qsub_output), waiting for job to start..."
 
-    local node_mappings=""
+	local node_mappings=""
 
-    # ... and get the node mappings assigned by the job system
+	# ... and get the node mappings assigned by the job system
 
-    while true; do
-        if [ "$(cdepl_cluster_login_cmd "[ -f ${node_mappings_path} ] && echo 1")" = "1" ]; then
-            node_mappings=$(cdepl_cluster_login_cmd "cat $node_mappings_path")
-            while read -r line; do
-                local id=$(echo "$line" | cut -d ' ' -f 1)
-                local hostname=$(echo "$line" | cut -d ' ' -f 2)
+	while true; do
+		if [ "$(cdepl_cluster_node_cmd 0 "[ -f ${node_mappings_path} ] && echo 1")" = "1" ]; then
+			node_mappings=$(cdepl_cluster_node_cmd 0 "cat $node_mappings_path")
+			while read -r line; do
+				local id=$(echo "$line" | cut -d ' ' -f 1)
+				local hostname=$(echo "$line" | cut -d ' ' -f 2)
 
-                __HILBERT_NODE_MAPPING["$id"]="$hostname"
-            done <<< "$node_mappings"
+				__HILBERT_NODE_MAPPING[$id]="$hostname"
+			done <<< "$node_mappings"
 
-            break
-        fi
+			break
+		fi
 
-        sleep 1
-        echo -n "."
-    done
+		sleep 1
+		echo -n "."
+	done
 
-    echo ""
+	echo ""
 
-    # Now that node setup is finished and we know the allocated nodes
-    # do the same as in on_init for the login node:
-    # Force create sockets for ssh connection
-    for i in $((__HILBERT_TOTAL_NODES - 1)); do
-        cdepl_cluster_node_cmd $i "echo ping > /dev/null"
-    done
-
-    util_log_debug "[hilbert] Job started, node allocations:\n${node_mappings}"
+	util_log_debug "[hilbert] Job started, node allocations:\n${node_mappings}"
 }
 
 _cdepl_cluster_before_deploy()
@@ -374,6 +349,6 @@ _cdepl_cluster_after_cleanup()
 {
 	util_log_debug "[hilbert] after_cleanup"
 
-    util_log_debug "[hilbert] Deployment finished, delete job $__HILBERT_JOB_ID"
-    cdepl_cluster_login_cmd "$__HILBERT_QDEL $__HILBERT_JOB_ID"
+	util_log_debug "[hilbert] Deployment finished, delete job $__HILBERT_JOB_ID"
+	cdepl_cluster_node_cmd 0 "qdel $__HILBERT_JOB_ID"
 }

@@ -1,7 +1,11 @@
 #!/bin/bash
 
 readonly CDEPL_VERSION="0.0.1"
-readonly CDEPL_GITREV="$(git log -1 --format=%h --date=short HEAD)"
+if [ "$(command -v git)" ]; then
+	readonly CDEPL_GITREV="$(git log -1 --format=%h --date=short HEAD)"
+else
+	readonly CDEPL_GITREV="N/A"
+fi
 
 readonly WORKING_DIR=$(pwd)
 readonly CDEPL_SCRIPT_DIR="$( cd "$(dirname "${BASH_SOURCE[0]}")" && pwd )"
@@ -20,20 +24,20 @@ source ${CDEPL_SCRIPT_DIR}/cluster.sh
 ##
 __cdepl_cleanup_on_exit()
 {
-    # Check for exit code
-    if [ "$?" != "0" ]; then
-        if [ "$__CLUSTER_CLEANUP_ON_ERROR" != "1" ]; then
-            util_log_warn "[cdepl] Cluster cleanup on error DISABLED"
-        else
-            util_log "[cdepl] Cluster cleanup on error..."
+	# Check for exit code
+	if [ "$?" != "0" ]; then
+		if [ "$__CLUSTER_CLEANUP_ON_ERROR" != "1" ]; then
+			util_log_warn "[cdepl] Cluster cleanup on error DISABLED"
+		else
+			util_log "[cdepl] Cluster cleanup on error..."
 
-            _cdepl_cluster_before_cleanup
-            cdepl_script_cleanup
-            _cdepl_cluster_after_cleanup
+			_cdepl_cluster_before_cleanup
+			cdepl_script_cleanup
+			_cdepl_cluster_after_cleanup
 
-            util_log_error "[cdepl] Finished with error"
-        fi
-    fi
+			util_log_error "[cdepl] Finished with error"
+		fi
+	fi
 }
 
 ##
@@ -43,7 +47,7 @@ __cdepl_script_assert_function()
 {
 	local func=$1
 	local script=$2
-	
+
 	local type="$(type -t $func)"
 
 	if [ ! "$type" ]; then
@@ -63,19 +67,19 @@ _util_check_bash_version
 _util_check_programs
 
 if [ ! "$1" ]; then
-    echo "Usage: $0 <deploy_script.cdepl> [args ...]"
-    exit -1
+	echo "Usage: $0 <deploy_script.cdepl> [args ...]"
+	exit -1
 fi
 
 # Check if script available and file
 if [ ! -f "$1" ]; then
-    util_log_error_and_exit "[cdepl] Script $1 not available or not a file"
+	util_log_error_and_exit "[cdepl] Script $1 not available or not a file"
 fi
 
 # Check extension
 filename=$(basename "$1")
 if [ "${filename##*.}" != "cdepl" ]; then
-    util_log_error_and_exit "[cdepl] Please provide a valid deploy script (.cdepl file)"
+	util_log_error_and_exit "[cdepl] Please provide a valid deploy script (.cdepl file)"
 fi
 
 util_log "========================================="

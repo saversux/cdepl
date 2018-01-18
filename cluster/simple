@@ -1,7 +1,7 @@
 #!/bin/bash
 
 #
-# Simple cluster module to deploy to arbitrary clusters using a list of 
+# Simple cluster module to deploy to arbitrary clusters using a list of
 # node id to hostname mappings
 #
 
@@ -67,10 +67,10 @@ cdepl_cluster_resolve_hostname_to_ip()
 
 	local ip=""
 
-	ip="$(cdepl_cluster_login_cmd "host $hostname | cut -d ' ' -f 4 | grep -E '[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}'")"
+	ip="$(cdepl_cluster_node_cmd 0 "host $hostname | cut -d ' ' -f 4 | grep -E '[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}'")"
 
 	if [ "$ip" = "" ]; then
-		ip="$(cdepl_cluster_login_cmd "dig $hostname | grep -E '[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}' | awk '{ if (\$3 == "IN" && \$4 == "A") print \$5 }'")"
+		ip="$(cdepl_cluster_node_cmd 0 "dig $hostname | grep -E '[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}' | awk '{ if (\$3 == "IN" && \$4 == "A") print \$5 }'")"
 	fi
 
 	echo $ip
@@ -87,29 +87,11 @@ cdepl_cluster_resolve_node_to_ip()
 	cdepl_cluster_resolve_hostname_to_ip "${__SIMPLE_NODE_MAP[$node]}"
 }
 
-cdepl_cluster_login_cmd()
-{
-	local cmd="$1"
-	local required_env="$2"
-
-	# For a very simple cluster, we don't expect a dedicated login node
-	cdepl_cluster_node_cmd 0 "$cmd"
-}
-
 cdepl_cluster_node_resolve_node_to_hostname()
 {
 	local node=$1
 
 	echo "${__SIMPLE_NODE_MAP[$node]}"
-}
-
-cdepl_cluster_send_file_to_login()
-{
-    local source="$1"
-    local destination="$2"
-
-	# Don't expect a login node for simple cluster, use first node
-    scp "$source" "${__SIMPLE_USER}@${__SIMPLE_NODE_MAP[0]}:${destination}"
 }
 
 cdepl_cluster_node_cmd()
@@ -125,7 +107,7 @@ cdepl_cluster_node_cmd()
 	# -n -f for nohup
 	# Use ControlMaster to establish the TCP connection, once, and keep it active
 	# until all sessions are closed and no further session was established
-	# within 60 seconds 
+	# within 60 seconds
 	# Note when using nohup: You must redirect stdin/stdout and not add any
 	# command before it using &&, e.g. cd ~ && nohup ...
 	# This will hang the session with controlmaster
@@ -135,6 +117,19 @@ cdepl_cluster_node_cmd()
 cdepl_cluster_allows_sudo()
 {
 	echo ""
+}
+
+cdepl_cluster_file_system_cmd()
+{
+	local cmd="$1"
+
+	# We assume a shared file system is available on a simple cluster -> send command to node 0, only
+	cdepl_cluster_node_cmd 0 "$cmd"
+}
+
+cdepl_cluster_gather_log_files()
+{
+	# We assume a shared file system is available on a simple cluster -> nothing to do here
 }
 
 ####################################
@@ -183,7 +178,7 @@ _cdepl_cluster_on_node_setup_finish()
 	util_log_debug "[simple] Node allocations:\n$nodes"
 
 	# Store node mappings to file
-	cdepl_cluster_login_cmd "printf \"$nodes\" > ${__DEPLOY_CUR_OUT_PATH}/node_mappings"
+	cdepl_cluster_node_cmd 0 "printf \"$nodes\" > ${__DEPLOY_CUR_OUT_PATH}/node_mappings"
 }
 
 _cdepl_cluster_before_deploy()

@@ -1,8 +1,7 @@
 #!/bin/bash
 
 #
-# Kill all (still) running dxnet instances on reserved nodes on
-# the HHUBS cluster
+# Kill all (still) running dxnet instances on reserved nodes
 #
 
 TOTAL_NODES=""
@@ -23,7 +22,7 @@ cdepl_script_process_cmd_args()
 	local cluster_type="$2"
 	local cluster_user="$3"
 	local cluster_type_init_args="${@:4}"
-	
+
 	if [ ! "$total_nodes" ]; then
 		util_log_error "Missing argument 'total_nodes'"
 		util_log_error_and_exit "Usage: <total_nodes> <cluster_type> <cluster_user> [init args for cluster type...]"
@@ -67,7 +66,7 @@ cdepl_script_cluster_node_setup()
 		cdepl_cluster_node_excl $i
 	done
 
-	# Set our output path for log files and configurations 
+	# Set our output path for log files and configurations
 	# for the applications deployed
 	cdepl_deploy_out_path $OUT_PATH
 }
@@ -76,7 +75,7 @@ cdepl_script_deploy()
 {
 	# Initialize dxnet deployment
 	cdepl_app_dxnet_init $DXNET_PATH
-	
+
 	# Kill any still running instances from previous deployments
 	for i in $(seq 0 $((TOTAL_NODES - 1))); do
 		cdepl_app_dxnet_node_cleanup $i

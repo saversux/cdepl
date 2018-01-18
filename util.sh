@@ -36,7 +36,7 @@ util_log_error_and_exit()
 	local msg=$1
 
 	printf "\e[1;31m${msg}\e[m\nCall trace:\n$(util_print_calltrace)\n"
-    
+
 	exit -1
 }
 
@@ -104,12 +104,12 @@ util_print_calltrace()
 {
 	local i=0
 	while true; do
-        if [ ! "${FUNCNAME[$i]}" ]; then
-            break;
-        fi
+		if [ ! "${FUNCNAME[$i]}" ]; then
+			break;
+		fi
 
-        echo "${BASH_SOURCE[$i]}:${FUNCNAME[$i]}:${BASH_LINENO[$i]}"
-        i=$((i + 1))
+		echo "${BASH_SOURCE[$i]}:${FUNCNAME[$i]}:${BASH_LINENO[$i]}"
+		i=$((i + 1))
 	done
 }
 
@@ -124,8 +124,8 @@ _util_check_bash_version()
 
 	# Some features like "declare -A" require version 4
 	if [ $(echo ${BASH_VERSION%%[^0-9]*}) -lt 4 ]; then
-	    read versionCheck <<< $(echo ${BASH_VERSION%%[^0-9]* } | awk -F '.' '{split($3, a, "("); print a[1]; print ($1 >= 3 && $2 > 2) ? "YES" : ($2 == 2 && a[1] >= 57) ? "YES" : "NO" }')
-        if [ "$versionCheck" == "NO" ]; then
+		read versionCheck <<< $(echo ${BASH_VERSION%%[^0-9]* } | awk -F '.' '{split($3, a, "("); print a[1]; print ($1 >= 3 && $2 > 2) ? "YES" : ($2 == 2 && a[1] >= 57) ? "YES" : "NO" }')
+		if [ "$versionCheck" == "NO" ]; then
 			util_error_and_exit "Bash version >= 3.2.57 required (Recommended is version 4)"
 		fi
 	fi
@@ -136,7 +136,7 @@ _util_check_programs()
 	local nodes=$1
 
 	# TODO we need a version of this (in cluster.sh?) to check for programms installed
-	# on remote nodes (e.g. realpath)
+	# on remote nodes
 
 	if [ ! hash cat 2>/dev/null ]; then
 		util_error_and_exit "Please install coreutils. Used for cat, cut, mkdir, readlink, rm and sleep."

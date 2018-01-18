@@ -1,11 +1,11 @@
 #!/bin/bash
 
 ##
-# This file is a bare skeleton for any deploy scripts you implement. The 
+# This file is a bare skeleton for any deploy scripts you implement. The
 # functions included are required for the framework to execute deployment
 # of your application.
 #
-# Every function below can be in separate files as well which allows you to 
+# Every function below can be in separate files as well which allows you to
 # combine different cluster configrations with application deployments. Just
 # source them for your final deploy script.
 ##
@@ -26,10 +26,10 @@ cdepl_script_process_cmd_args()
 }
 
 ##
-# Cluster/node setup is the first phase during deployment. 
+# Cluster/node setup is the first phase during deployment.
 #
 # Setup your cluster environment by defining what type of cluster you want to
-# deploy to and declare the resources you want to use for allocations. 
+# deploy to and declare the resources you want to use for allocations.
 # Resource allocation might depend on the type of cluster you use.
 #
 # If you want to deploy on multiple cluster types, you might have to differ them
@@ -38,7 +38,7 @@ cdepl_script_process_cmd_args()
 ##
 cdepl_script_cluster_node_setup()
 {
-    local stub=""
+	local stub=""
 }
 
 ##

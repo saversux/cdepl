@@ -43,10 +43,10 @@ __DXRAM_NODE_REMOTE_PROFILE_YJP_AGENT_LIB=()
 __DXRAM_NODE_PEER_KVSS=()
 
 ##
-# Initialize and setup the DXRAM environment. This must be called before any 
+# Initialize and setup the DXRAM environment. This must be called before any
 # other function of the dxram module.
 #
-# $1 path Path to folder containing build output of dxram with dxram.jar, config 
+# $1 path Path to folder containing build output of dxram with dxram.jar, config
 #    folder etc
 # $2 zookeeper_node Node running the zookeeper server necessary to bootstrap
 #    DXRAM
@@ -58,7 +58,7 @@ cdepl_app_dxram_init()
 	local zookeeper_node=$2
 	local zookeeper_port=$3
 
-	__DXRAM_PATH="$(cdepl_cluster_login_cmd "realpath $path")"
+	__DXRAM_PATH="$(cdepl_cluster_node_cmd 0 "readlink -f $path")"
 	__DXRAM_CONFIG_PATH="${__DXRAM_PATH}/config/dxram.json"
 	__DXRAM_LOG4J_CONFIG_PATH="${__DXRAM_PATH}/config/log4j.xml"
 
@@ -70,7 +70,7 @@ cdepl_app_dxram_init()
 	__DXRAM_ZOOKEEPER_PORT="$zookeeper_port"
 
 	# Check if dxram path is available
-	if [ "$(cdepl_cluster_login_cmd "[ -d $__DXRAM_PATH ] && echo \"1\"")" != "1" ]; then
+	if [ "$(cdepl_cluster_file_system_cmd "[ -d $__DXRAM_PATH ] && echo \"1\"")" != "1" ]; then
 		util_log_error_and_exit "[login][dxram]: Path does not exist: $__DXRAM_PATH"
 	fi
 
@@ -78,8 +78,8 @@ cdepl_app_dxram_init()
 	__cdepl_app_dxram_check_config
 
 	# Output path setup
-	cdepl_cluster_login_cmd "mkdir -p $__DXRAM_OUT_CONF_PATH"
-	cdepl_cluster_login_cmd "mkdir -p $__DXRAM_OUT_LOG_PATH"
+	cdepl_cluster_file_system_cmd "mkdir -p $__DXRAM_OUT_CONF_PATH"
+	cdepl_cluster_file_system_cmd "mkdir -p $__DXRAM_OUT_LOG_PATH"
 
 	util_log "[login][dxram] Initialized: $__DXRAM_PATH"
 	util_log "[login][dxram] Output: $__DXRAM_OUT_PATH"
@@ -197,7 +197,7 @@ cdepl_app_dxram_run_as_sudo()
 }
 
 ##
-# Run the DXRAM instance with parameters to enable remote debugging. Once 
+# Run the DXRAM instance with parameters to enable remote debugging. Once
 # enabled, a string with information how to attach the debugger will be printed
 # on deployment
 #
@@ -245,7 +245,7 @@ cdepl_app_dxram_remote_profile_yjp()
 }
 
 ##
-# Set the key-value store size (in MB) for the target DXRAM instance. The 
+# Set the key-value store size (in MB) for the target DXRAM instance. The
 # instance must be declared as a Peer.
 #
 # $1 node Node of the DXRAM instance
@@ -306,7 +306,7 @@ cdepl_app_dxram_start_node()
 	fi
 }
 
-# Compared to cleanup, this executes a soft shutdown calling a dxram node and 
+# Compared to cleanup, this executes a soft shutdown calling a dxram node and
 # initiating a clean shutdown
 cdepl_app_dxram_shutdown_node()
 {
@@ -320,8 +320,8 @@ cdepl_app_dxram_shutdown_node()
 # second parameter condition optional, using default start condition otherwise
 
 ##
-# Wait for a started DXRAM instance to be started. A DXRAM instance is 
-# considered started once all components and services are initialized 
+# Wait for a started DXRAM instance to be started. A DXRAM instance is
+# considered started once all components and services are initialized
 # (signaled by a specific string to be printed).
 #
 # $1 node Target node id with started DXRAM instance
@@ -415,11 +415,11 @@ __cdepl_app_dxram_check_config()
 	# Check if config file is available and create default config
 	if [ "$(cdepl_cluster_node_cmd 0 "[ -f $__DXRAM_CONFIG_PATH ] && echo \"1\"")" != "1" ]; then
 		util_log "[0][dxram] No config file available, creating default config: $__DXRAM_CONFIG_PATH"
-		
+
 		# Don't run this on the login node (might not have java installed)
 		# Use the first actual cluster node instead
 		cdepl_cluster_node_cmd 0 "cd $__DXRAM_PATH && java -Dlog4j.configurationFile=$__DXRAM_LOG4J_CONFIG_PATH -Ddxram.config=$__DXRAM_CONFIG_PATH -cp $__DXRAM_CLASS_PATH $__DXRAM_MAIN_CLASS > /dev/null 2>&1" "$__DXRAM_REQUIRED_ENVIRONMENT"
-	
+
 		# Sanity check
 		if [ "$(cdepl_cluster_node_cmd 0 "[ -f $__DXRAM_CONFIG_PATH ] && echo \"1\"")" != "1" ]; then
 			util_log_error_and_exit "[0][dxram] Creating config file $__DXRAM_CONFIG_PATH failed"
@@ -434,7 +434,7 @@ __cdepl_app_dxram_check_config()
 
 			# Configuration file seems to be corrupted -> start dxram once to create new configuration
 			cdepl_cluster_node_cmd 0 "rm $__DXRAM_CONFIG_PATH && cd $__DXRAM_PATH && java -Dlog4j.configurationFile=$__DXRAM_LOG4J_CONFIG_PATH -Ddxram.config=$__DXRAM_CONFIG_PATH -cp $__DXRAM_CLASS_PATH $__DXRAM_MAIN_CLASS && sync > /dev/null 2>&1" "$__DXRAM_REQUIRED_ENVIRONMENT"
-	
+
 			# Sanity check
 			if [ "$(cdepl_cluster_node_cmd 0 "[ -f $__DXRAM_CONFIG_PATH ] && echo \"1\"")" != "1" ]; then
 				util_log_error_and_exit "[0][dxram] Creating config file $__DXRAM_CONFIG_PATH failed"
@@ -481,7 +481,7 @@ __cdepl_app_dxram_create_node_base_config()
 	local node_config_path="${__DXRAM_OUT_CONF_PATH}/node_${node}.conf"
 
 	local zookeeper_ip="$(cdepl_cluster_resolve_node_to_ip $__DXRAM_ZOOKEEPER_NODE)"
-	local node_config="$(cdepl_cluster_login_cmd "cat $__DXRAM_CONFIG_PATH")"
+	local node_config="$(cdepl_cluster_node_cmd 0 "cat $__DXRAM_CONFIG_PATH")"
 
 	if [ zookeeper_ip = "" ]; then
 		util_log_error_and_exit "[$node][dxram] Could not resolve zookeeper ip for node $__DXRAM_ZOOKEEPER_NODE"
@@ -490,11 +490,11 @@ __cdepl_app_dxram_create_node_base_config()
 	# Insert zookeeper config values
 	# Create replacement string for zookeeper configuration
 	local zookeeper_config_string="
-      \"m_path\": \"/dxram\",
-      \"m_connection\": {
-        \"m_ip\": \"$zookeeper_ip\",
-        \"m_port\": $__DXRAM_ZOOKEEPER_PORT
-      },"
+		\"m_path\": \"/dxram\",
+		\"m_connection\": {
+			\"m_ip\": \"$zookeeper_ip\",
+			\"m_port\": $__DXRAM_ZOOKEEPER_PORT
+		},"
 
 	# Replace zookeeper configuration
 	local current_node_config="$(echo "$node_config" | sed '/ZookeeperBootComponentConfig/q')"
@@ -509,13 +509,13 @@ __cdepl_app_dxram_create_node_base_config()
 	# Create replacement string for nodes configuration:
 	local default_node="{
 		\"m_address\": {
-            \"m_ip\": \"IP_TEMPLATE\",
-            \"m_port\": PORT_TEMPLATE
+			\"m_ip\": \"IP_TEMPLATE\",
+			\"m_port\": PORT_TEMPLATE
 		},
-          	\"m_role\": \"ROLE_TEMPLATE\",
-          	\"m_rack\": 0,
-          	\"m_switch\": 0,
-          	\"m_readFromFile\": 1
+		\"m_role\": \"ROLE_TEMPLATE\",
+		\"m_rack\": 0,
+		\"m_switch\": 0,
+		\"m_readFromFile\": 1
 	}"
 
 	local node_config_string=""
@@ -566,7 +566,7 @@ __cdepl_app_dxram_create_node_base_config()
 	new_config="$(echo -e "${new_config}\n${end}")"
 
 	# Write back new config
-	cdepl_cluster_login_cmd "echo '$new_config' > '${node_config_path}'"
+	cdepl_cluster_node_cmd $node "echo '$new_config' > '${node_config_path}'"
 }
 
 __cdepl_app_dxram_start_superpeer()
@@ -648,7 +648,7 @@ __cdepl_app_dxram_start_peer()
 	fi
 
 	local vm_opts=""
-	
+
 	# Required to fix JNI crashing with libIbdxnet (see JNINotes.md in ibnet repository)
 	vm_opts="-XX:+UseMembar"
 

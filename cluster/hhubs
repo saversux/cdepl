@@ -1,7 +1,7 @@
 #!/bin/bash
 
 #
-# Cluster module for the private cluster of the operating systems research 
+# Cluster module for the private cluster of the operating systems research
 # group of the Heinrich-Heine-University Duesseldorf
 #
 
@@ -113,14 +113,14 @@ cdepl_cluster_resolve_hostname_to_ip()
 {
 	local hostname=$1
 
-    # Static IPs, no need to resolve them dynamically
-    local node_id="$(echo "$hostname" | sed 's/node//')"
+	# Static IPs, no need to resolve them dynamically
+	local node_id="$(echo "$hostname" | sed 's/node//')"
 
 	if [ ! "$node_id" ]; then
-        echo ""
-    else
-        echo "10.0.0.$node_id"
-    fi
+		echo ""
+	else
+		echo "10.0.0.$node_id"
+	fi
 }
 
 cdepl_cluster_resolve_node_to_ip()
@@ -141,26 +141,6 @@ cdepl_cluster_node_resolve_node_to_hostname()
 	echo "${__HHUBS_NODE_MAP[$node]}"
 }
 
-cdepl_cluster_login_cmd()
-{
-	local cmd="$1"
-	local required_env="$2"
-
-	__cdepl_cluster_hhubs_remote_sollipulli_cmd "$cmd"
-}
-
-cdepl_cluster_send_file_to_login()
-{
-    local source="$1"
-    local destination="$2"
-
-	if [ "$__HHUBS_SOLLIPULLI_MODE" = "1" ]; then
-		scp "$source" "${__HHUBS_SOLLIPULLI_USER}@sollipulli:${destination}"
-	else
-		scp -P 55517 "$source" "${__HHUBS_SOLLIPULLI_USER}@134.99.112.82:${destination}"
-	fi
-}
-
 cdepl_cluster_node_cmd()
 {
 	local node=$1
@@ -172,6 +152,19 @@ cdepl_cluster_node_cmd()
 	fi
 
 	__cdepl_cluster_hhubs_remote_node_cmd ${__HHUBS_NODE_MAP[$node]} "$cmd"
+}
+
+cdepl_cluster_file_system_cmd()
+{
+	local cmd="$1"
+
+	# NFS is installed on hhubs -> send command to node 0, only
+	cdepl_cluster_node_cmd 0 "$cmd"
+}
+
+cdepl_cluster_gather_log_files()
+{
+	# NFS is installed on hhubs -> nothing to do her
 }
 
 cdepl_cluster_allows_sudo()
@@ -244,16 +237,16 @@ _cdepl_cluster_on_node_setup_finish()
 	# Assign instances with IB first
 	for i in `seq 0 $((__HHUBS_TOTAL_NODES - 1))`; do
 		if [ "${__HHUBS_NODES_NET[$i]}" = "ib" ]; then
-			if [ "${__HHUBS_NODES_CPUS[$i]}" -le "4" ] && 
-					[ "${__HHUBS_NODES_MEM[$i]}" -le "32768" ] && 
+			if [ "${__HHUBS_NODES_CPUS[$i]}" -le "4" ] &&
+					[ "${__HHUBS_NODES_MEM[$i]}" -le "32768" ] &&
 					[ "$group1_req_cnt" -lt "$group1_avail_cnt" ]; then
 				group1_req_cnt=$(($group1_req_cnt + 1))
-				
+
 				# Mark what we want to alloc
 				__HHUBS_NODE_MAP[$i]="group1"
 			elif [ "$group3_req_cnt" -lt "$group3_avail_cnt" ]; then
 				group3_req_cnt=$(($group3_req_cnt + 1))
-				
+
 				# Mark what we want to alloc
 				__HHUBS_NODE_MAP[$i]="group3"
 			else
@@ -264,16 +257,16 @@ _cdepl_cluster_on_node_setup_finish()
 
 	# Next iteration with eth, only
 	for i in `seq 0 $((__HHUBS_TOTAL_NODES - 1))`; do
-		if [ "${__HHUBS_NODES_NET[$i]}" != "ib" ]; then	
-			if [ "${__HHUBS_NODES_CPUS[$i]}" -le "4" ] && 
-					[ "${__HHUBS_NODES_MEM[$i]}" -le "16384" ] && 
+		if [ "${__HHUBS_NODES_NET[$i]}" != "ib" ]; then
+			if [ "${__HHUBS_NODES_CPUS[$i]}" -le "4" ] &&
+					[ "${__HHUBS_NODES_MEM[$i]}" -le "16384" ] &&
 					[ "$group2_req_cnt" -lt "$group2_avail_cnt" ]; then
 				group2_req_cnt=$(($group2_req_cnt + 1))
 
 				# Mark what we want to alloc
 				__HHUBS_NODE_MAP[$i]="group2"
-			elif [ "${__HHUBS_NODES_CPUS[$i]}" -le "4" ] && 
-					[ "${__HHUBS_NODES_MEM[$i]}" -le "32768" ] && 
+			elif [ "${__HHUBS_NODES_CPUS[$i]}" -le "4" ] &&
+					[ "${__HHUBS_NODES_MEM[$i]}" -le "32768" ] &&
 					[ "$group1_req_cnt" -lt "$group1_avail_cnt" ]; then
 				group1_req_cnt=$(($group1_req_cnt + 1))
 
@@ -413,7 +406,7 @@ __cdepl_cluster_hhubs_remote_node_cmd()
 	local cmd="$2"
 
 	local dest=""
-	
+
 	if [ "$__HHUBS_SOLLIPULLI_MODE" = "1" ]; then
 		dest="${__HHUBS_SOLLIPULLI_USER}@sollipulli"
 	else
@@ -423,7 +416,7 @@ __cdepl_cluster_hhubs_remote_node_cmd()
 	# -n -f for nohup
 	# Use ControlMaster to establish the TCP connection, once and keep it active
 	# until all sessions are closed and no further session was established
-	# within 60 seconds 
+	# within 60 seconds
 	# Note when using nohup: You must redirect stdin/stdout and not add any
 	# command before it using &&, e.g. cd ~ && nohup ...
 	# This will hang the session with controlmaster
@@ -435,7 +428,7 @@ __cdepl_cluster_hhubs_remote_sollipulli_cmd()
 	local cmd="$1"
 
 	local dest=""
-	
+
 	if [ "$__HHUBS_SOLLIPULLI_MODE" = "1" ]; then
 		dest="${__HHUBS_SOLLIPULLI_USER}@sollipulli"
 	else
@@ -445,7 +438,7 @@ __cdepl_cluster_hhubs_remote_sollipulli_cmd()
 	# -n -f for nohup
 	# Use ControlMaster to establish the TCP connection, once and keep it active
 	# until all sessions are closed and no further session was established
-	# within 60 seconds 
+	# within 60 seconds
 	# Note when using nohup: You must redirect stdin/stdout and not add any
 	# command before it using &&, e.g. cd ~ && nohup ...
 	# This will hang the session with controlmaster

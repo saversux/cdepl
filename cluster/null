@@ -53,13 +53,13 @@ cdepl_cluster_walltime()
 {
 	local walltime=$1
 
-    # stub
+	# stub
 }
 
 ##
 # Allocate all hardware resources available on a particular node
 #
-# If multiple jobs can be executed on the same node by the job system, you 
+# If multiple jobs can be executed on the same node by the job system, you
 # can specify exclusivity here. Note: Not necessarily supported or required
 # to be implemented for every cluster
 #
@@ -133,7 +133,7 @@ cdepl_cluster_resolve_hostname_to_ip()
 {
 	local hostname=$1
 
-    # stub
+	# stub
 }
 
 ##
@@ -163,48 +163,11 @@ cdepl_cluster_node_resolve_node_to_hostname()
 }
 
 ##
-# Send a command to the login node of the cluster
-#
-# If your cluster doesn't have a dedicated login node you should be able to 
-# send it to any node that does not require any resource allocation before
-# being able to access it.
-#
-# $1: (ssh) command to send
-# $2: An optional space separated list of required environments/dependencies 
-#     for this command, e.g. java/1.8 gcc/6.1
-##
-cdepl_cluster_login_cmd()
-{
-	local cmd="$1"
-	local required_env="$2"
-
-	# stub
-}
-
-##
-# Copy a file to the login node of the cluster
-#
-# If your cluster doesn't have a dedicated login node you should be able to 
-# send it to any node that does not require any resource allocation before
-# being able to access it.
-#
-# $1: Local source path of the file to copy
-# $2: Destination path to copy to
-##
-cdepl_cluster_send_file_to_login()
-{
-    local source="$1"
-    local destination="$2"
-
-	# stub
-}
-
-##
 # Send a command to a cluster node
 #
 # $1: node id of the node to send the command to
 # $2: (ssh) command to send
-# $3: An optional space separated list of required environments/dependencies 
+# $3: An optional space separated list of required environments/dependencies
 #     for this command, e.g. java/1.8 gcc/6.1
 ##
 cdepl_cluster_node_cmd()
@@ -212,6 +175,27 @@ cdepl_cluster_node_cmd()
 	local node=$1
 	local cmd="$2"
 	local required_env="$3"
+
+	# stub
+}
+
+
+cdepl_cluster_gather_log_files()
+{
+	# stub
+}
+
+##
+# Send a command for setting up files to all cluster nodes
+#
+# $1: (ssh) command to send
+# $2: An optional space separated list of required environments/dependencies
+#     for this command, e.g. java/1.8 gcc/6.1
+##
+cdepl_cluster_file_system_cmd()
+{
+	local cmd="$1"
+	local required_env="$2"
 
 	# stub
 }

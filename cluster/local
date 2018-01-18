@@ -90,19 +90,18 @@ cdepl_cluster_resolve_node_to_ip()
 	echo "127.0.0.1"
 }
 
-cdepl_cluster_login_cmd()
-{
-	local cmd="$1"
-	local required_env="$2"
-
-	eval "$cmd"
-}
-
 cdepl_cluster_node_cmd()
 {
 	local node=$1
 	local cmd="$2"
 	local required_env="$3"
+
+	eval "$cmd"
+}
+
+cdepl_cluster_file_system_cmd()
+{
+	local cmd="$1"
 
 	eval "$cmd"
 }
