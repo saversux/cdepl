@@ -61,25 +61,6 @@ cdepl_cluster_node_network()
 	# Not supporting resource allocation, ignore
 }
 
-cdepl_cluster_resolve_dependency()
-{
-	local node=$1
-	local cmd=$2
-	local version=$3
-
-	if [ "${__SIMPLE_NODE_MAP[$node]}" = "" ]; then
-		util_log_error_and_exit "[azure][$node] Resolve dependency $cmd/$version, remote node does not exist"
-	fi
-
-	util_log_debug "[azure][$node: ${__SIMPLE_NODE_MAP[$node]}]: Resolve dependency: $cmd/$version"
-
-	cdepl_cluster_node_cmd 0 ${__SIMPLE_NODE_MAP[$node]} "command -v $cmd" true > /dev/null 2>&1
-
-	if [ "$?" != "0" ]; then
-		util_log_error_and_exit "[azure][$node: ${__SIMPLE_NODE_MAP[$node]}] Dependency $cmd/$version does not exist"
-	fi
-}
-
 cdepl_cluster_resolve_hostname_to_ip()
 {
 	local hostname=$1
@@ -111,15 +92,6 @@ cdepl_cluster_node_resolve_node_to_hostname()
 	local node=$1
 
 	echo "${__SIMPLE_NODE_MAP[$node]}"
-}
-
-cdepl_cluster_send_file_to_login()
-{
-	local source="$1"
-	local destination="$2"
-
-	# Don't expect a login node for azure, use first node
-	scp "$source" "${__SIMPLE_USER}@${__SIMPLE_NODE_MAP[0]}:${destination}"
 }
 
 cdepl_cluster_node_cmd()
@@ -176,6 +148,11 @@ cdepl_cluster_gather_log_files()
 	for i in `seq 1 $((__SIMPLE_MAX_NODE_COUNT - 1))`; do
 		cdepl_cluster_node_cmd 0 "rsync -au ${__SIMPLE_USER}@${__SIMPLE_NODE_MAP[$i]}:${cur_path} ${path} > /dev/null 2>&1"
 	done
+}
+
+cdepl_cluster_allows_sudo()
+{
+	echo "1"
 }
 
 

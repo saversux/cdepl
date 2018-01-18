@@ -105,14 +105,7 @@ cdepl_cluster_resolve_hostname_to_ip()
 {
 	local hostname=$1
 
-	# Fast method to resolve all hilbertXXX hostnames
-	local node_id="$(echo "$hostname" | sed 's/hilbert//')"
-
-	if [ ! "$hilbert_id" ]; then
-		echo ""
-	else
-		echo "$__HILBERT_ETH_BASE_IP" "$hilbert_id"
-	fi
+	echo "$(cdepl_cluster_login_cmd "getent hosts $hostname | sed -E 's/([0-9]*.[0-9]*.[0-9]*.[0-9]*).*/\1/p' | head -n 1")"
 }
 
 cdepl_cluster_resolve_node_to_ip()
@@ -179,7 +172,6 @@ cdepl_cluster_file_system_cmd()
 cdepl_cluster_gather_log_files()
 {
 	# We use a scratch file system for hilbert -> nothing to do here
->>>>>>> - added cluster_params to dxnet_bench script
 }
 
 ####################################
@@ -234,8 +226,6 @@ _cdepl_cluster_on_node_setup_finish()
 	local tmp_job_script="/tmp/cdepl_hilbert_deploy.job"
 	local job_script="${__DEPLOY_CUR_OUT_PATH}/deploy.job"
 	local node_mappings_path="${__DEPLOY_CUR_OUT_PATH}/node_mappings"
-
-	local total_cpus=$(($__HILBERT_CPUS_PER_NODE * $__HILBERT_TOTAL_NODES))
 
 	# TODO add parameter for email notification (see pbs doc)
 

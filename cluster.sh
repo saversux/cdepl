@@ -18,7 +18,6 @@ cdepl_cluster_init()
 {
 	local cluster_name=$1
 	local cluster_user=$2
-	local cluster_params=${@:3}
 
 	local available=0
 
@@ -42,7 +41,7 @@ cdepl_cluster_init()
 	__cdepl_cluster_check_cluster_api $cluster_name
 
 	# Call "constructor"
-	_cdepl_cluster_on_init "$cluster_user" "$cluster_params"
+	_cdepl_cluster_on_init "$cluster_user" "${@:3}"
 }
 
 ##
