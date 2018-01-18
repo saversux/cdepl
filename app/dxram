@@ -1,5 +1,9 @@
 #!/bin/bash
 
+##
+# App module for DXRAM
+##
+
 readonly __DXRAM_LOG_FILE_SUPERPEER_POSTFIX="_superpeer"
 readonly __DXRAM_LOG_FILE_PEER_POSTFIX="_peer"
 
@@ -38,6 +42,16 @@ __DXRAM_NODE_REMOTE_PROFILE_YJP_PORT=()
 __DXRAM_NODE_REMOTE_PROFILE_YJP_AGENT_LIB=()
 __DXRAM_NODE_PEER_KVSS=()
 
+##
+# Initialize and setup the DXRAM environment. This must be called before any
+# other function of the dxram module.
+#
+# $1 path Path to folder containing build output of dxram with dxram.jar, config
+#    folder etc
+# $2 zookeeper_node Node running the zookeeper server necessary to bootstrap
+#    DXRAM
+# $3 zookeeper_port Port of the zookeper server running on the specified node
+##
 cdepl_app_dxram_init()
 {
 	local path=$1
@@ -71,8 +85,16 @@ cdepl_app_dxram_init()
 	util_log "[login][dxram] Output: $__DXRAM_OUT_PATH"
 }
 
-# in order to declare a node an actual DXRAM node, you have to assign a role
-# no default role, node will be ignored and not considered a dxram node
+##
+# Set the node type for a DXRAM instance running on a node.
+#
+# In order to declare a node an actual DXRAM node/instance, you have yo assign
+# a role. There is no default node role applied, otherwise. The node will be
+# ignored and not considered a DXRAM node/instance.
+#
+# $1 node Node to set the DXRAM role for
+# $2 type DXRAM node type (S or P) to set for the specified node
+##
 cdepl_app_dxram_node_type()
 {
 	local node=$1
@@ -90,6 +112,12 @@ cdepl_app_dxram_node_type()
 	__DXRAM_NODE_TYPE[$node]="$type"
 }
 
+##
+# Set the port for a node running a DXRAM instance
+#
+# $1 node Node of the DXRAM instance
+# $2 port Port (ethernet) to set
+##
 cdepl_app_dxram_node_port()
 {
 	local node=$1
@@ -106,6 +134,12 @@ cdepl_app_dxram_node_port()
 	__DXRAM_NODE_PORT[$node]="$port"
 }
 
+##
+# Set the network type of DXRAM instance on the target node
+#
+# $1 node Node of the DXRAM instance
+# $2 network Network type to set (eth, ib)
+##
 cdepl_app_dxram_node_network()
 {
 	local node=$1
@@ -122,6 +156,13 @@ cdepl_app_dxram_node_network()
 	__DXRAM_NODE_NETWORK[$node]="$network"
 }
 
+##
+# Set the number of message handlers for the network subsystem to use for the
+# DXRAM instance running on the target node
+#
+# $1 node Node of the DXRAM instance
+# $2 msg_handler Number of message handlers to use on the specified node
+##
 cdepl_app_dxram_node_message_handler()
 {
 	local node=$1
@@ -134,6 +175,12 @@ cdepl_app_dxram_node_message_handler()
 	__DXRAM_NODE_MSG_HANDLER[$node]="$msg_handler"
 }
 
+##
+# Run the DXRAM instance with sudo on the target node (e.g. might be necessary
+# if using InfiniBand networking)
+#
+# $1 node Node of the DXRAM instance
+##
 cdepl_app_dxram_run_as_sudo()
 {
 	local node=$1
@@ -149,6 +196,14 @@ cdepl_app_dxram_run_as_sudo()
 	fi
 }
 
+##
+# Run the DXRAM instance with parameters to enable remote debugging. Once
+# enabled, a string with information how to attach the debugger will be printed
+# on deployment
+#
+# $1 node Node of the DXRAM instance
+# $2 port Port to assign to the debugger to use
+##
 cdepl_app_dxram_remote_debug()
 {
 	local node=$1
@@ -161,6 +216,15 @@ cdepl_app_dxram_remote_debug()
 	__DXRAM_NODE_REMOTE_DEBUG_PORT[$node]="$port"
 }
 
+##
+# Run the DXRAM instance with parameters to enable profiling with the Yourkit
+# profiler. A string with information how to attach the debugger will be printed
+# on deployment
+#
+# $1 node Node of the DXRAM instance
+# $2 port Port for the remote profiler
+# $3 agent_lib Path on the target node with the libyjpagent.so lib
+##
 cdepl_app_dxram_remote_profile_yjp()
 {
 	local node=$1
@@ -180,6 +244,13 @@ cdepl_app_dxram_remote_profile_yjp()
 	__DXRAM_NODE_REMOTE_PROFILE_YJP_AGENT_LIB[$node]="$agent_lib"
 }
 
+##
+# Set the key-value store size (in MB) for the target DXRAM instance. The
+# instance must be declared as a Peer.
+#
+# $1 node Node of the DXRAM instance
+# $2 kvss Key-value storage size in MB
+##
 cdepl_app_dxram_peer_kvss()
 {
 	local node=$1
@@ -204,6 +275,11 @@ cdepl_app_dxram_auto_detect_node_config_params()
 	util_log_error_and_exit "Auto detect node config and params not implemented, yet"
 }
 
+##
+# Start a DXRAM instance on the target node.
+#
+# $1 node Target node id
+##
 cdepl_app_dxram_start_node()
 {
 	local node=$1
@@ -230,7 +306,8 @@ cdepl_app_dxram_start_node()
 	fi
 }
 
-# Compared to cleanup, this executes a soft shutdown calling a dxram node and initiating a clean shutdown
+# Compared to cleanup, this executes a soft shutdown calling a dxram node and
+# initiating a clean shutdown
 cdepl_app_dxram_shutdown_node()
 {
 	local node=$1
@@ -241,6 +318,16 @@ cdepl_app_dxram_shutdown_node()
 }
 
 # second parameter condition optional, using default start condition otherwise
+
+##
+# Wait for a started DXRAM instance to be started. A DXRAM instance is
+# considered started once all components and services are initialized
+# (signaled by a specific string to be printed).
+#
+# $1 node Target node id with started DXRAM instance
+# $2 condition Optional parameter to specify a different condition (string)
+#    to wait for instead of using the default DXRAM startup string.
+##
 cdepl_app_dxram_node_wait_started()
 {
 	local node=$1
@@ -300,6 +387,11 @@ cdepl_app_dxram_node_wait_started()
 	return 0
 }
 
+##
+# Cleanup any still running or remaining/crashed instances on the target node
+#
+# $1 node Target node id
+##
 cdepl_app_dxram_node_cleanup()
 {
 	local node=$1

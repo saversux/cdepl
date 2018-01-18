@@ -1,5 +1,9 @@
 #!/bin/bash
 
+##
+# App module for zookeeper
+##
+
 __ZOOKEEPER_PATH=""
 __ZOOKEEPER_OUT_PATH=""
 
@@ -23,6 +27,12 @@ cdepl_app_zookeeper_init()
 	util_log "[login][zookeeper] Output: $__ZOOKEEPER_OUT_PATH"
 }
 
+##
+# Start a zookeeper (server) instance on the target node.
+#
+# $1 node Target node id
+# $2 port Port for the server instance to use
+##
 cdepl_app_zookeeper_start()
 {
 	local node=$1
@@ -42,6 +52,12 @@ cdepl_app_zookeeper_start()
 	fi
 }
 
+##
+# Remove a path from a running zookeeper (server) instance
+#
+# $1 node Target node id with running zookeeper (server) instance
+# $2 path Path to remove stored in zookeeper
+##
 cdepl_app_zookeeper_remove()
 {
 	local node=$1
@@ -54,6 +70,11 @@ cdepl_app_zookeeper_remove()
 	cdepl_cluster_node_cmd $node "cd ${__ZOOKEEPER_OUT_PATH} && echo \"rmr ${path}\" | zkCli.sh >> $logfile 2>&1" "$__ZOOKEEPER_REQUIRED_ENVIRONMENT"
 }
 
+##
+# For for a started zookeeper (server) instance to be started
+#
+# $1 node Target node id with started zookeeper (server) instance
+##
 cdepl_app_zookeeper_wait_started()
 {
 	local node=$1
@@ -93,6 +114,11 @@ cdepl_app_zookeeper_wait_started()
 	done
 }
 
+##
+# Cleanup any still running or remaining/crashed instances on the target node
+#
+# $1 node Target node id
+##
 cdepl_app_zookeeper_cleanup()
 {
 	local node=$1
