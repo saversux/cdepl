@@ -193,6 +193,13 @@ _cdepl_cluster_on_init()
 	__HHUBS_SOLLIPULLI_USER="$cluster_user"
 
 	__cdepl_cluster_hhubs_sollipulli_check
+
+	# Force create socket for ssh connection
+	# There seems to be a weird bug that the first command sent over the newly
+	# created socket is silently failing
+	# e.g. mkdir doesn't create the directory but doesn't error
+    # Execute noop
+	__cdepl_cluster_hhubs_remote_sollipulli_cmd ":"
 }
 
 # Resolve alloc'd nodes to actual physical nodes on the cluster and fill the node map with
