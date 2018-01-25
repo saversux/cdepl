@@ -57,9 +57,7 @@ benchmark_one_to_one()
 	cdepl_app_dxnet_init $DXNET_PATH
 
 	# Kill any still running instances from previous deployments
-	for i in $(seq 0 1); do
-		cdepl_app_dxnet_node_cleanup $i
-	done
+	cdepl_app_dxnet_node_cleanup 0 $((TOTAL_NODES - 1))
 
 	# One to one
 	# One node sends (only) another node receives (only)
@@ -108,9 +106,7 @@ benchmark_one_to_one()
 	done
 
 	# Kill any leftovers
-	for i in $(seq 0 1); do
-		cdepl_app_dxnet_node_cleanup $i
-	done
+	cdepl_app_dxnet_node_cleanup 0 1
 
 	# Pack results and move
 	cdepl_deploy_archive_out_path "dxnet_${workload}_${total_nodes}_${msg_size}_${threads}_${msg_handler}" ${RESULT_ARCHIVES_OUT_PATH}/${benchmark_name}
@@ -152,9 +148,7 @@ benchmark_all_to_all()
 	cdepl_app_dxnet_init $DXNET_PATH
 
 	# Kill any still running instances from previous deployments
-	for i in $(seq 0 $((total_nodes - 1))); do
-		cdepl_app_dxnet_node_cleanup $i
-	done
+	cdepl_app_dxnet_node_cleanup 0 $((total_nodes - 1))
 
 	# All to all
 	# On two nodes only -> point to point
@@ -206,9 +200,7 @@ benchmark_all_to_all()
 	done
 
 	# Kill any leftovers
-	for i in $(seq 0 $((total_nodes - 1))); do
-		cdepl_app_dxnet_node_cleanup $i
-	done
+	cdepl_app_dxnet_node_cleanup 0 $((total_nodes - 1))
 
 	# Pack results and move
 	cdepl_deploy_archive_out_path "dxnet_${workload}_${total_nodes}_${msg_size}_${threads}_${msg_handler}" ${RESULT_ARCHIVES_OUT_PATH}/${benchmark_name}
@@ -300,9 +292,7 @@ benchmark_ring()
 	done
 
 	# Kill any leftovers
-	for i in $(seq 0 $((total_nodes - 1))); do
-		cdepl_app_dxnet_node_cleanup $i
-	done
+	cdepl_app_dxnet_node_cleanup 0 $((total_nodes - 1))
 
 	# Pack results and move
 	cdepl_deploy_archive_out_path "dxnet_${workload}_${total_nodes}_${msg_size}_${threads}_${msg_handler}" ${RESULT_ARCHIVES_OUT_PATH}/${benchmark_name}
@@ -401,9 +391,7 @@ benchmark_one_to_all()
 	done
 
 	# Kill any leftovers
-	for i in $(seq 0 $((total_nodes - 1))); do
-		cdepl_app_dxnet_node_cleanup $i
-	done
+	cdepl_app_dxnet_node_cleanup 0 $((total_nodes - 1))
 
 	# Pack results and move
 	cdepl_deploy_archive_out_path "dxnet_${workload}_${total_nodes}_${msg_size}_${threads}_${msg_handler}" ${RESULT_ARCHIVES_OUT_PATH}/${benchmark_name}
@@ -505,9 +493,7 @@ benchmark_all_to_one()
 	done
 
 	# Kill any leftovers
-	for i in $(seq 0 $((total_nodes - 1))); do
-		cdepl_app_dxnet_node_cleanup $i
-	done
+	cdepl_app_dxnet_node_cleanup 0 $((total_nodes - 1))
 
 	# Pack results and move
 	cdepl_deploy_archive_out_path "dxnet_${workload}_${total_nodes}_${msg_size}_${threads}_${msg_handler}" ${RESULT_ARCHIVES_OUT_PATH}/${benchmark_name}
@@ -941,7 +927,5 @@ cdepl_script_deploy()
 cdepl_script_cleanup()
 {
 	# Kill any leftovers
-	for i in $(seq 0 $((TOTAL_NODES - 1))); do
-		cdepl_app_dxnet_node_cleanup $i
-	done
+	cdepl_app_dxnet_node_cleanup 0 $((TOTAL_NODES - 1))
 }

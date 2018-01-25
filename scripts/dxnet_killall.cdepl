@@ -77,9 +77,7 @@ cdepl_script_deploy()
 	cdepl_app_dxnet_init $DXNET_PATH
 
 	# Kill any still running instances from previous deployments
-	for i in $(seq 0 $((TOTAL_NODES - 1))); do
-		cdepl_app_dxnet_node_cleanup $i
-	done
+	cdepl_app_dxnet_node_cleanup 0 $((TOTAL_NODES - 1))
 }
 
 cdepl_script_cleanup()
