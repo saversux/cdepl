@@ -41,6 +41,17 @@ __cdepl_cleanup_on_exit()
 }
 
 ##
+# Exit trap for cleanup on SIGINT
+##
+__cdepl_cleanup_on_sigint()
+{
+	if [ "$__CLUSTER_CLEANUP_ON_SIGINT" = "1" ]; then
+		util_log_warn "[cdepl] SIGINT cought, exit 1"
+		exit 1
+	fi
+}
+
+##
 # Check and assert deploy script interface
 ##
 __cdepl_script_assert_function()
@@ -103,6 +114,7 @@ cdepl_script_process_cmd_args "${@:2}"
 
 # Hook our exit trap now
 trap __cdepl_cleanup_on_exit EXIT
+trap __cdepl_cleanup_on_sigint SIGINT
 
 start_time=$(date +%s)
 

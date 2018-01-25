@@ -1,6 +1,7 @@
 #!/bin/bash
 
 __CLUSTER_CLEANUP_ON_ERROR="1"
+__CLUSTER_CLEANUP_ON_SIGINT="1"
 
 ##
 # Initialize the cluster
@@ -54,6 +55,18 @@ cdepl_cluster_cleanup_on_error()
 	local cleanup=$1
 
 	__CLUSTER_CLEANUP_ON_ERROR="$cleanup"
+}
+
+##
+# Enable/disable calling of the cleanup callback on SIGINT
+#
+# $1: Enable (1) or disable (0)
+##
+cdepl_cluster_cleanup_on_sigint()
+{
+	local cleanup=$1
+
+	__CLUSTER_CLEANUP_ON_SIGINT="$cleanup"
 }
 
 ##
