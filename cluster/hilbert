@@ -362,6 +362,12 @@ echo \"Job finished\"
 
 	# ... and get the node mappings assigned by the job system
 
+    local start_time=$(date +%s)
+    local diff_time=""
+    local time_str="00:00:00"
+
+    echo "Wait time elapsed: 00:00:00"
+
 	while true; do
 		if [ "$(__cdepl_cluster_login_cmd "[ -f ${node_mappings_path} ] && echo 1")" = "1" ]; then
 			node_mappings=$(__cdepl_cluster_login_cmd "cat $node_mappings_path")
@@ -376,7 +382,12 @@ echo \"Job finished\"
 		fi
 
 		sleep 1
-		echo -n "."
+        diff_time=$(date +%s)
+		diff_time=$((diff_time - start_time))
+        time_str=$(printf "%02d:%02d:%02d" $((diff_time / 3600)) $(((diff_time / 60) % 60)) $((diff_time % 60)))
+
+        # Overwrite previous time
+        echo -en "\e[1A"; echo -e "\e[0K\rWait time elapsed: $time_str"
 	done
 
 	echo ""
