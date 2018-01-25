@@ -105,7 +105,7 @@ cdepl_cluster_resolve_hostname_to_ip()
 {
 	local hostname=$1
 
-	echo "$(cdepl_cluster_login_cmd "getent hosts $hostname | sed -E 's/([0-9]*.[0-9]*.[0-9]*.[0-9]*).*/\1/p' | head -n 1")"
+	echo "$(__cdepl_cluster_login_cmd "getent hosts $hostname | sed -E 's/([0-9]*.[0-9]*.[0-9]*.[0-9]*).*/\1/p' | head -n 1")"
 }
 
 cdepl_cluster_resolve_node_to_ip()
@@ -165,8 +165,8 @@ cdepl_cluster_file_system_cmd()
 {
 	local cmd="$1"
 
-	# We use a scratch file system for hilbert -> send command to node 0, only
-	cdepl_cluster_node_cmd 0 "$cmd"
+	# We use a scratch file system for hilbert -> send command to login node
+	__cdepl_cluster_login_cmd "$cmd"
 }
 
 cdepl_cluster_gather_log_files()
@@ -217,7 +217,8 @@ _cdepl_cluster_on_init()
 	# There seems to be a weird bug that the first command sent over the newly
 	# created socket is silently failing
 	# e.g. mkdir doesn't create the directory but doesn't error
-	cdepl_cluster_login_cmd "echo ping > /dev/null"
+    # Execute noop
+	__cdepl_cluster_login_cmd ":"
 }
 
 _cdepl_cluster_on_node_setup_finish()
@@ -280,8 +281,8 @@ echo \"Job finished\"
 
 	sync
 
-	cdepl_cluster_cmd 0 "scp $tmp_job_script ${__HILBERT_USER}@${__HILBERT_HOSTNAME}:$job_script" > /dev/null 2>&1
-	cdepl_cluster_login_cmd "chmod +x $job_script"
+	scp $tmp_job_script ${__HILBERT_USER}@${__HILBERT_HOSTNAME}:$job_script > /dev/null 2>&1
+	__cdepl_cluster_login_cmd "chmod +x $job_script"
 
 	# Submit the job script and wait for the node mappings to be written to disk
 
@@ -344,4 +345,37 @@ _cdepl_cluster_after_cleanup()
 
 	util_log_debug "[hilbert] Deployment finished, delete job $__HILBERT_JOB_ID"
 	cdepl_cluster_node_cmd 0 "qdel $__HILBERT_JOB_ID"
+}
+
+__cdepl_cluster_login_cmd()
+{
+	local cmd="$1"
+    local required_env="$2"
+
+    local env=""
+
+    if [ "$required_env" ]; then
+        local hilbert_env=""
+
+        for entry in $required_env; do
+            local hilbert_dep=${__HILBERT_DEPENDENCY_MAP[$entry]}
+
+            if [ ! "$hilbert_dep" ]; then
+                util_log_error_and_exit "[hilbert][$node] Could not resolve environment $entry, no mapping available"
+            fi
+
+            hilbert_env="$hilbert_env $hilbert_dep"
+        done
+
+        env="module load $hilbert_env ; "
+    fi
+
+	# -n -f for nohup
+	# Use ControlMaster to establish the TCP connection, once and keep it active
+	# until all sessions are closed and no further session was established
+	# within 60 seconds 
+	# Note when using nohup: You must redirect stdin/stdout and not add any
+	# command before it using &&, e.g. cd ~ && nohup ...
+	# This will hang the session with controlmaster
+	ssh -o ServerAliveInterval=60 -o ControlMaster=auto -o ControlPath=~/.ssh/cdepl_%r@%h:%p.sock -o ControlPersist=60 ${__HILBERT_USER}@${__HILBERT_HOSTNAME} -n -f "$env $cmd"
 }
