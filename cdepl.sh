@@ -70,12 +70,34 @@ __cdepl_script_assert_function()
 	fi
 }
 
+##
+# Check if the tools required by cdepl (locally) are available
+##
+__cdepl_check_required_programs()
+{	
+	if [ ! hash cat 2>/dev/null ]; then
+		util_error_and_exit "Please install coreutils. Used for cat, cut, mkdir, readlink, rm and sleep."
+	fi
+
+	if [ ! hash grep 2>/dev/null ]; then
+		util_error_and_exit "Please install grep."
+	fi
+
+	if [ ! hash sed 2>/dev/null ]; then
+		util_error_and_exit "Please install sed."
+	fi
+
+	if [ ! hash ssh 2>/dev/null ]; then
+		util_error_and_exit "Please install openssh-client. Used for scp and ssh."
+	fi
+}
+
 ###############
 # Entry point #
 ###############
 
 _util_check_bash_version
-_util_check_programs
+__cdepl_check_required_programs
 
 if [ ! "$1" ]; then
 	echo "Usage: $0 <deploy_script.cdepl> [args ...]"
