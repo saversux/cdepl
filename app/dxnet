@@ -397,7 +397,15 @@ cdepl_app_dxnet_node_wait_finished()
 
 		if [ "$fail_error" ] || [ "$fail_error2" ]; then
 			echo ""
-			util_log_error_and_exit "[$node][dxnet] Failed, error or exception. See log file $logfile"
+			err=""
+			
+			if [ "$fail_error" ]; then
+				err="$fail_error"
+			else
+				err="$fail_error2"
+			fi
+
+			util_log_error_and_exit "[$node][dxnet] Failed, error or exception:\n${err}\nSee log file $logfile"
 		fi
 
 		if [ ! "$pid" ]; then
