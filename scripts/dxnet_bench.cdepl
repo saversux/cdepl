@@ -89,9 +89,7 @@ benchmark_one_to_one()
 	done
 
 	# Start all instances
-	for i in $(seq 0 1); do
-		cdepl_app_dxnet_start_node $i
-	done
+	cdepl_app_dxnet_start_node 0 1
 
 	# Wait for all instances to finish, this also checks for runtime errors
 	for i in $(seq 0 1); do
@@ -183,9 +181,7 @@ benchmark_all_to_all()
 	done
 
 	# Start all instances
-	for i in $(seq 0 $((total_nodes - 1))); do
-		cdepl_app_dxnet_start_node $i
-	done
+	cdepl_app_dxnet_start_node 0 $((total_nodes - 1))
 
 	# Wait for all instances to finish, this also checks for runtime errors
 	for i in $(seq 0 $((total_nodes - 1))); do
@@ -275,9 +271,7 @@ benchmark_ring()
 	done
 
 	# Start all instances
-	for i in $(seq 0 $((total_nodes - 1))); do
-		cdepl_app_dxnet_start_node $i
-	done
+	cdepl_app_dxnet_start_node 0 $((total_nodes - 1))
 
 	# Wait for all instances to finish, this also checks for runtime errors
 	for i in $(seq 0 $((total_nodes - 1))); do
@@ -374,9 +368,7 @@ benchmark_one_to_all()
 	depl_app_dxnet_network $NETWORK_TYPE
 
 	# Start all instances
-	for i in $(seq 0 $((total_nodes - 1))); do
-		cdepl_app_dxnet_start_node $i
-	done
+	cdepl_app_dxnet_start_node 0 $((total_nodes - 1))
 
 	# Wait for all instances to finish, this also checks for runtime errors
 	for i in $(seq 0 $((total_nodes - 1))); do
@@ -476,9 +468,7 @@ benchmark_all_to_one()
 	depl_app_dxnet_network $NETWORK_TYPE
 
 	# Start all instances
-	for i in $(seq 0 $((total_nodes - 1))); do
-		cdepl_app_dxnet_start_node $i
-	done
+	cdepl_app_dxnet_start_node 0 $((total_nodes - 1))
 
 	# Wait for all instances to finish, this also checks for runtime errors
 	for i in $(seq 0 $((total_nodes - 1))); do
@@ -663,7 +653,7 @@ benchmark_06()
 ##
 benchmark_07()
 {
-	local nodes="2 4 8 16 24 32 40 48 56 64 72 80 88 96 104 112"
+	local nodes="6 2 4 8 16 24 32 40 48 56 64 72 80 88 96 104 112"
 	local size="16"
 	local msg_count=100000000
 	local threads="1 2 4 8 16 32 64 128"
@@ -905,13 +895,13 @@ cdepl_script_deploy()
 
 	# TODO benchmarks dedicated to loopback
 
-	benchmark_00
-	benchmark_01
-	benchmark_02
-	benchmark_03
-	benchmark_04
-	benchmark_05
-	benchmark_06
+	#benchmark_00
+	#benchmark_01
+	#benchmark_02
+	#benchmark_03
+	#benchmark_04
+	#benchmark_05
+	#benchmark_06
 	benchmark_07
 	benchmark_08
 	benchmark_09
