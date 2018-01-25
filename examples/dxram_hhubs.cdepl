@@ -80,9 +80,7 @@ cdepl_script_deploy()
 	cdepl_app_dxram_init $DX_PATH $ZK_NODE $ZK_PORT
 	
 	# Kill any still running instances from previous deployments
-	for i in `seq 0 $((TOTAL_NODES - 1))`; do
-		cdepl_app_dxram_node_cleanup $i
-	done
+	cdepl_app_dxram_node_cleanup 0 $((TOTAL_NODES - 1))
 
 	# Apply node settings before starting any nodes
 	cdepl_app_dxram_node_type 0 "S"
@@ -100,9 +98,7 @@ cdepl_script_deploy()
 	cdepl_app_dxram_node_wait_started 0
 
 	# Start all peers
-	for i in `seq 1 $((TOTAL_NODES - 1))`; do
-		cdepl_app_dxram_start_node $i
-	done
+	cdepl_app_dxram_start_node 1 $((TOTAL_NODES - 1))
 
 	# Wait for all peers to be started
 	for i in `seq 1 $((TOTAL_NODES - 1))`; do
@@ -118,9 +114,7 @@ cdepl_script_deploy()
 cdepl_script_cleanup()
 {
 	# Kill all dxram instances
-	for i in `seq 0 $((TOTAL_NODES - 1))`; do
-		cdepl_app_dxram_node_cleanup $i
-	done
+	cdepl_app_dxram_node_cleanup 0 $((TOTAL_NODES - 1))
 	
 	# Kill zookeeper
 	cdepl_app_zookeeper_cleanup 0
