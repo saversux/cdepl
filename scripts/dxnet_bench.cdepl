@@ -328,9 +328,7 @@ benchmark_one_to_all()
 	cdepl_app_dxnet_init $DXNET_PATH
 
 	# Kill any still running instances from previous deployments
-	for i in $(seq 0 $((total_nodes - 1))); do
-		cdepl_app_dxnet_node_cleanup $i
-	done
+	cdepl_app_dxnet_node_cleanup 0 $((total_nodes - 1))
 
 	# One-to-all
 	# One node send only, other nodes recv only
@@ -425,9 +423,7 @@ benchmark_all_to_one()
 	cdepl_app_dxnet_init $DXNET_PATH
 
 	# Kill any still running instances from previous deployments
-	for i in $(seq 0 $((total_nodes - 1))); do
-		cdepl_app_dxnet_node_cleanup $i
-	done
+	cdepl_app_dxnet_node_cleanup 0 $((total_nodes - 1))
 
 	# All-to-one
 	# One recv only, other nodes send only
