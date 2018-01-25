@@ -73,6 +73,13 @@ cdepl_cluster_node_excl()
 	# Nodes are always exclusive, ignore
 }
 
+cdepl_cluster_node_cpu_limit_single_socket()
+{
+	local node=$1
+
+	# No need to limit to single socket, cluster does not have dual socket hardware
+}
+
 cdepl_cluster_node_cpus()
 {
 	local node=$1

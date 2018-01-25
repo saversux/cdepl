@@ -37,6 +37,13 @@ cdepl_cluster_node_excl()
 	# Nodes (or VMs, respectively) are always exclusive, ignore
 }
 
+cdepl_cluster_node_cpu_limit_single_socket()
+{
+	local node=$1
+
+	util_log_warn "[azure] Limiting to single CPU socket not implemented"
+}
+
 cdepl_cluster_node_cpus()
 {
 	local node=$1

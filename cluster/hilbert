@@ -25,6 +25,7 @@ __HILBERT_PROJECT=""
 __HILBERT_JOB_NAME=""
 __HILBERT_QUEUE=""
 __HILBERT_NODES_EXPLICIT=""
+__HILBERT_NODES_SINGLE_SOCKET=()
 
 __HILBERT_JOB_ID=""
 __HILBERT_NODE_MAPPING=()
@@ -70,6 +71,13 @@ cdepl_cluster_node_excl()
 		__HILBERT_NODE_EXCL_FIRST_CALL="0"
 		util_log "All nodes ($__HILBERT_TOTAL_NODES) allocated exclusively. Depending on the number of nodes selected, your job might have to wait a little longer until you get all the nodes exclusively"
 	fi
+}
+
+cdepl_cluster_node_cpu_limit_single_socket()
+{
+	local node=$1
+
+	__HILBERT_NODES_SINGLE_SOCKET[$node]="1"
 }
 
 cdepl_cluster_node_cpus()
@@ -148,6 +156,12 @@ cdepl_cluster_node_cmd()
 		env="module load $hilbert_env ; "
 	fi
 
+    # Limit to single socket?
+    local taskset=""
+    if [ "${__HILBERT_NODES_SINGLE_SOCKET[$node]}" ]; then
+        taskset="taskset -c 0-11"
+    fi
+
 	# -n -f for nohup
 	# Use ControlMaster to establish the TCP connection, once and keep it active
 	# until all sessions are closed and no further session was established
@@ -155,7 +169,7 @@ cdepl_cluster_node_cmd()
 	# Note when using nohup: You must redirect stdin/stdout and not add any
 	# command before it using &&, e.g. cd ~ && nohup ...
 	# This will hang the session with controlmaster
-	ssh -o ServerAliveInterval=60 -o ControlMaster=auto -o ControlPath=~/.ssh/cdepl_%r@%h:%p.sock -o ControlPersist=60 ${__HILBERT_USER}@${__HILBERT_HOSTNAME} -n -f "ssh -q ${__HILBERT_NODE_MAPPING[$node]} \"$env $cmd\""
+	ssh -o ServerAliveInterval=60 -o ControlMaster=auto -o ControlPath=~/.ssh/cdepl_%r@%h:%p.sock -o ControlPersist=60 ${__HILBERT_USER}@${__HILBERT_HOSTNAME} -n -f "ssh -q ${__HILBERT_NODE_MAPPING[$node]} \"$env $taskset $cmd\""
 }
 
 cdepl_cluster_allows_sudo()

@@ -73,6 +73,20 @@ cdepl_cluster_node_excl()
 }
 
 ##
+# Limit the application(s) getting started on the target node to a single cpu 
+# socket. Depending on the application, this might be very crucial for 
+# performance if the target application is not (well) optimized for multi
+# socket CPUs. Ensure your cluster enforces this setting if it is has nodes
+# with multi socket hardware.
+#
+# $1: Node id of the node to apply this setting to
+##
+cdepl_cluster_node_cpu_limit_single_socket()
+{
+	local node=$1
+}
+
+##
 # Allocate a specific number of CPUs/cores on the target node
 #
 # If this feature can be implemented with your cluster, ensure that you check
