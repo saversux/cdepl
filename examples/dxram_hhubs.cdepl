@@ -10,10 +10,6 @@ TOTAL_NODES=4
 CLUSTER_TYPE="hhubs"
 CLUSTER_USER="user"
 
-# Output path for log files, config files depending
-# on the application deployed
-OUT_PATH="/home/${CLUSTER_USER}/scratch"
-
 # Parameters for zookeeper
 ZK_PATH="/home/${CLUSTER_USER}/zookeeper"
 ZK_NODE=0
@@ -60,7 +56,7 @@ cdepl_script_cluster_node_setup()
 
 	# Set our output path for log files and configurations 
 	# for the applications deployed
-	cdepl_deploy_out_path $OUT_PATH
+	cdepl_deploy_setup_out_path $CLUSTER_USER
 }
 
 cdepl_script_deploy()

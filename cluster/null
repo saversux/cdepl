@@ -16,6 +16,22 @@
 #################################################
 
 ##
+# Return the location where to put any output data of the deployment
+# (logfiles, configurations, job scripts etc)
+#
+# $1: User name of the account to use on the target cluster
+# ret stdout: Base location (depending on the user) where to put deployment
+#             output
+##
+cdepl_cluster_get_base_path_deploy_out()
+{
+	local user=$1
+
+	# Default impl
+	echo "/home/$user"
+}
+
+##
 # Allocate the specified number of nodes
 #
 # Either keep track of the number of nodes allocated, actually execute

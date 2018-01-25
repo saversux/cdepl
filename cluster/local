@@ -6,6 +6,13 @@
 
 __LOCAL_TOTAL_NODES=""
 
+cdepl_cluster_get_base_path_deploy_out()
+{
+	local user=$1
+
+	echo "/home/$user"
+}
+
 cdepl_cluster_node_alloc()
 {
 	local num_nodes=$1

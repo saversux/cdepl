@@ -34,6 +34,14 @@ declare -gA __HILBERT_DEPENDENCY_MAP
 __HILBERT_DEPENDENCY_MAP["java/1.8"]="Java/1.8.0_151"
 __HILBERT_DEPENDENCY_MAP["gcc/6.1"]="gcc/6.1.0"
 
+cdepl_cluster_get_base_path_deploy_out()
+{
+	local user=$1
+
+    # Use scratch_gs instead of home -> more space
+	echo "/scratch_gs/$user"
+}
+
 cdepl_cluster_node_alloc()
 {
 	local num_nodes=$1

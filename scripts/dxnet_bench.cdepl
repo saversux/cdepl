@@ -15,9 +15,6 @@ CLUSTER_TYPE=""
 CLUSTER_USER=""
 CLUSTER_TYPE_INIT_ARGS=""
 
-# Output path for log files, config files depending on the application deployed
-OUT_PATH=""
-
 # DXNet path
 DXNET_PATH=""
 
@@ -110,7 +107,7 @@ benchmark_one_to_one()
 	cdepl_deploy_archive_out_path "dxnet_${workload}_${total_nodes}_${msg_size}_${threads}_${msg_handler}" ${RESULT_ARCHIVES_OUT_PATH}/${benchmark_name}
 
 	# Reset output path for next benchmark call
-	cdepl_deploy_out_path $OUT_PATH
+	cdepl_deploy_setup_out_path $CLUSTER_USER
 }
 
 ##
@@ -202,7 +199,7 @@ benchmark_all_to_all()
 	cdepl_deploy_archive_out_path "dxnet_${workload}_${total_nodes}_${msg_size}_${threads}_${msg_handler}" ${RESULT_ARCHIVES_OUT_PATH}/${benchmark_name}
 
 	# Reset output path for next benchmark call
-	cdepl_deploy_out_path $OUT_PATH
+	cdepl_deploy_setup_out_path $CLUSTER_USER
 }
 
 ##
@@ -292,7 +289,7 @@ benchmark_ring()
 	cdepl_deploy_archive_out_path "dxnet_${workload}_${total_nodes}_${msg_size}_${threads}_${msg_handler}" ${RESULT_ARCHIVES_OUT_PATH}/${benchmark_name}
 
 	# Reset output path for next benchmark call
-	cdepl_deploy_out_path $OUT_PATH
+	cdepl_deploy_setup_out_path $CLUSTER_USER
 }
 
 ##
@@ -485,7 +482,7 @@ benchmark_all_to_one()
 	cdepl_deploy_archive_out_path "dxnet_${workload}_${total_nodes}_${msg_size}_${threads}_${msg_handler}" ${RESULT_ARCHIVES_OUT_PATH}/${benchmark_name}
 
 	# Reset output path for next benchmark call
-	cdepl_deploy_out_path $OUT_PATH
+	cdepl_deploy_setup_out_path $CLUSTER_USER
 }
 
 ##
@@ -649,7 +646,7 @@ benchmark_06()
 ##
 benchmark_07()
 {
-	local nodes="6 2 4 8 16 24 32 40 48 56 64 72 80 88 96 104 112"
+	local nodes="2 4 8 16 24 32 40 48 56 64 72 80 88 96 104 112"
 	local size="16"
 	local msg_count=100000000
 	local threads="1 2 4 8 16 32 64 128"
@@ -845,10 +842,7 @@ cdepl_script_process_cmd_args()
 	CLUSTER_USER="$cluster_user"
 	CLUSTER_TYPE_INIT_ARGS="$cluster_type_init_args"
 
-	OUT_PATH="/home/${CLUSTER_USER}/scratch"
 	DXNET_PATH="/home/${CLUSTER_USER}/dxnet"
-
-	RESULT_ARCHIVES_OUT_PATH="${OUT_PATH}/dxnet_bench_results"
 }
 
 cdepl_script_cluster_node_setup()
@@ -879,7 +873,9 @@ cdepl_script_cluster_node_setup()
 
 	# Set our output path for log files and configurations
 	# for the applications deployed
-	cdepl_deploy_out_path $OUT_PATH
+	cdepl_deploy_setup_out_path $CLUSTER_USER
+
+	RESULT_ARCHIVES_OUT_PATH="$(cdepl_deploy_get_out_path)/dxnet_bench_results"
 }
 
 cdepl_script_deploy()
@@ -891,13 +887,13 @@ cdepl_script_deploy()
 
 	# TODO benchmarks dedicated to loopback
 
-	#benchmark_00
-	#benchmark_01
-	#benchmark_02
-	#benchmark_03
-	#benchmark_04
-	#benchmark_05
-	#benchmark_06
+	benchmark_00
+	benchmark_01
+	benchmark_02
+	benchmark_03
+	benchmark_04
+	benchmark_05
+	benchmark_06
 	benchmark_07
 	benchmark_08
 	benchmark_09
