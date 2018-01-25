@@ -171,6 +171,9 @@ cdepl_cluster_file_system_cmd()
 
 cdepl_cluster_gather_log_files()
 {
+    local path="$1"
+    local cur_path="$2"
+
 	# We use a scratch file system for hilbert -> nothing to do here
 }
 
