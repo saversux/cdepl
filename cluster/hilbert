@@ -231,7 +231,7 @@ _cdepl_cluster_on_node_setup_finish()
 
 	printf '%s' "#!/bin/bash
 
-#PBS -l select=${__HILBERT_TOTAL_NODES}:ncpus=12:mem=30000MB:arch=ivybridge
+#PBS -l select=${__HILBERT_TOTAL_NODES}:ncpus=${__HILBERT_CPUS_PER_NODE}:mem=${__HILBERT_MEM_MB_PER_NODE}:arch=ivybridge
 #PBS -l place=scatter
 #PBS -l walltime=${__HILBERT_WALLTIME}
 #PBS -r n
