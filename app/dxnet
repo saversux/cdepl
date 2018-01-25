@@ -333,13 +333,14 @@ cdepl_app_dxnet_remote_profile_yjp()
 ##
 # Start a dxnet instance on the target node.
 #
-# $1 node Target node id
+# $1 Target node id (or start node id of range if second parameter provided)
+# $2 Optional: Node id range end (including) and first parameter is interpreted
+#    as range start (including)
 ##
 cdepl_app_dxnet_start_node()
 {
-	local node=$1
-
-	local logfile=${__DXNET_OUT_LOG_PATH}/node${node}
+	local node_range_start=$1
+	local node_range_end=$2
 
 	# We have to resolve these values once, only.
 	# Same as creating the cached nodes config to speed things up
@@ -347,9 +348,44 @@ cdepl_app_dxnet_start_node()
 		__cdepl_app_dxnet_resolve_default_config_values
 	fi
 
-	__cdepl_app_dxnet_create_node_base_config $node
+	if [ "$node_range_end" ]; then
+		# If the initial cache isn't filled, create cache for first node
+		# then run everything else in parallel
+		if [ ! "$__DXNET_CACHED_NODES_CONFIG" ]; then
+			__cdepl_app_dxnet_create_node_base_config $node_range_start
+		fi
 
-	__cdepl_app_dxnet_start $node $logfile
+		for node in $(seq $node_range_start $node_range_end); do
+			__cdepl_app_dxnet_start_node $node &
+		done
+
+		wait
+	else
+		__cdepl_app_dxnet_start_node $node_range_start
+	fi
+}
+
+##
+# Cleanup any still running or remaining/crashed instances on the target node
+#
+# $1 Target node id (or start node id of range if second parameter provided)
+# $2 Optional: Node id range end (including) and first parameter is interpreted
+#    as range start (including)
+##
+cdepl_app_dxnet_node_cleanup()
+{
+	local node_range_start=$1
+	local node_range_end=$2
+
+	if [ "$node_range_end" ]; then
+		for node in $(seq $node_range_start $node_range_end); do
+			__cdepl_app_dxnet_node_cleanup $node &
+		done
+
+		wait
+	else
+		__cdepl_app_dxnet_node_cleanup $node_range_start
+	fi
 }
 
 ##
@@ -461,7 +497,9 @@ cdepl_app_dxnet_node_get_results()
 ##
 # Cleanup any still running or remaining/crashed instances on the target node
 #
-# $1 node Target node id
+# $1 Target node id (or start node id of range if second parameter provided)
+# $2 Optional: Node id range end (including) and first parameter is interpreted
+#    as range start (including)
 ##
 cdepl_app_dxnet_node_cleanup()
 {
@@ -686,6 +724,16 @@ __cdepl_app_dxnet_start()
 	# Don't use && instead of ;
 	# This will hang if the ssh with controlmaster and nohup is used
 	cdepl_cluster_node_cmd $node "cd $__DXNET_PATH ; $root nohup java -D${__DXNET_PROCESS_IDENTIFIER} $vm_opts -cp ${__DXNET_CLASS_PATH}:${__DXNET_JAR_FILE} $__DXNET_MAIN_CLASS $args > $logfile 2>&1 &" "$__DXNET_REQUIRED_ENVIRONMENT"
+}
+
+__cdepl_app_dxnet_start_node()
+{
+	local node=$1
+
+	local logfile=${__DXNET_OUT_LOG_PATH}/node${node}
+
+	__cdepl_app_dxnet_create_node_base_config $node
+	__cdepl_app_dxnet_start $node $logfile
 }
 
 __cdepl_app_dxnet_node_cleanup()
