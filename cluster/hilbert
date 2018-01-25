@@ -28,7 +28,7 @@ __HILBERT_JOB_ID=""
 __HILBERT_NODE_MAPPING=()
 
 declare -gA __HILBERT_DEPENDENCY_MAP
-__HILBERT_DEPENDENCY_MAP["java/1.8"]="Java/1.8.0"
+__HILBERT_DEPENDENCY_MAP["java/1.8"]="Java/1.8.0_151"
 __HILBERT_DEPENDENCY_MAP["gcc/6.1"]="gcc/6.1.0"
 
 cdepl_cluster_node_alloc()
