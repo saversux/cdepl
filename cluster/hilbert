@@ -341,8 +341,8 @@ echo \"Job finished\"
 	# ... and get the node mappings assigned by the job system
 
 	while true; do
-		if [ "$(cdepl_cluster_node_cmd 0 "[ -f ${node_mappings_path} ] && echo 1")" = "1" ]; then
-			node_mappings=$(cdepl_cluster_node_cmd 0 "cat $node_mappings_path")
+		if [ "$(__cdepl_cluster_login_cmd "[ -f ${node_mappings_path} ] && echo 1")" = "1" ]; then
+			node_mappings=$(__cdepl_cluster_login_cmd "cat $node_mappings_path")
 			while read -r line; do
 				local id=$(echo "$line" | cut -d ' ' -f 1)
 				local hostname=$(echo "$line" | cut -d ' ' -f 2)
@@ -382,7 +382,7 @@ _cdepl_cluster_after_cleanup()
 	util_log_debug "[hilbert] after_cleanup"
 
 	util_log_debug "[hilbert] Deployment finished, delete job $__HILBERT_JOB_ID"
-	cdepl_cluster_node_cmd 0 "qdel $__HILBERT_JOB_ID"
+	__cdepl_cluster_login_cmd "qdel $__HILBERT_JOB_ID"
 }
 
 __cdepl_cluster_login_cmd()
