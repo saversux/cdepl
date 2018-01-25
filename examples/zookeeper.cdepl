@@ -1,0 +1,86 @@
+#!/bin/bash
+
+#
+# Example how to deploy zookeeper to a target cluster
+#
+
+TOTAL_NODES=1
+
+# Cluster type and some properties for hilbert
+CLUSTER_TYPE=""
+CLUSTER_USER=""
+CLUSTER_TYPE_INIT_ARGS=""
+
+# Parameters for zookeeper
+ZK_PATH=""
+ZK_PORT=2181
+
+cdepl_script_process_cmd_args()
+{
+	local cluster_type="$1"
+	local cluster_user="$2"
+	local cluster_type_init_args="${@:3}"
+
+	if [ ! "$cluster_type" ]; then
+		util_log_error "Missing argument 'cluster_type'"
+		util_log_error_and_exit "Usage: <cluster_type> <cluster_user> [init args for cluster type...]"
+	fi
+
+	if [ ! "$cluster_user" ]; then
+		util_log_error "Missing argument 'cluster_user'"
+		util_log_error_and_exit "Usage: <cluster_type> <cluster_user> [init args for cluster type...]"
+	fi
+
+	CLUSTER_TYPE="$cluster_type"
+	CLUSTER_USER="$cluster_user"
+	CLUSTER_TYPE_INIT_ARGS="$cluster_type_init_args"
+
+	ZK_PATH="/home/${CLUSTER_USER}/zookeeper"
+}
+
+cdepl_script_cluster_node_setup()
+{
+	# Set the log level to output debug info
+	util_log_set_level "$UTIL_LOG_LEVEL_DEBUG"
+
+	# Init the cluster environment to deploy to
+	cdepl_cluster_init $CLUSTER_TYPE $CLUSTER_USER $CLUSTER_TYPE_INIT_ARGS
+
+	# Load application modules of apps you want to deploy
+	cdepl_cluster_app_load "zookeeper"
+
+	# Alloc total number of nodes for this deployment
+	cdepl_cluster_node_alloc $TOTAL_NODES
+
+	# Specify the (minimum amount of) resources we need on node 0
+	cdepl_cluster_node_mem 0 1024
+	cdepl_cluster_node_cpus 0 1
+
+	# Set our output path for log files and configurations 
+	# for the application deployed
+	cdepl_deploy_setup_out_path $CLUSTER_USER
+}
+
+cdepl_script_deploy()
+{
+	# Initilize zookeeper deployment
+	cdepl_app_zookeeper_init $ZK_PATH
+
+	# Ensure that no (old) zookeeper instance is running on any node
+	cdepl_app_zookeeper_cleanup 0
+
+	# Start zookeeper instance and wait until started
+	cdepl_app_zookeeper_start 0 $ZK_PORT
+	cdepl_app_zookeeper_wait_started 0
+
+	# Cleanup of failed startups in zookeeper
+	cdepl_app_zookeeper_remove 0 "/dxram"
+
+	# Done
+}
+
+cdepl_script_cleanup()
+{
+	# Kill zookeeper
+	cdepl_app_zookeeper_cleanup 0
+}
