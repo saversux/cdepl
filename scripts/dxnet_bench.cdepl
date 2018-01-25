@@ -903,7 +903,7 @@ cdepl_script_cluster_node_setup()
 
 cdepl_script_deploy()
 {
-	cdepl_cluster_login_cmd "mkdir -p $RESULT_ARCHIVES_OUT_PATH"
+	cdepl_cluster_file_system_cmd "mkdir -p $RESULT_ARCHIVES_OUT_PATH"
 
 	# All benchmarks are executed here. If you aren't interested in all
 	# benchmarks, just remove what you don't need
