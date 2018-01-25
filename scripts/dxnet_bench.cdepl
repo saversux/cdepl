@@ -893,6 +893,9 @@ cdepl_script_cluster_node_setup()
 
 	# Reserve all nodes exclusive (all resources available)
 	for i in $(seq 0 $((TOTAL_NODES - 1))); do
+		# DXNet is not optimized for multi socket setups and doesn't perform
+		# well with them, limit to single socket
+		cdepl_cluster_node_cpu_limit_single_socket $i
 		cdepl_cluster_node_excl $i
 	done
 
