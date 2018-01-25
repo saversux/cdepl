@@ -465,33 +465,17 @@ cdepl_app_dxnet_node_get_results()
 ##
 cdepl_app_dxnet_node_cleanup()
 {
-	local node=$1
+	local node_range_start=$1
+	local node_range_end=$2
 
-	util_log "[$node][dxnet] Cleanup..."
-
-	local pid="$(cdepl_cluster_node_cmd $node "pgrep -f '^java.*${__DXNET_PROCESS_IDENTIFIER}'")"
-
-	if [ "$pid" ]; then
-		# If we or someone else left some garbage processes on the node multiple
-		# pids are returned
-		for i in $pid; do
-			local kill_out=$(cdepl_cluster_node_cmd $node "kill -9 $i 2>&1")
-
-			if [ "$?" = "0" ] && [ ! "$kill_out" ]; then
-				util_log "[$node][dxnet] Killed (pid: $i)"
-			elif [ "$kill_out" ]; then
-				# Probably operation not permitted, try root
-				cdepl_cluster_node_cmd $node "sudo -P kill -9 $i > /dev/null 2>&1"
-
-				if [ "$?" = "0" ]; then
-					util_log "[$node][dxnet] Killed (root) (pid: $i)"
-				elif [ "$?" != "1" ]; then
-					util_log_warn "[$node][dxnet] Killing (root) $i failed, DXNet instance(s) might stay alive"
-				fi
-			elif [ "$?" != "1" ]; then
-				util_log_warn "[$node][dxnet] Killing $i failed, DXNet instance(s) might stay alive"
-			fi
+	if [ "$node_range_end" ]; then
+		for node in $(seq $node_range_start $node_range_end); do
+			__cdepl_app_dxnet_node_cleanup $node &
 		done
+
+		wait
+	else
+		__cdepl_app_dxnet_node_cleanup $node_range_start
 	fi
 }
 
@@ -702,4 +686,36 @@ __cdepl_app_dxnet_start()
 	# Don't use && instead of ;
 	# This will hang if the ssh with controlmaster and nohup is used
 	cdepl_cluster_node_cmd $node "cd $__DXNET_PATH ; $root nohup java -D${__DXNET_PROCESS_IDENTIFIER} $vm_opts -cp ${__DXNET_CLASS_PATH}:${__DXNET_JAR_FILE} $__DXNET_MAIN_CLASS $args > $logfile 2>&1 &" "$__DXNET_REQUIRED_ENVIRONMENT"
+}
+
+__cdepl_app_dxnet_node_cleanup()
+{
+	local node=$1
+
+	util_log "[$node][dxnet] Cleanup..."
+
+	local pid="$(cdepl_cluster_node_cmd $node "pgrep -f '^java.*${__DXNET_PROCESS_IDENTIFIER}'")"
+
+	if [ "$pid" ]; then
+		# If we or someone else left some garbage processes on the node multiple
+		# pids are returned
+		for i in $pid; do
+			local kill_out=$(cdepl_cluster_node_cmd $node "kill -9 $i 2>&1")
+
+			if [ "$?" = "0" ] && [ ! "$kill_out" ]; then
+				util_log "[$node][dxnet] Killed (pid: $i)"
+			elif [ "$kill_out" ]; then
+				# Probably operation not permitted, try root
+				cdepl_cluster_node_cmd $node "sudo -P kill -9 $i > /dev/null 2>&1"
+
+				if [ "$?" = "0" ]; then
+					util_log "[$node][dxnet] Killed (root) (pid: $i)"
+				elif [ "$?" != "1" ]; then
+					util_log_warn "[$node][dxnet] Killing (root) $i failed, DXNet instance(s) might stay alive"
+				fi
+			elif [ "$?" != "1" ]; then
+				util_log_warn "[$node][dxnet] Killing $i failed, DXNet instance(s) might stay alive"
+			fi
+		done
+	fi
 }
