@@ -273,7 +273,7 @@ _cdepl_cluster_on_node_setup_finish()
         pbs_job_string="#PBS -l nodes=${__HILBERT_NODES_EXPLICIT}"
         util_log_debug "[hilbert] Explicit node allocation: ${__HILBERT_NODES_EXPLICIT}"
     else
-        pbs_job_string="#PBS -l select=${__HILBERT_TOTAL_NODES}:ncpus=${__HILBERT_CPUS_PER_NODE}:mem=${__HILBERT_MEM_MB_PER_NODE}:arch=ivybridge
+        pbs_job_string="#PBS -l select=${__HILBERT_TOTAL_NODES}:ncpus=${__HILBERT_CPUS_PER_NODE}:mem=${__HILBERT_MEM_MB_PER_NODE}MB:arch=ivybridge
 #PBS -l place=scatter"
     fi
 
