@@ -23,6 +23,8 @@ __HILBERT_MEM_MB_PER_NODE="0"
 __HILBERT_USER=""
 __HILBERT_PROJECT=""
 __HILBERT_JOB_NAME=""
+__HILBERT_QUEUE=""
+__HILBERT_NODES_EXPLICIT=""
 
 __HILBERT_JOB_ID=""
 __HILBERT_NODE_MAPPING=()
@@ -186,8 +188,23 @@ _cdepl_cluster_on_init()
 	local cluster_user=$1
 	# Required for job system
 	local project_name=$2
-	# Optional args
-	local job_name=$3
+
+    # Optional arguments, e.g.
+    # q=Devel
+    # j=bla
+    # n=hilbert74+hilbert75+hilbert76
+    local job_name=""
+    local queue=""
+    local nodes=""
+
+    for arg in "${@:3}"; do
+        case "${arg:0:2}" in
+            "j=") job_name="${arg:2}" ;;
+            "q=") queue="${arg:2}" ;;
+            "n=") nodes="${arg:2}" ;;
+            *) ;;
+        esac
+    done
 
 	util_log_debug "[hilbert] on_init: user $cluster_user project $project_name"
 
@@ -203,8 +220,11 @@ _cdepl_cluster_on_init()
 	if [ "$job_name" ]; then
 		__HILBERT_JOB_NAME="$job_name"
 	else
-		__HILBERT_JOB_NAME="${__HILBERT_PROJECT}_job"
+		__HILBERT_JOB_NAME="${__HILBERT_PROJECT}"
 	fi
+
+    __HILBERT_QUEUE="$queue"
+    __HILBERT_NODES_EXPLICIT="$nodes"
 
 	# Check if passwordless auth available
 	ssh -o PasswordAuthentication=no -o BatchMode=yes ${__HILBERT_USER}@${__HILBERT_HOSTNAME} exit &> /dev/null
@@ -223,7 +243,7 @@ _cdepl_cluster_on_init()
 
 _cdepl_cluster_on_node_setup_finish()
 {
-	util_log_debug "[local] on_node_setup_finish"
+	util_log_debug "[hilbert] on_node_setup_finish"
 
 	# Create job script to bootstrap the cluster: allocate nodes, get node mappings
 
@@ -231,18 +251,36 @@ _cdepl_cluster_on_node_setup_finish()
 	local job_script="${__DEPLOY_CUR_OUT_PATH}/deploy.job"
 	local node_mappings_path="${__DEPLOY_CUR_OUT_PATH}/node_mappings"
 
-	# TODO add parameter for email notification (see pbs doc)
+    # We could pass this stuff as parameters to PBS but want them documented
+    # with the job script
+    local pbs_job_string=""
 
-	printf '%s' "#!/bin/bash
+    if [ "$__HILBERT_NODES_EXPLICIT" ]; then
+        pbs_job_string="#PBS -l nodes=${__HILBERT_NODES_EXPLICIT}"
+        util_log_debug "[hilbert] Explicit node allocation: ${__HILBERT_NODES_EXPLICIT}"
+    else
+        pbs_job_string="#PBS -l select=${__HILBERT_TOTAL_NODES}:ncpus=${__HILBERT_CPUS_PER_NODE}:mem=${__HILBERT_MEM_MB_PER_NODE}:arch=ivybridge
+#PBS -l place=scatter"
+    fi
 
-#PBS -l select=${__HILBERT_TOTAL_NODES}:ncpus=${__HILBERT_CPUS_PER_NODE}:mem=${__HILBERT_MEM_MB_PER_NODE}:arch=ivybridge
-#PBS -l place=scatter
+    if [ "$__HILBERT_QUEUE" ]; then
+        pbs_job_string="$pbs_job_string
+#PBS -q ${__HILBERT_QUEUE}"
+        util_log_debug "[hilbert] Non default queue specified: ${__HILBERT_QUEUE}"
+    fi
+
+    pbs_job_string="$pbs_job_string
 #PBS -l walltime=${__HILBERT_WALLTIME}
 #PBS -r n
 #PBS -N $__HILBERT_JOB_NAME
 #PBS -A $__HILBERT_PROJECT
 #PBS -e ${__DEPLOY_CUR_OUT_PATH}/deploy.stderr
-#PBS -o ${__DEPLOY_CUR_OUT_PATH}/deploy.stdout
+#PBS -o ${__DEPLOY_CUR_OUT_PATH}/deploy.stdout"
+
+    # Glue everything together
+	printf '%s' "#!/bin/bash
+
+${pbs_job_string}
 
 JOB_WORKING_DIR=\"${__DEPLOY_CUR_OUT_PATH}\"
 NODES_COUNT=\"\"
@@ -286,7 +324,7 @@ echo \"Job finished\"
 
 	# Submit the job script and wait for the node mappings to be written to disk
 
-	local qsub_output=$(cdepl_cluster_login_cmd "$__HILBERT_QSUB $job_script")
+	local qsub_output=$(__cdepl_cluster_login_cmd "$__HILBERT_QSUB $job_script")
 
 	if [ "$?" != "0" ]; then
 		util_log_error_and_exit "Submitting job script $job_script failed"
