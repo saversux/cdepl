@@ -24,6 +24,12 @@ DXNET_PATH=""
 # All results are compressed and stored here
 RESULT_ARCHIVES_OUT_PATH=""
 
+# TODO for latency measure up to X bytes (see paper)                                      
+# TODO for throughput start at X bytes (see paper) and up to 1MB                          
+# TODO for throughput measurements (all of them): calculate total throughput              
+# and adjust message count accordingly, more messages for smaller sizes                   
+# and once saturation (should) kick in: cap with specific total amount 
+
 ##
 # Run a one-to-one benchmark. One node sends data to another node
 # (not full duplex)
