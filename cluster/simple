@@ -114,9 +114,12 @@ cdepl_cluster_node_cmd()
 	ssh -o ControlMaster=auto -o ControlPath=~/.ssh/cdepl_%r@%h:%p.sock -o ControlPersist=60 ${__SIMPLE_USER}@${__SIMPLE_NODE_MAP[$node]} -n -f "$cmd"
 }
 
-cdepl_cluster_allows_sudo()
+cdepl_cluster_gather_log_files()
 {
-	echo ""
+	local cmd="$1"
+	local required_env="$2"
+
+	# We assume a shared file system is available on a simple cluster -> nothing to do here
 }
 
 cdepl_cluster_file_system_cmd()
@@ -127,9 +130,9 @@ cdepl_cluster_file_system_cmd()
 	cdepl_cluster_node_cmd 0 "$cmd"
 }
 
-cdepl_cluster_gather_log_files()
+cdepl_cluster_allows_sudo()
 {
-	# We assume a shared file system is available on a simple cluster -> nothing to do here
+	echo ""
 }
 
 ####################################
