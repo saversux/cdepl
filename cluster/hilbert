@@ -345,12 +345,21 @@ echo \"Job finished\"
 	scp $tmp_job_script ${__HILBERT_USER}@${__HILBERT_HOSTNAME}:$job_script > /dev/null 2>&1
 	__cdepl_cluster_login_cmd "chmod +x $job_script"
 
+    # A little late but print which resources are currently available. That
+    # might give the user a hint if the job can start very soon. Maybe he
+    # decides to reduce the resource needs as well to get something started
+    # quickly
+
+    local resource_available="$(curl -k "https://myjam3.hhu.de/ajax.php?modul=cluster&script=FreeRessources" 2> /dev/null)"
+
+    util_log_debug "[hilbert] Resources currently available:\n${resource_available}"
+
 	# Submit the job script and wait for the node mappings to be written to disk
 
 	local qsub_output=$(__cdepl_cluster_login_cmd "$__HILBERT_QSUB $job_script")
 
 	if [ "$?" != "0" ]; then
-		util_log_error_and_exit "Submitting job script $job_script failed"
+		util_log_error_and_exit "[hilbert] Submitting job script $job_script failed"
 	fi
 
 	# Wait for node_mappings file to appear
