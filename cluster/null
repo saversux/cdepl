@@ -179,9 +179,18 @@ cdepl_cluster_node_cmd()
 	# stub
 }
 
-
+##
+# Get all the log files from the nodes on a setup which doesn't use NFS.
+#
+# $1 Target destination to copy them to (local on the machine you run cdepl 
+#    from)
+# $2 The output path for log files, configs etc of the deployment on the nodes
+##
 cdepl_cluster_gather_log_files()
 {
+	local path="$1"
+	local cur_path="$2"
+
 	# stub
 }
 
