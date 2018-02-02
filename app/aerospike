@@ -1,0 +1,313 @@
+#!/bin/bash
+
+__AEROSPIKE_PATH=""
+__AEROSPIKE_OUT_PATH=""
+__AEROSPIKE_EXECUTABLE=""
+__AEROSPIKE_USER=""
+__AEROSPIKE_GROUP=""
+
+##
+# Initialize and setup Aerospike environment. This must be called before any other
+# function of the Aerospike module.
+#
+# $1 Path to folder containing build output of Aerospike
+# $2 Name of the user, that executes Aerospike
+# $3 Name of the user-group, that Aerospike will be executed in
+##
+cdepl_app_aerospike_init()
+{
+	local aerospike_path=$1
+	__AEROSPIKE_USER=$2
+	__AEROSPIKE_GROUP=$3
+
+	__AEROSPIKE_PATH="$(cdepl_cluster_file_system_cmd "realpath ${aerospike_path}")"
+	__AEROSPIKE_OUT_PATH="${__DEPLOY_CUR_OUT_PATH}/aerospike-server"
+	__AEROSPIKE_EXECUTABLE="${__AEROSPIKE_PATH}/bin/asd"
+
+	if [ "$(cdepl_cluster_file_system_cmd "[ -d ${__AEROSPIKE_PATH} ] && echo \"1\"")" != "1" ]; then
+		util_log_error_and_exit "[login][aerospike]: Path does not exist: ${__AEROSPIKE_PATH}"
+	fi
+	
+	if [ "$(cdepl_cluster_file_system_cmd "[ -f ${__AEROSPIKE_EXECUTABLE} ] && echo \"1\"")" != "1" ]; then
+		util_log_error_and_exit "[login][aerospike]: File does not exist: ${__AEROSPIKE_EXECUTABLE}"
+	fi
+
+	cdepl_app_aerospike_setup_etc_dir
+	cdepl_app_aerospike_setup_var_dir
+
+	util_log "[login][aerospike] Initialized: ${__AEROSPIKE_PATH}"
+	util_log "[login][aerospike] Output: ${__AEROSPIKE_OUT_PATH}"
+}
+
+##
+# Start Aerospike on a specified node
+#
+# $1 The node-number
+##
+cdepl_app_aerospike_start_node()
+{	
+	local node=$1
+	local user=$(cdepl_cluster_file_system_cmd "whoami")
+
+  	if [[ ${user} != "root" ]]; then
+    	util_log_warn "[$node][aerospike] Running without super-user privileges! Setting system variables might fail..."
+		cdepl_cluster_node_cmd $node "ulimit -Sn 100000" > /dev/null 2>&1
+	else
+		util_log "[$node][aerospike] Setting up system variables"
+		cdepl_cluster_node_cmd $node "ulimit -Hn 100000" > /dev/null 2>&1
+	fi
+
+	if [ ! $? -eq 0 ]; then
+		util_log_warn "[$node][aerospike] Failed to set file-descriptor limit! Using current limit ($(ulimit -n))..."
+	fi
+
+	cdepl_app_aerospike_set_shmall $node
+	cdepl_app_aerospike_set_shmmax $node
+	cdepl_app_aerospike_set_socket_buffer_limits $node
+
+    util_log "[$node][aerospike] Starting Aerospike..."
+	cdepl_cluster_node_cmd $node "${__AEROSPIKE_EXECUTABLE} --instance 1 --config ${__AEROSPIKE_PATH}/etc/aerospike.conf &>${__AEROSPIKE_PATH}/var/log/console.log"
+
+	local console=$(cdepl_cluster_node_cmd $node "cat \"${__AEROSPIKE_PATH}/var/log/console.log\"")
+	if [ $? -eq 0 ] && [ -z "${console}" ]; then
+    	util_log "[$node][aerospike] Successfully started Aerospike!"
+  	else
+		util_log_error "[$node][aerospike] Start failed due to an error!"
+		util_log_error_and_exit "${console}"
+	fi
+
+	local ready=""
+	local i=0
+	while [ -z "$ready" ]; do
+		if [ "$i" -gt "29" ]; then
+			util_log_error "[$node][aerospike] Aerospike did not finish initializing after 30 seconds! Cleaning up node..."
+			cdepl_app_aerospike_node_cleanup node
+			util_log_error_and_exit "[$node][aerospike] Exiting script!"
+		fi
+
+		util_log "[$node][aerospike] Waiting for aerospike to finish initializing..."
+		sleep 1s
+
+		ready=$(cdepl_cluster_node_cmd $node "cat \"${__AEROSPIKE_PATH}/var/log/aerospike.log\" | grep \"rebalanced\"")
+		i=$((i + 1))
+	done
+
+	util_log "[$node][aerospike] Finished!"
+}
+
+##
+# Stop Aerospike on a specified node
+#
+# $1 The node-number
+##
+cdepl_app_aerospike_node_cleanup()
+{
+	local node=$1
+
+	cdepl_cluster_node_cmd $node "pkill asd"
+}
+
+##
+# Initializes ${__AEROSPIKE_PATH}/etc/
+##
+cdepl_app_aerospike_setup_etc_dir()
+{
+	
+	if [ "$(cdepl_cluster_file_system_cmd "[ -d ${__AEROSPIKE_PATH}/etc ] && echo \"1\"")" != "1" ]; then
+  		cdepl_cluster_file_system_cmd "mkdir \"${__AEROSPIKE_PATH}/etc\""
+	fi
+  	
+	  cdepl_app_aerospike_create_default_config
+}
+
+##
+# Initializes ${__AEROSPIKE_PATH}/var/
+##
+cdepl_app_aerospike_setup_var_dir()
+{
+	if [ "$(cdepl_cluster_file_system_cmd "[ -d ${__AEROSPIKE_PATH}/var ] && echo \"1\"")" != "1" ]; then
+  		cdepl_cluster_file_system_cmd "mkdir \"${__AEROSPIKE_PATH}/var\""
+	fi
+
+	if [ "$(cdepl_cluster_file_system_cmd "[ -d ${__AEROSPIKE_PATH}/var/log ] && echo \"1\"")" != "1" ]; then
+  		cdepl_cluster_file_system_cmd "mkdir \"${__AEROSPIKE_PATH}/var/log\""
+	fi
+
+	if [ "$(cdepl_cluster_file_system_cmd "[ -f ${__AEROSPIKE_PATH}/var/log/console.log ] && echo \"1\"")" != "1" ]; then
+  		cdepl_cluster_file_system_cmd "touch \"${__AEROSPIKE_PATH}/var/log/console.log\""
+	fi
+
+	if [ "$(cdepl_cluster_file_system_cmd "[ -f ${__AEROSPIKE_PATH}/var/log/aerospike.log ] && echo \"1\"")" == "1" ]; then
+  		cdepl_cluster_file_system_cmd "rm \"${__AEROSPIKE_PATH}/var/log/aerospike.log\""
+	fi
+
+	if [ "$(cdepl_cluster_file_system_cmd "[ -d ${__AEROSPIKE_PATH}/var/run ] && echo \"1\"")" != "1" ]; then
+  		cdepl_cluster_file_system_cmd "mkdir \"${__AEROSPIKE_PATH}/var/run\""
+	fi
+
+	if [ "$(cdepl_cluster_file_system_cmd "[ -d ${__AEROSPIKE_PATH}/var/smd ] && echo \"1\"")" != "1" ]; then
+  		cdepl_cluster_file_system_cmd "mkdir \"${__AEROSPIKE_PATH}/var/smd\""
+	fi
+
+	if [ "$(cdepl_cluster_file_system_cmd "[ -d ${__AEROSPIKE_PATH}/var/udf ] && echo \"1\"")" != "1" ]; then
+  		cdepl_cluster_file_system_cmd "mkdir \"${__AEROSPIKE_PATH}/var/udf\""
+	fi
+
+	if [ "$(cdepl_cluster_file_system_cmd "[ -d ${__AEROSPIKE_PATH}/var/udf/lua ] && echo \"1\"")" != "1" ]; then
+  		cdepl_cluster_file_system_cmd "mkdir \"${__AEROSPIKE_PATH}/var/udf/lua\""
+	fi
+}
+
+##
+# Creates the default aerospike.conf
+# This would usually be done the python-script "render.py",
+# which is part of Aerospike's startup-scripts.
+##
+cdepl_app_aerospike_create_default_config() {
+	local user=$__AEROSPIKE_USER
+	local group=$__AEROSPIKE_GROUP
+	local home=$__AEROSPIKE_PATH
+	local conf_file="/tmp/aerospike.conf"
+
+	echo "# Aerospike database configuration file." > $conf_file
+	echo "" >> $conf_file
+	echo "# This stanza must come first." >> $conf_file
+	echo "service {" >> $conf_file
+  	echo "	user ${user}" >> $conf_file
+  	echo "	group ${group}" >> $conf_file
+  	echo "	paxos-single-replica-limit 1 # Number of nodes where the replica count is automatically reduced to 1." >> $conf_file
+  	echo "	pidfile ${home}/var/run/aerospike.pid" >> $conf_file
+  	echo "	proto-fd-max $(ulimit -n)" >> $conf_file
+  	echo "	work-directory ${home}/var" >> $conf_file
+	echo "}" >> $conf_file
+	echo "" >> $conf_file
+	echo "logging {" >> $conf_file
+ 	echo "	# Log file must be an absolute path." >> $conf_file
+  	echo "	file ${__AEROSPIKE_PATH}/var/log/aerospike.log {" >> $conf_file
+    echo "		context any info" >> $conf_file
+  	echo "	}" >> $conf_file
+	echo "}" >> $conf_file
+	echo "" >> $conf_file
+	echo "mod-lua {" >> $conf_file
+  	echo "	system-path ${__AEROSPIKE_PATH}/share/udf/lua" >> $conf_file
+  	echo "	user-path ${__AEROSPIKE_PATH}/var/udf/lua" >> $conf_file
+	echo "}" >> $conf_file
+	echo "" >> $conf_file
+	echo "network {" >> $conf_file
+	echo "	service {" >> $conf_file
+	echo "		address any" >> $conf_file
+	echo "		port 3000" >> $conf_file
+	echo "	}" >> $conf_file
+	echo "" >> $conf_file
+	echo "	heartbeat {" >> $conf_file
+	echo "		mode multicast" >> $conf_file
+	echo "		multicast-group 239.1.99.222" >> $conf_file
+	echo "		port 9918" >> $conf_file
+	echo "" >> $conf_file
+	echo "		interval 150" >> $conf_file
+	echo "		timeout 10" >> $conf_file
+	echo "	}" >> $conf_file
+	echo "" >> $conf_file
+	echo "	fabric {" >> $conf_file
+	echo "		port 3001" >> $conf_file
+	echo "	}" >> $conf_file
+	echo "" >> $conf_file
+	echo "	info {" >> $conf_file
+	echo "		port 3003" >> $conf_file
+	echo "	}" >> $conf_file
+	echo "}" >> $conf_file
+	echo "" >> $conf_file
+	echo "namespace test {" >> $conf_file
+	echo "	replication-factor 2" >> $conf_file
+	echo "	memory-size 4G" >> $conf_file
+	echo "	default-ttl 30d # 30 days, use 0 to never expire/evict." >> $conf_file
+	echo "	storage-engine memory" >> $conf_file
+	echo "}" >> $conf_file
+
+	local config_string=$(cat $conf_file)
+	cdepl_cluster_node_cmd 0 "echo '$config_string' > '${__AEROSPIKE_PATH}/etc/aerospike.conf'"
+}
+
+##
+# Sets the SHMALL-value.
+#
+# $1 The node-number
+##
+cdepl_app_aerospike_set_shmall()
+{
+	local node=$1
+
+	local mem=$(cdepl_cluster_node_cmd $node "/sbin/sysctl -n kernel.shmall")
+  	local min=4294967296
+
+  	if [ ${#mem} -le ${#min} ]; then
+    	if [ $mem -lt $min ]; then
+      		info "kernel.shmall too low, setting to 4G pages"
+      		cdepl_cluster_node_cmd $node "/sbin/sysctl -w kernel.shmall=${min}" > /dev/null 2>&1
+    	fi
+  	fi
+	
+	if [ ! $? -eq 0 ]; then
+		util_log_warn "[$node][aerospike] Failed to set kernel.shmall!"
+	fi
+}
+
+##
+# Sets the SHMMAX-value.
+#
+# $1 The node-number
+##
+cdepl_app_aerospike_set_shmmax()
+{
+	local node=$1
+
+	local mem=$(cdepl_cluster_node_cmd $node "/sbin/sysctl -n kernel.shmmax")
+	local min=1073741824
+	
+	if [ ${#mem} -le ${#min} ]; then
+		if [ $mem -lt $min ]; then
+      		info "kernel.shmmax too low, setting to 1GB"
+      		cdepl_cluster_node_cmd $node "/sbin/sysctl -w kernel.shmmax=${min}" > /dev/null 2>&1
+    	fi
+  	fi
+	
+	if [ ! $? -eq 0 ]; then
+		util_log_warn "[$node][aerospike] Failed to set kernel.shmmax!"
+	fi
+}
+
+##
+# Helper-function for cdepl_app_aerospike_set_socket_buffer_limits.
+##
+cdepl_app_aerospike_set_socket_buffer_limit()
+{
+	local node=$1
+	local name=$2
+	local path=$3
+	local size=$4
+	
+	local curr=$(cdepl_cluster_node_cmd $node "cat ${path} 2>/dev/null")
+
+	if [ -z $curr ]; then
+		util_log_warn "[$node][aerospike] Failed to set TCP-${name}-buffer size! File not found: ${path}"
+		return
+	fi
+
+	if [ ${curr} -lt ${size} ]; then
+    	cdepl_cluster_node_cmd $node "echo ${size} > ${path}"
+ 	fi
+
+	if [ ! $? -eq 0 ]; then
+		util_log_warn "[$node][aerospike] Failed to set TCP-${name}-buffer size!"
+	fi
+}
+
+##
+# Increases the buffer limit of incoming and outgoing TCP-Buffers.
+##
+cdepl_app_aerospike_set_socket_buffer_limits() {
+	local node=$1
+
+	cdepl_app_aerospike_set_socket_buffer_limit $node read /proc/sys/net/core/rmem_max 15728640
+	cdepl_app_aerospike_set_socket_buffer_limit $node write /proc/sys/net/core/wmem_max 5242880
+}
