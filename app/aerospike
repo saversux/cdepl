@@ -21,7 +21,7 @@ cdepl_app_aerospike_init()
 	__AEROSPIKE_GROUP=$3
 
 	__AEROSPIKE_PATH="$(cdepl_cluster_file_system_cmd "realpath ${aerospike_path}")"
-	__AEROSPIKE_OUT_PATH="${__DEPLOY_CUR_OUT_PATH}/aerospike-server"
+	__AEROSPIKE_OUT_PATH="${__DEPLOY_CUR_OUT_PATH}"
 	__AEROSPIKE_EXECUTABLE="${__AEROSPIKE_PATH}/bin/asd"
 
 	if [ "$(cdepl_cluster_file_system_cmd "[ -d ${__AEROSPIKE_PATH} ] && echo \"1\"")" != "1" ]; then
@@ -32,8 +32,9 @@ cdepl_app_aerospike_init()
 		util_log_error_and_exit "[login][aerospike]: File does not exist: ${__AEROSPIKE_EXECUTABLE}"
 	fi
 
-	cdepl_app_aerospike_setup_etc_dir
+	cdepl_app_aerospike_setup_out_dir
 	cdepl_app_aerospike_setup_var_dir
+	cdepl_app_aerospike_create_default_config
 
 	util_log "[login][aerospike] Initialized: ${__AEROSPIKE_PATH}"
 	util_log "[login][aerospike] Output: ${__AEROSPIKE_OUT_PATH}"
@@ -47,7 +48,9 @@ cdepl_app_aerospike_init()
 cdepl_app_aerospike_start_node()
 {	
 	local node=$1
+
 	local user=$(cdepl_cluster_file_system_cmd "whoami")
+	local log_path="${__AEROSPIKE_OUT_PATH}/log/node${node}"
 
 	if [[ ${user} != "root" ]]; then
 		util_log_warn "[$node][aerospike] Running without super-user privileges! Setting system variables might fail..."
@@ -66,9 +69,9 @@ cdepl_app_aerospike_start_node()
 	cdepl_app_aerospike_set_socket_buffer_limits $node
 
 	util_log "[$node][aerospike] Starting Aerospike..."
-	cdepl_cluster_node_cmd $node "${__AEROSPIKE_EXECUTABLE} --instance 1 --config ${__AEROSPIKE_PATH}/etc/aerospike.conf &>${__AEROSPIKE_PATH}/var/log/console.log"
+	cdepl_cluster_node_cmd $node "${__AEROSPIKE_EXECUTABLE} --instance 1 --config '${__AEROSPIKE_OUT_PATH}/conf/aerospike.conf' &>'${log_path}/console.log'"
 
-	local console=$(cdepl_cluster_node_cmd $node "cat \"${__AEROSPIKE_PATH}/var/log/console.log\"")
+	local console=$(cdepl_cluster_node_cmd $node "cat \"${log_path}/console.log\"")
 	if [ $? -eq 0 ] && [ -z "${console}" ]; then
 		util_log "[$node][aerospike] Successfully started Aerospike!"
 	else
@@ -108,15 +111,27 @@ cdepl_app_aerospike_node_cleanup()
 }
 
 ##
-# Initializes ${__AEROSPIKE_PATH}/etc/
+# Initializes ${__AEROSPIKE_OUT_PATH}/
 ##
-cdepl_app_aerospike_setup_etc_dir()
+cdepl_app_aerospike_setup_out_dir()
 {
-	if [ "$(cdepl_cluster_file_system_cmd "[ -d ${__AEROSPIKE_PATH}/etc ] && echo \"1\"")" != "1" ]; then
-		cdepl_cluster_file_system_cmd "mkdir \"${__AEROSPIKE_PATH}/etc\""
+	local node_count="$(cdepl_cluster_file_system_cmd "wc -l < \"${__AEROSPIKE_OUT_PATH}/node_mappings\"")"
+
+	for i in `seq 0 $(($node_count-1))`; do
+		local log_path="${__AEROSPIKE_OUT_PATH}/log/node$i"
+
+		if [ "$(cdepl_cluster_file_system_cmd "[ -d ${log_path} ] && echo \"1\"")" != "1" ]; then
+			cdepl_cluster_file_system_cmd "mkdir -p \"${log_path}\""
+		fi
+	done
+
+	if [ "$(cdepl_cluster_file_system_cmd "[ -d ${__AEROSPIKE_OUT_PATH}/conf ] && echo \"1\"")" != "1" ]; then
+		cdepl_cluster_file_system_cmd "mkdir \"${__AEROSPIKE_OUT_PATH}/conf\""
 	fi
-	
-	cdepl_app_aerospike_create_default_config
+
+	if [ "$(cdepl_cluster_file_system_cmd "[ -d ${__AEROSPIKE_OUT_PATH}/log ] && echo \"1\"")" != "1" ]; then
+		cdepl_cluster_file_system_cmd "mkdir \"${__AEROSPIKE_OUT_PATH}/log\""
+	fi
 }
 
 ##
@@ -166,65 +181,55 @@ cdepl_app_aerospike_create_default_config() {
 	local user=$__AEROSPIKE_USER
 	local group=$__AEROSPIKE_GROUP
 	local home=$__AEROSPIKE_PATH
-	local conf_file="/tmp/aerospike.conf"
 
-	echo "# Aerospike database configuration file." > $conf_file
-	echo "" >> $conf_file
-	echo "# This stanza must come first." >> $conf_file
-	echo "service {" >> $conf_file
-	echo "	user ${user}" >> $conf_file
-	echo "	group ${group}" >> $conf_file
-	echo "	paxos-single-replica-limit 1 # Number of nodes where the replica count is automatically reduced to 1." >> $conf_file
-	echo "	pidfile ${home}/var/run/aerospike.pid" >> $conf_file
-	echo "	proto-fd-max $(ulimit -n)" >> $conf_file
-	echo "	work-directory ${home}/var" >> $conf_file
-	echo "}" >> $conf_file
-	echo "" >> $conf_file
-	echo "logging {" >> $conf_file
-	echo "	# Log file must be an absolute path." >> $conf_file
-	echo "	file ${__AEROSPIKE_PATH}/var/log/aerospike.log {" >> $conf_file
-	echo "		context any info" >> $conf_file
-	echo "	}" >> $conf_file
-	echo "}" >> $conf_file
-	echo "" >> $conf_file
-	echo "mod-lua {" >> $conf_file
-	echo "	system-path ${__AEROSPIKE_PATH}/share/udf/lua" >> $conf_file
-	echo "	user-path ${__AEROSPIKE_PATH}/var/udf/lua" >> $conf_file
-	echo "}" >> $conf_file
-	echo "" >> $conf_file
-	echo "network {" >> $conf_file
-	echo "	service {" >> $conf_file
-	echo "		address any" >> $conf_file
-	echo "		port 3000" >> $conf_file
-	echo "	}" >> $conf_file
-	echo "" >> $conf_file
-	echo "	heartbeat {" >> $conf_file
-	echo "		mode multicast" >> $conf_file
-	echo "		multicast-group 239.1.99.222" >> $conf_file
-	echo "		port 9918" >> $conf_file
-	echo "" >> $conf_file
-	echo "		interval 150" >> $conf_file
-	echo "		timeout 10" >> $conf_file
-	echo "	}" >> $conf_file
-	echo "" >> $conf_file
-	echo "	fabric {" >> $conf_file
-	echo "		port 3001" >> $conf_file
-	echo "	}" >> $conf_file
-	echo "" >> $conf_file
-	echo "	info {" >> $conf_file
-	echo "		port 3003" >> $conf_file
-	echo "	}" >> $conf_file
-	echo "}" >> $conf_file
-	echo "" >> $conf_file
-	echo "namespace test {" >> $conf_file
-	echo "	replication-factor 2" >> $conf_file
-	echo "	memory-size 4G" >> $conf_file
-	echo "	default-ttl 30d # 30 days, use 0 to never expire/evict." >> $conf_file
-	echo "	storage-engine memory" >> $conf_file
-	echo "}" >> $conf_file
-
-	local config_string=$(cat $conf_file)
-	cdepl_cluster_node_cmd 0 "echo '$config_string' > '${__AEROSPIKE_PATH}/etc/aerospike.conf'"
+	local config_string="\
+	# Aerospike database configuration file.\n\n \
+	# This stanza must come first.\n
+	service {\n \
+		user ${user}\n \
+		group ${group}\n \
+		paxos-single-replica-limit 1 # Number of nodes where the replica count is automatically reduced to 1.\n \
+		pidfile ${home}/var/run/aerospike.pid\n \
+		proto-fd-max $(ulimit -n)\n \
+		work-directory ${home}/var\n \
+	}\n\n \
+	logging {\n \
+		# Log file must be an absolute path.\n \
+		file ${__AEROSPIKE_PATH}/var/log/aerospike.log {\n \
+			context any info\n \
+		}\n \
+	}\n\n \
+	mod-lua {\n \
+		system-path ${__AEROSPIKE_PATH}/share/udf/lua\n \
+		user-path ${__AEROSPIKE_PATH}/var/udf/lua\n \
+	}\n\n \
+	network {\n \
+		service {\n \
+			address any\n \
+			port 3000\n \
+		}\n\n \
+		heartbeat {\n \
+			mode multicast\n \
+			multicast-group 239.1.99.222\n \
+			port 9918\n\n \
+			interval 150\n \
+			timeout 10\n \
+		}\n\n \
+		fabric {\n \
+			port 3001\n \
+		}\n\n \
+		info {\n \
+			port 3003\n \
+		}\n \
+	}\n\n \
+	namespace test {\n \
+		replication-factor 2\n \
+		memory-size 4G\n \
+		default-ttl 30d # 30 days, use 0 to never expire/evict.\n \
+		storage-engine memory\n \
+	}"
+	
+	cdepl_cluster_node_cmd 0 "echo -e '$config_string' > '${__AEROSPIKE_OUT_PATH}/conf/aerospike.conf'"
 }
 
 ##
