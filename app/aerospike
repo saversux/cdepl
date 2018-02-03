@@ -49,8 +49,8 @@ cdepl_app_aerospike_start_node()
 	local node=$1
 	local user=$(cdepl_cluster_file_system_cmd "whoami")
 
-  	if [[ ${user} != "root" ]]; then
-    	util_log_warn "[$node][aerospike] Running without super-user privileges! Setting system variables might fail..."
+	if [[ ${user} != "root" ]]; then
+		util_log_warn "[$node][aerospike] Running without super-user privileges! Setting system variables might fail..."
 		cdepl_cluster_node_cmd $node "ulimit -Sn 100000" > /dev/null 2>&1
 	else
 		util_log "[$node][aerospike] Setting up system variables"
@@ -65,13 +65,13 @@ cdepl_app_aerospike_start_node()
 	cdepl_app_aerospike_set_shmmax $node
 	cdepl_app_aerospike_set_socket_buffer_limits $node
 
-    util_log "[$node][aerospike] Starting Aerospike..."
+	util_log "[$node][aerospike] Starting Aerospike..."
 	cdepl_cluster_node_cmd $node "${__AEROSPIKE_EXECUTABLE} --instance 1 --config ${__AEROSPIKE_PATH}/etc/aerospike.conf &>${__AEROSPIKE_PATH}/var/log/console.log"
 
 	local console=$(cdepl_cluster_node_cmd $node "cat \"${__AEROSPIKE_PATH}/var/log/console.log\"")
 	if [ $? -eq 0 ] && [ -z "${console}" ]; then
-    	util_log "[$node][aerospike] Successfully started Aerospike!"
-  	else
+		util_log "[$node][aerospike] Successfully started Aerospike!"
+	else
 		util_log_error "[$node][aerospike] Start failed due to an error!"
 		util_log_error_and_exit "${console}"
 	fi
@@ -112,12 +112,11 @@ cdepl_app_aerospike_node_cleanup()
 ##
 cdepl_app_aerospike_setup_etc_dir()
 {
-	
 	if [ "$(cdepl_cluster_file_system_cmd "[ -d ${__AEROSPIKE_PATH}/etc ] && echo \"1\"")" != "1" ]; then
-  		cdepl_cluster_file_system_cmd "mkdir \"${__AEROSPIKE_PATH}/etc\""
+		cdepl_cluster_file_system_cmd "mkdir \"${__AEROSPIKE_PATH}/etc\""
 	fi
-  	
-	  cdepl_app_aerospike_create_default_config
+	
+	cdepl_app_aerospike_create_default_config
 }
 
 ##
@@ -126,35 +125,35 @@ cdepl_app_aerospike_setup_etc_dir()
 cdepl_app_aerospike_setup_var_dir()
 {
 	if [ "$(cdepl_cluster_file_system_cmd "[ -d ${__AEROSPIKE_PATH}/var ] && echo \"1\"")" != "1" ]; then
-  		cdepl_cluster_file_system_cmd "mkdir \"${__AEROSPIKE_PATH}/var\""
+		cdepl_cluster_file_system_cmd "mkdir \"${__AEROSPIKE_PATH}/var\""
 	fi
 
 	if [ "$(cdepl_cluster_file_system_cmd "[ -d ${__AEROSPIKE_PATH}/var/log ] && echo \"1\"")" != "1" ]; then
-  		cdepl_cluster_file_system_cmd "mkdir \"${__AEROSPIKE_PATH}/var/log\""
+		cdepl_cluster_file_system_cmd "mkdir \"${__AEROSPIKE_PATH}/var/log\""
 	fi
 
 	if [ "$(cdepl_cluster_file_system_cmd "[ -f ${__AEROSPIKE_PATH}/var/log/console.log ] && echo \"1\"")" != "1" ]; then
-  		cdepl_cluster_file_system_cmd "touch \"${__AEROSPIKE_PATH}/var/log/console.log\""
+		cdepl_cluster_file_system_cmd "touch \"${__AEROSPIKE_PATH}/var/log/console.log\""
 	fi
 
 	if [ "$(cdepl_cluster_file_system_cmd "[ -f ${__AEROSPIKE_PATH}/var/log/aerospike.log ] && echo \"1\"")" == "1" ]; then
-  		cdepl_cluster_file_system_cmd "rm \"${__AEROSPIKE_PATH}/var/log/aerospike.log\""
+		cdepl_cluster_file_system_cmd "rm \"${__AEROSPIKE_PATH}/var/log/aerospike.log\""
 	fi
 
 	if [ "$(cdepl_cluster_file_system_cmd "[ -d ${__AEROSPIKE_PATH}/var/run ] && echo \"1\"")" != "1" ]; then
-  		cdepl_cluster_file_system_cmd "mkdir \"${__AEROSPIKE_PATH}/var/run\""
+		cdepl_cluster_file_system_cmd "mkdir \"${__AEROSPIKE_PATH}/var/run\""
 	fi
 
 	if [ "$(cdepl_cluster_file_system_cmd "[ -d ${__AEROSPIKE_PATH}/var/smd ] && echo \"1\"")" != "1" ]; then
-  		cdepl_cluster_file_system_cmd "mkdir \"${__AEROSPIKE_PATH}/var/smd\""
+		cdepl_cluster_file_system_cmd "mkdir \"${__AEROSPIKE_PATH}/var/smd\""
 	fi
 
 	if [ "$(cdepl_cluster_file_system_cmd "[ -d ${__AEROSPIKE_PATH}/var/udf ] && echo \"1\"")" != "1" ]; then
-  		cdepl_cluster_file_system_cmd "mkdir \"${__AEROSPIKE_PATH}/var/udf\""
+		cdepl_cluster_file_system_cmd "mkdir \"${__AEROSPIKE_PATH}/var/udf\""
 	fi
 
 	if [ "$(cdepl_cluster_file_system_cmd "[ -d ${__AEROSPIKE_PATH}/var/udf/lua ] && echo \"1\"")" != "1" ]; then
-  		cdepl_cluster_file_system_cmd "mkdir \"${__AEROSPIKE_PATH}/var/udf/lua\""
+		cdepl_cluster_file_system_cmd "mkdir \"${__AEROSPIKE_PATH}/var/udf/lua\""
 	fi
 }
 
@@ -173,24 +172,24 @@ cdepl_app_aerospike_create_default_config() {
 	echo "" >> $conf_file
 	echo "# This stanza must come first." >> $conf_file
 	echo "service {" >> $conf_file
-  	echo "	user ${user}" >> $conf_file
-  	echo "	group ${group}" >> $conf_file
-  	echo "	paxos-single-replica-limit 1 # Number of nodes where the replica count is automatically reduced to 1." >> $conf_file
-  	echo "	pidfile ${home}/var/run/aerospike.pid" >> $conf_file
-  	echo "	proto-fd-max $(ulimit -n)" >> $conf_file
-  	echo "	work-directory ${home}/var" >> $conf_file
+	echo "	user ${user}" >> $conf_file
+	echo "	group ${group}" >> $conf_file
+	echo "	paxos-single-replica-limit 1 # Number of nodes where the replica count is automatically reduced to 1." >> $conf_file
+	echo "	pidfile ${home}/var/run/aerospike.pid" >> $conf_file
+	echo "	proto-fd-max $(ulimit -n)" >> $conf_file
+	echo "	work-directory ${home}/var" >> $conf_file
 	echo "}" >> $conf_file
 	echo "" >> $conf_file
 	echo "logging {" >> $conf_file
- 	echo "	# Log file must be an absolute path." >> $conf_file
-  	echo "	file ${__AEROSPIKE_PATH}/var/log/aerospike.log {" >> $conf_file
-    echo "		context any info" >> $conf_file
-  	echo "	}" >> $conf_file
+	echo "	# Log file must be an absolute path." >> $conf_file
+	echo "	file ${__AEROSPIKE_PATH}/var/log/aerospike.log {" >> $conf_file
+	echo "		context any info" >> $conf_file
+	echo "	}" >> $conf_file
 	echo "}" >> $conf_file
 	echo "" >> $conf_file
 	echo "mod-lua {" >> $conf_file
-  	echo "	system-path ${__AEROSPIKE_PATH}/share/udf/lua" >> $conf_file
-  	echo "	user-path ${__AEROSPIKE_PATH}/var/udf/lua" >> $conf_file
+	echo "	system-path ${__AEROSPIKE_PATH}/share/udf/lua" >> $conf_file
+	echo "	user-path ${__AEROSPIKE_PATH}/var/udf/lua" >> $conf_file
 	echo "}" >> $conf_file
 	echo "" >> $conf_file
 	echo "network {" >> $conf_file
@@ -238,14 +237,14 @@ cdepl_app_aerospike_set_shmall()
 	local node=$1
 
 	local mem=$(cdepl_cluster_node_cmd $node "/sbin/sysctl -n kernel.shmall")
-  	local min=4294967296
+	local min=4294967296
 
-  	if [ ${#mem} -le ${#min} ]; then
-    	if [ $mem -lt $min ]; then
-      		info "kernel.shmall too low, setting to 4G pages"
-      		cdepl_cluster_node_cmd $node "/sbin/sysctl -w kernel.shmall=${min}" > /dev/null 2>&1
-    	fi
-  	fi
+	if [ ${#mem} -le ${#min} ]; then
+		if [ $mem -lt $min ]; then
+			info "kernel.shmall too low, setting to 4G pages"
+			cdepl_cluster_node_cmd $node "/sbin/sysctl -w kernel.shmall=${min}" > /dev/null 2>&1
+		fi
+	fi
 	
 	if [ ! $? -eq 0 ]; then
 		util_log_warn "[$node][aerospike] Failed to set kernel.shmall!"
@@ -266,10 +265,10 @@ cdepl_app_aerospike_set_shmmax()
 	
 	if [ ${#mem} -le ${#min} ]; then
 		if [ $mem -lt $min ]; then
-      		info "kernel.shmmax too low, setting to 1GB"
-      		cdepl_cluster_node_cmd $node "/sbin/sysctl -w kernel.shmmax=${min}" > /dev/null 2>&1
-    	fi
-  	fi
+			info "kernel.shmmax too low, setting to 1GB"
+			cdepl_cluster_node_cmd $node "/sbin/sysctl -w kernel.shmmax=${min}" > /dev/null 2>&1
+		fi
+	fi
 	
 	if [ ! $? -eq 0 ]; then
 		util_log_warn "[$node][aerospike] Failed to set kernel.shmmax!"
@@ -294,8 +293,8 @@ cdepl_app_aerospike_set_socket_buffer_limit()
 	fi
 
 	if [ ${curr} -lt ${size} ]; then
-    	cdepl_cluster_node_cmd $node "echo ${size} > ${path}"
- 	fi
+		cdepl_cluster_node_cmd $node "echo ${size} > ${path}"
+	fi
 
 	if [ ! $? -eq 0 ]; then
 		util_log_warn "[$node][aerospike] Failed to set TCP-${name}-buffer size!"
