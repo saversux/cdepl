@@ -246,13 +246,13 @@ cdepl_app_aerospike_set_shmall()
 
 	if [ ${#mem} -le ${#min} ]; then
 		if [ $mem -lt $min ]; then
-			info "kernel.shmall too low, setting to 4G pages"
+			util_log_info "kernel.shmall too low, setting to 4G pages"
 			cdepl_cluster_node_cmd $node "/sbin/sysctl -w kernel.shmall=${min}" > /dev/null 2>&1
+
+			if [ ! $? -eq 0 ]; then
+				util_log_warn "[$node][aerospike] Failed to set kernel.shmall!"
+			fi
 		fi
-	fi
-	
-	if [ ! $? -eq 0 ]; then
-		util_log_warn "[$node][aerospike] Failed to set kernel.shmall!"
 	fi
 }
 
@@ -270,13 +270,13 @@ cdepl_app_aerospike_set_shmmax()
 	
 	if [ ${#mem} -le ${#min} ]; then
 		if [ $mem -lt $min ]; then
-			info "kernel.shmmax too low, setting to 1GB"
+			util_log_info "kernel.shmmax too low, setting to 1GB"
 			cdepl_cluster_node_cmd $node "/sbin/sysctl -w kernel.shmmax=${min}" > /dev/null 2>&1
+
+			if [ ! $? -eq 0 ]; then
+				util_log_warn "[$node][aerospike] Failed to set kernel.shmmax!"
+			fi
 		fi
-	fi
-	
-	if [ ! $? -eq 0 ]; then
-		util_log_warn "[$node][aerospike] Failed to set kernel.shmmax!"
 	fi
 }
 
@@ -299,10 +299,10 @@ cdepl_app_aerospike_set_socket_buffer_limit()
 
 	if [ ${curr} -lt ${size} ]; then
 		cdepl_cluster_node_cmd $node "echo ${size} > ${path}"
-	fi
 
-	if [ ! $? -eq 0 ]; then
-		util_log_warn "[$node][aerospike] Failed to set TCP-${name}-buffer size!"
+		if [ ! $? -eq 0 ]; then
+			util_log_warn "[$node][aerospike] Failed to set TCP-${name}-buffer size!"
+		fi
 	fi
 }
 
