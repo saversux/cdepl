@@ -58,7 +58,7 @@ cdepl_app_aerospike_start_node()
 	fi
 
 	if [ ! $? -eq 0 ]; then
-		util_log_warn "[$node][aerospike] Failed to set file-descriptor limit! Using current limit ($(ulimit -n))..."
+		util_log_warn "[$node][aerospike] Failed to set file-descriptor limit! Using current limit ($(cdepl_cluster_node_cmd $node 'ulimit -n'))..."
 	fi
 
 	cdepl_app_aerospike_set_shmall $node
