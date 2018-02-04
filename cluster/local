@@ -179,6 +179,9 @@ _cdepl_cluster_on_init()
 _cdepl_cluster_on_node_setup_finish()
 {
 	util_log_debug "[local] on_node_setup_finish"
+	
+	# Create dummy node_mappings-file
+	echo "0 local" > "${__DEPLOY_CUR_OUT_PATH}/node_mappings"
 }
 
 _cdepl_cluster_before_deploy()
