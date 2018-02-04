@@ -107,7 +107,7 @@ cdepl_app_aerospike_node_cleanup()
 {
 	local node=$1
 
-	cdepl_cluster_node_cmd $node "pkill asd"
+	cdepl_cluster_node_cmd $node "pkill -9 asd"
 }
 
 ##
