@@ -19,44 +19,45 @@ __REDIS_PORT=7000
 ##
 cdepl_app_redis_init()
 {
-    local redis_path=$1
-    local nodes=$2
-    local port=$3
+	local redis_path=$1
+	local nodes=$2
+	local port=$3
 
-    __REDIS_PATH="$(cdepl_cluster_file_system_cmd "realpath ${redis_path}")"
-    __REDIS_EXECUTABLE="${__REDIS_PATH}/src/redis-server"
-    __REDIS_CLIENT_EXECUTABLE="${__REDIS_PATH}/src/redis-cli"
-    __REDIS_TRIB_EXECUTABLE="${__REDIS_PATH}/src/redis-trib.rb"
-    __REDIS_BENCHMARK_EXECUTABLE="${__REDIS_PATH}/src/redis-benchmark"
-    __REDIS_OUT_PATH="${__DEPLOY_CUR_OUT_PATH}/redis"
+	# Redis-executables are located in the source-folder...
+	__REDIS_PATH="$(cdepl_cluster_file_system_cmd "realpath ${redis_path}")"
+	__REDIS_EXECUTABLE="${__REDIS_PATH}/src/redis-server"
+	__REDIS_CLIENT_EXECUTABLE="${__REDIS_PATH}/src/redis-cli"
+	__REDIS_TRIB_EXECUTABLE="${__REDIS_PATH}/src/redis-trib.rb"
+	__REDIS_BENCHMARK_EXECUTABLE="${__REDIS_PATH}/src/redis-benchmark"
+	__REDIS_OUT_PATH="${__DEPLOY_CUR_OUT_PATH}/redis"
 
-    if [ ! -z $port ]; then
-        __REDIS_PORT=$port
-    fi
+	if [ ! -z $port ]; then
+		__REDIS_PORT=$port
+	fi
 
-    if [ "$(cdepl_cluster_file_system_cmd "[ -d ${__REDIS_PATH} ] && echo \"1\"")" != "1" ]; then
+	if [ "$(cdepl_cluster_file_system_cmd "[ -d ${__REDIS_PATH} ] && echo \"1\"")" != "1" ]; then
 		util_log_error_and_exit "[login][redis]: Path does not exist: ${__REDIS_PATH}"
 	fi
 
-    if [ "$(cdepl_cluster_file_system_cmd "[ -f ${__REDIS_EXECUTABLE} ] && echo \"1\"")" != "1" ]; then
+	if [ "$(cdepl_cluster_file_system_cmd "[ -f ${__REDIS_EXECUTABLE} ] && echo \"1\"")" != "1" ]; then
 		util_log_error_and_exit "[login][redis]: File does not exist: ${__REDIS_EXECUTABLE}"
 	fi
 
-    if [ "$(cdepl_cluster_file_system_cmd "[ -f ${__REDIS_BENCHMARK_EXECUTABLE} ] && echo \"1\"")" != "1" ]; then
+	if [ "$(cdepl_cluster_file_system_cmd "[ -f ${__REDIS_BENCHMARK_EXECUTABLE} ] && echo \"1\"")" != "1" ]; then
 		util_log_error_and_exit "[login][redis]: File does not exist: ${__REDIS_BENCHMARK_EXECUTABLE}"
 	fi
 
-    #Create a folder where the cluster will "live" and copy the executable there
-    cdepl_cluster_file_system_cmd "mkdir -p ${__REDIS_OUT_PATH}/cluster"
-    cdepl_cluster_file_system_cmd "cp ${__REDIS_EXECUTABLE} ${__REDIS_OUT_PATH}/cluster/"
-    __REDIS_EXECUTABLE="${__REDIS_OUT_PATH}/cluster/redis-server"
+	# Create a folder where the cluster will "live" and copy the executable there
+	cdepl_cluster_file_system_cmd "mkdir -p ${__REDIS_OUT_PATH}/cluster"
+	cdepl_cluster_file_system_cmd "cp ${__REDIS_EXECUTABLE} ${__REDIS_OUT_PATH}/cluster/"
+	__REDIS_EXECUTABLE="${__REDIS_OUT_PATH}/cluster/redis-server"
 
-    #Create subfolder for each node
-    for i in $(seq 0 $((nodes - 1))); do
+	# Create subfolder for each node
+	for i in $(seq 0 $((nodes - 1))); do
 		cdepl_cluster_file_system_cmd "mkdir -p  ${__REDIS_OUT_PATH}/cluster/node_${i}"
 	done
 
-    util_log "[login][redis] Initialized: ${__REDIS_PATH}"
+	util_log "[login][redis] Initialized: ${__REDIS_PATH}"
 	util_log "[login][redis] Output: ${__REDIS_OUT_PATH}"
 }
 
@@ -66,32 +67,32 @@ cdepl_app_redis_init()
 # $1 The node-number
 ##
 cdepl_app_redis_start_node()
-{	
+{
 	local node=$1
 
-    util_log "[$node][redis] Starting Redis..."
+	util_log "[$node][redis] Starting Redis..."
 	cdepl_cluster_node_cmd $node "${__REDIS_EXECUTABLE} --port ${__REDIS_PORT} --cluster-enabled yes --cluster-config-file ${__REDIS_OUT_PATH}/cluster/node_${node}/nodes.conf --cluster-node-timeout 5000 --appendonly no --protected-mode no --daemonize yes"
 }
 
 cdepl_app_redis_form_cluster()
 {
-    local nodes=("${@}")
-    local node_count=${#nodes[@]}
+	local nodes=("${@}")
+	local node_count=${#nodes[@]}
 
-    util_log "[0][redis] Forming Redis-cluster..."
-    
-    if [ $node_count -eq 1 ]; then
-        util_log_warn "[0]][redis] Redis is currently running on only a single node! Nothing to do..."
-    elif [ $node_count -eq 2 ]; then
-        util_log_warn "[0][redis] Redis is currently running on only two nodes! A Redis-cluster needs to consist of at least three nodes. Using only a single node..."
-    else
-        local command="echo yes | ${__REDIS_TRIB_EXECUTABLE} create --replicas 0"
-        for i in $(seq 0 $((node_count - 1))); do
+	util_log "[redis] Forming Redis-cluster..."
+	
+	if [ $node_count -eq 1 ]; then
+		local stub=""
+	elif [ $node_count -eq 2 ]; then
+		util_log_warn "[redis] Redis is currently running on only two nodes! A Redis-cluster needs to consist of at least three nodes. Using only a single node..."
+	else
+		local command="echo yes | ${__REDIS_TRIB_EXECUTABLE} create --replicas 0"
+		for i in $(seq 0 $((node_count - 1))); do
 			command+=" $(cdepl_cluster_resolve_node_to_ip "${nodes[$i]}"):${__REDIS_PORT}"
 		done
-        
-        cdepl_cluster_node_cmd 0 "${command}"
-    fi
+		
+		cdepl_cluster_node_cmd 0 "${command}"
+	fi
 }
 
 ##
@@ -101,10 +102,10 @@ cdepl_app_redis_form_cluster()
 # $2 The node, to which the benchmark will connect (Must be any of the nodes on which Aerospike is running)
 # $3 Amount of requests to be performed by the benchmark
 ##
-cdepl_app_redis_bench()
+cdepl_app_redis_start_bench()
 {
-    local node=$1
-    local server_node=$2
+	local node=$1
+	local server_node=$2
 	local requests=$3
 
 	util_log "[$node][redis] Running Benchmark..."
@@ -120,5 +121,5 @@ cdepl_app_redis_node_cleanup()
 {
 	local node=$1
 
-    cdepl_cluster_node_cmd $node "pkill redis"
+	cdepl_cluster_node_cmd $node "pkill redis"
 }
