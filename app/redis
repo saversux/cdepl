@@ -121,5 +121,5 @@ cdepl_app_redis_node_cleanup()
 {
 	local node=$1
 
-	cdepl_cluster_node_cmd $node "pkill redis"
+	cdepl_cluster_node_cmd $node "pkill -9 redis"
 }
