@@ -46,7 +46,7 @@ __cdepl_cleanup_on_exit()
 __cdepl_cleanup_on_sigint()
 {
 	if [ "$__CLUSTER_CLEANUP_ON_SIGINT" = "1" ]; then
-		util_log_warn "[cdepl] SIGINT cought, exit 1"
+		util_log_warn "[cdepl] SIGINT caught, exit 1"
 		exit 1
 	fi
 }
