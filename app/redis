@@ -74,6 +74,10 @@ cdepl_app_redis_start_node()
 	cdepl_cluster_node_cmd $node "${__REDIS_EXECUTABLE} --port ${__REDIS_PORT} --cluster-enabled yes --cluster-config-file ${__REDIS_OUT_PATH}/cluster/node_${node}/nodes.conf --cluster-node-timeout 5000 --appendonly no --protected-mode no --daemonize yes"
 }
 
+##
+# Executes redis-trib.rb-script on node 0.
+# This lets multiple redis-instances work together as a cluster.
+##
 cdepl_app_redis_form_cluster()
 {
 	local nodes=("${@}")
