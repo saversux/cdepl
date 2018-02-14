@@ -356,11 +356,13 @@ cdepl_app_dxnet_start_node()
 		fi
 
 		for node in $(seq $node_range_start $node_range_end); do
+			__cdepl_app_dxnet_create_node_base_config $node
 			__cdepl_app_dxnet_start_node $node &
 		done
 
 		wait
 	else
+		__cdepl_app_dxnet_create_node_base_config $node_range_start
 		__cdepl_app_dxnet_start_node $node_range_start
 	fi
 }
