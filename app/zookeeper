@@ -20,11 +20,11 @@ cdepl_app_zookeeper_init()
 	__ZOOKEEPER_OUT_PATH="${__DEPLOY_CUR_OUT_PATH}/zookeeper"
 
 	if [ "$(cdepl_cluster_file_system_cmd "[ -d $__ZOOKEEPER_PATH ] && echo \"1\"")" != "1" ]; then
-		util_log_error_and_exit "[login][zookeeper]: Path does not exist: $__ZOOKEEPER_PATH"
+		util_log_error_and_exit "[zookeeper]: Path does not exist: $__ZOOKEEPER_PATH"
 	fi
 
-	util_log "[login][zookeeper] Initialized: $__ZOOKEEPER_PATH"
-	util_log "[login][zookeeper] Output: $__ZOOKEEPER_OUT_PATH"
+	util_log "[zookeeper] Initialized: $__ZOOKEEPER_PATH"
+	util_log "[zookeeper] Output: $__ZOOKEEPER_OUT_PATH"
 }
 
 ##

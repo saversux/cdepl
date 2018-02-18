@@ -25,17 +25,17 @@ cdepl_app_aerospike_init()
 	__AEROSPIKE_EXECUTABLE="${__AEROSPIKE_PATH}/bin/asd"
 
 	if [ "$(cdepl_cluster_file_system_cmd "[ -d ${__AEROSPIKE_PATH} ] && echo \"1\"")" != "1" ]; then
-		util_log_error_and_exit "[login][aerospike]: Path does not exist: ${__AEROSPIKE_PATH}"
+		util_log_error_and_exit "[aerospike]: Path does not exist: ${__AEROSPIKE_PATH}"
 	fi
 	
 	if [ "$(cdepl_cluster_file_system_cmd "[ -f ${__AEROSPIKE_EXECUTABLE} ] && echo \"1\"")" != "1" ]; then
-		util_log_error_and_exit "[login][aerospike]: File does not exist: ${__AEROSPIKE_EXECUTABLE}"
+		util_log_error_and_exit "[aerospike]: File does not exist: ${__AEROSPIKE_EXECUTABLE}"
 	fi
 
 	__cdepl_app_aerospike_setup_out_dir
 
-	util_log "[login][aerospike] Initialized: ${__AEROSPIKE_PATH}"
-	util_log "[login][aerospike] Output: ${__AEROSPIKE_OUT_PATH}"
+	util_log "[aerospike] Initialized: ${__AEROSPIKE_PATH}"
+	util_log "[aerospike] Output: ${__AEROSPIKE_OUT_PATH}"
 }
 
 ##

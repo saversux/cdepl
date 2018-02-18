@@ -60,7 +60,7 @@ cdepl_app_dxnet_init()
 
 	# Check if dxnet path is available
 	if [ "$(cdepl_cluster_file_system_cmd "[ -d $__DXNET_PATH ] && echo \"1\"")" != "1" ]; then
-		util_log_error_and_exit "[login][dxnet]: Path does not exist: $__DXNET_PATH"
+		util_log_error_and_exit "[dxnet]: Path does not exist: $__DXNET_PATH"
 	fi
 
 	__cdepl_app_dxnet_check
@@ -70,8 +70,8 @@ cdepl_app_dxnet_init()
 	cdepl_cluster_file_system_cmd "mkdir -p $__DXNET_OUT_CONF_PATH"
 	cdepl_cluster_file_system_cmd "mkdir -p $__DXNET_OUT_LOG_PATH"
 
-	util_log "[login][dxnet] Initialized: $__DXNET_PATH"
-	util_log "[login][dxnet] Output: $__DXNET_OUT_PATH"
+	util_log "[dxnet] Initialized: $__DXNET_PATH"
+	util_log "[dxnet] Output: $__DXNET_OUT_PATH"
 }
 
 ##

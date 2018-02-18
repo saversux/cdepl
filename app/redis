@@ -36,11 +36,11 @@ cdepl_app_redis_init()
 	fi
 
 	if [ "$(cdepl_cluster_file_system_cmd "[ -d ${__REDIS_PATH} ] && echo \"1\"")" != "1" ]; then
-		util_log_error_and_exit "[login][redis]: Path does not exist: ${__REDIS_PATH}"
+		util_log_error_and_exit "[redis]: Path does not exist: ${__REDIS_PATH}"
 	fi
 
 	if [ "$(cdepl_cluster_file_system_cmd "[ -f ${__REDIS_EXECUTABLE} ] && echo \"1\"")" != "1" ]; then
-		util_log_error_and_exit "[login][redis]: File does not exist: ${__REDIS_EXECUTABLE}"
+		util_log_error_and_exit "[redis]: File does not exist: ${__REDIS_EXECUTABLE}"
 	fi
 
 	if [ "$(cdepl_cluster_file_system_cmd "[ -f ${__REDIS_BENCHMARK_EXECUTABLE} ] && echo \"1\"")" != "1" ]; then
@@ -50,8 +50,8 @@ cdepl_app_redis_init()
 	# Initialize output folder
 	cdepl_cluster_file_system_cmd "mkdir -p ${__REDIS_OUT_PATH}/cluster"
 
-	util_log "[login][redis] Initialized: ${__REDIS_PATH}"
-	util_log "[login][redis] Output: ${__REDIS_OUT_PATH}"
+	util_log "[redis] Initialized: ${__REDIS_PATH}"
+	util_log "[redis] Output: ${__REDIS_OUT_PATH}"
 }
 
 ##

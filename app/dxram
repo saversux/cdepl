@@ -73,7 +73,7 @@ cdepl_app_dxram_init()
 
 	# Check if dxram path is available
 	if [ "$(cdepl_cluster_file_system_cmd "[ -d $__DXRAM_PATH ] && echo \"1\"")" != "1" ]; then
-		util_log_error_and_exit "[login][dxram]: Path does not exist: $__DXRAM_PATH"
+		util_log_error_and_exit "[dxram]: Path does not exist: $__DXRAM_PATH"
 	fi
 
 	__cdepl_app_dxram_check
@@ -83,8 +83,8 @@ cdepl_app_dxram_init()
 	cdepl_cluster_file_system_cmd "mkdir -p $__DXRAM_OUT_CONF_PATH"
 	cdepl_cluster_file_system_cmd "mkdir -p $__DXRAM_OUT_LOG_PATH"
 
-	util_log "[login][dxram] Initialized: $__DXRAM_PATH"
-	util_log "[login][dxram] Output: $__DXRAM_OUT_PATH"
+	util_log "[dxram] Initialized: $__DXRAM_PATH"
+	util_log "[dxram] Output: $__DXRAM_OUT_PATH"
 }
 
 ##

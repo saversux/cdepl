@@ -76,7 +76,7 @@ cdepl_app_dxram_ycsb_init()
 
 	# Check if dxram ycsb path is available
 	if [ "$(cdepl_cluster_file_system_cmd "[ -d $__DXRAM_YCSB_PATH ] && echo \"1\"")" != "1" ]; then
-		util_log_error_and_exit "[login][dxram-ycsb]: Path does not exist: $__DXRAM_YCSB_PATH"
+		util_log_error_and_exit "[dxram-ycsb]: Path does not exist: $__DXRAM_YCSB_PATH"
 	fi
 
 	__cdepl_app_dxram_ycsb_check
@@ -86,8 +86,8 @@ cdepl_app_dxram_ycsb_init()
 	cdepl_cluster_file_system_cmd "mkdir -p $__DXRAM_YCSB_OUT_CONF_PATH"
 	cdepl_cluster_file_system_cmd "mkdir -p $__DXRAM_YCSB_OUT_LOG_PATH"
 
-	util_log "[login][dxram-ycsb] Initialized: $__DXRAM_YCSB_PATH"
-	util_log "[login][dxram-ycsb] Output: $__DXRAM_YCSB_OUT_PATH"
+	util_log "[dxram-ycsb] Initialized: $__DXRAM_YCSB_PATH"
+	util_log "[dxram-ycsb] Output: $__DXRAM_YCSB_OUT_PATH"
 }
 
 # in order to declare a node an actual DXRAM node, you have to assign a role
