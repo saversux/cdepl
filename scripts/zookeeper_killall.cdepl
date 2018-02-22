@@ -1,0 +1,89 @@
+#!/bin/bash
+
+#
+# Kill all (still) running zookeeper instances on reserved nodes
+#
+
+# Cluster settings set in cdepl_script_process_cmd_args
+TOTAL_NODES=""
+CLUSTER_TYPE=""
+CLUSTER_USER=""
+CLUSTER_TYPE_INIT_ARGS=""
+
+# Path set in cdepl_script_process_cmd_args
+ZK_PATH=""
+
+# Zookeeper config values
+ZK_PORT=2181
+
+cdepl_script_process_cmd_args()
+{
+	local total_nodes="$1"
+	local cluster_type="$2"
+	local cluster_user="$3"
+	local cluster_type_init_args="${@:4}"
+
+	if [ ! "$total_nodes" ]; then
+		util_log_error "Missing argument 'total_nodes'"
+		util_log_error_and_exit "Usage: <total_nodes> <cluster_type> <cluster_user> [init args for cluster type...]"
+	fi
+
+	if [ ! "$cluster_type" ]; then
+		util_log_error "Missing argument 'cluster_type'"
+		util_log_error_and_exit "Usage: <total_nodes> <cluster_type> <cluster_user> [init args for cluster type...]"
+	fi
+
+	if [ ! "$cluster_user" ]; then
+		util_log_error "Missing argument 'cluster_user'"
+		util_log_error_and_exit "Usage: <total_nodes> <cluster_type> <cluster_user> [init args for cluster type...]"
+	fi
+
+	TOTAL_NODES="$total_nodes"
+	CLUSTER_TYPE="$cluster_type"
+	CLUSTER_USER="$cluster_user"
+	CLUSTER_TYPE_INIT_ARGS="$cluster_type_init_args"
+
+    ZK_PATH="/home/${CLUSTER_USER}/zookeeper"
+}
+
+cdepl_script_cluster_node_setup()
+{
+	# Set the log level to output debug info
+	util_log_set_level "$UTIL_LOG_LEVEL_DEBUG"
+
+	# Init the cluster environment to deploy to
+	cdepl_cluster_init $CLUSTER_TYPE $CLUSTER_USER $CLUSTER_TYPE_INIT_ARGS
+
+	# Load application modules of apps you want to deploy
+	cdepl_cluster_app_load "zookeeper"
+
+	# Alloc total number of nodes for this deployment
+	cdepl_cluster_node_alloc $TOTAL_NODES
+
+	# Walltime for your deployment, might be ignored depending
+	# on cluster environment selected
+	cdepl_cluster_walltime "00:10:00"
+
+    # Reserve all nodes exclusive (all resources available)
+	for i in $(seq 0 $((TOTAL_NODES - 1))); do
+		cdepl_cluster_node_excl $i
+	done
+
+	# Set our output path for log files and configurations 
+	# for the applications deployed
+	cdepl_deploy_setup_out_path $CLUSTER_USER
+}
+
+cdepl_script_deploy()
+{
+	# Initilize zookeeper deployment
+	cdepl_app_zookeeper_init $ZK_PATH
+
+    # Kill any still running instances from previous deployments
+	cdepl_app_zookeeper_cleanup 0 $((TOTAL_NODES - 1))
+}
+
+cdepl_script_cleanup()
+{
+	local stub=""
+}
