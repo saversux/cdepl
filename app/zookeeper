@@ -117,15 +117,24 @@ cdepl_app_zookeeper_wait_started()
 ##
 # Cleanup any still running or remaining/crashed instances on the target node
 #
-# $1 node Target node id
+# $1 Target node id (or start node id of range if second parameter provided)
+# $2 Optional: Node id range end (including) and first parameter is interpreted
+#    as range start (including)
 ##
 cdepl_app_zookeeper_cleanup()
 {
-	local node=$1
+	local node_range_start=$1
+	local node_range_end=$2
 
-	util_log "[$node][zookeeper] Cleanup..."
+	if [ "$node_range_end" ]; then
+		for node in $(seq $node_range_start $node_range_end); do
+			__cdepl_app_zookeeper_cleanup $node &
+		done
 
-	__cdepl_app_zookeeper_cleanup $node
+		wait
+	else
+		__cdepl_app_zookeeper_cleanup $node_range_start
+	fi
 }
 
 __cdepl_app_zookeeper_get_instance_running_pid()
@@ -138,6 +147,8 @@ __cdepl_app_zookeeper_get_instance_running_pid()
 __cdepl_app_zookeeper_cleanup()
 {
 	local node=$1
+
+	util_log "[$node][zookeeper] Cleanup..."
 
 	local pid=$(cdepl_cluster_node_cmd $node "pgrep -f '^java -Dzookeeper.log.dir'")
 
