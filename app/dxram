@@ -491,11 +491,13 @@ __cdepl_app_dxram_create_node_base_config()
 	local node=$1
 
 	local node_config_path="${__DXRAM_OUT_CONF_PATH}/node_${node}.conf"
+	local tmp_file="/tmp/tmp_dxram_${node}.conf"
 
 	# Create base node config once and cache it
 	if [ ! "$__DXRAM_CACHED_NODES_CONFIG" ]; then
 		local zookeeper_ip="$(cdepl_cluster_resolve_node_to_ip $__DXRAM_ZOOKEEPER_NODE)"
-		local node_config="$(cdepl_cluster_node_cmd 0 "cat $__DXRAM_CONFIG_PATH")"
+		cdepl_cluster_download_from_remote $__DXRAM_CONFIG_PATH $tmp_file
+		local node_config=$(cat $tmp_file)
 
 		if [ zookeeper_ip = "" ]; then
 			util_log_error_and_exit "[$node][dxram] Could not resolve zookeeper ip for node $__DXRAM_ZOOKEEPER_NODE"
@@ -584,10 +586,10 @@ __cdepl_app_dxram_create_node_base_config()
 		local new_config="$__DXRAM_CACHED_NODES_CONFIG"
 	fi
 
-	echo "$new_config"
+	echo "$new_config" > $tmp_file
 
 	# Write back new config
-	cdepl_cluster_node_cmd $node "echo '$new_config' > '${node_config_path}'"
+	cdepl_cluster_upload_to_remote $tmp_file $node_config_path
 }
 
 __cdepl_app_dxram_start_node()
