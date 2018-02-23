@@ -70,6 +70,7 @@ cdepl_app_aerospike_start_node()
 	cdepl_cluster_node_cmd $node "${__AEROSPIKE_EXECUTABLE} --instance 1 --config '${__AEROSPIKE_OUT_PATH}/conf/node${node}.conf' &>'${log_path}/console.log'"
 
 	local console=$(cdepl_cluster_node_cmd $node "cat \"${log_path}/console.log\"")
+	
 	if [ $? -eq 0 ] && [ -z "${console}" ]; then
 		util_log "[$node][aerospike] Successfully started Aerospike!"
 	else
@@ -88,9 +89,9 @@ cdepl_app_aerospike_wait_finished()
 	local node=$1
 
 	local log_path="${__AEROSPIKE_OUT_PATH}/log/node${node}"
-
 	local ready=$(cdepl_cluster_node_cmd $node "cat '${log_path}/aerospike.log' | grep 'service ready: soon there will be cake!'")
 	local i=0
+
 	while [ -z "$ready" ]; do
 		if [ "$i" -gt "29" ]; then
 			util_log_error_and_exit "[$node][aerospike] Aerospike did not finish initializing after 30 seconds! Cleaning up node..."
@@ -173,7 +174,8 @@ __cdepl_app_aerospike_setup_out_dir()
 #
 # $1 The node-number
 ##
-__cdepl_app_aerospike_create_default_config() {
+__cdepl_app_aerospike_create_default_config()
+{
 	local node=$1
 
 	local user=$__AEROSPIKE_USER
@@ -309,7 +311,8 @@ __cdepl_app_aerospike_set_socket_buffer_limit()
 ##
 # Increases the buffer limit of incoming and outgoing TCP-Buffers.
 ##
-__cdepl_app_aerospike_set_socket_buffer_limits() {
+__cdepl_app_aerospike_set_socket_buffer_limits()
+{
 	local node=$1
 
 	__cdepl_app_aerospike_set_socket_buffer_limit $node "read" "/proc/sys/net/core/rmem_max" 15728640
