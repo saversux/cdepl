@@ -225,6 +225,42 @@ cdepl_cluster_gather_log_files()
 }
 
 ##
+# Upload a file or directory to the remote cluster.
+#
+# If you are using NFS, you have to upload the file to a single target node or
+# the login node. If no NFS is available, ensure that the file is available on
+# all nodes envolved in the current delpoyment.
+#
+# $1 Local path to file or directory to copy to remote
+# $2 Remote path to copy to
+# $3 Optional: Recursive copy. If directory, set this argument (e.g. 1)
+##
+cdepl_cluster_upload_to_remote()
+{
+	local local_path=$1
+	local remote_path=$2
+	local recursive=$3
+
+	# stub
+}
+
+##
+# Download a file or directory from the remote cluster.
+#
+# $1 Remote path to file or directory to download from remote
+# $2 Local path to download to
+# $3 Optional: Recursive copy. If directory, set this argument (e.g. 1)
+##
+cdepl_cluster_download_from_remote()
+{
+	local remote_path=$1
+	local local_path=$2
+	local recursive=$3
+
+	# stub
+}
+
+##
 # Send a command for setting up files to all cluster nodes
 #
 # $1: (ssh) command to send
