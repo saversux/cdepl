@@ -89,7 +89,7 @@ cdepl_app_aerospike_wait_finished()
 
 	local log_path="${__AEROSPIKE_OUT_PATH}/log/node${node}"
 
-	local ready=$(cdepl_cluster_node_cmd $node "cat \"${log_path}/aerospike.log\" | grep \"rebalanced\"")
+	local ready=$(cdepl_cluster_node_cmd $node "cat '${log_path}/aerospike.log' | grep 'service ready: soon there will be cake!'")
 	local i=0
 	while [ -z "$ready" ]; do
 		if [ "$i" -gt "29" ]; then
@@ -98,7 +98,7 @@ cdepl_app_aerospike_wait_finished()
 
 		sleep 1s
 
-		ready=$(cdepl_cluster_node_cmd $node "cat \"${log_path}/aerospike.log\" | grep \"rebalanced\"")
+		ready=$(cdepl_cluster_node_cmd $node "cat '${log_path}/aerospike.log' | grep 'service ready: soon there will be cake!'")
 		i=$((i + 1))
 	done
 }
