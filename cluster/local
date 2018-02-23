@@ -121,6 +121,36 @@ cdepl_cluster_gather_log_files()
 	# Not required for local
 }
 
+cdepl_cluster_upload_to_remote()
+{
+	local local_path=$1
+	local remote_path=$2
+	local recursive=$3
+
+	if [ "$recursive" ]; then
+		recursive="-r"
+	fi
+
+	util_log_debug "[local] Copy $local_path -> $remote_path"
+
+	cp $recursive $local_path $remote_path
+}
+
+cdepl_cluster_download_from_remote()
+{
+	local remote_path=$1
+	local local_path=$2
+	local recursive=$3
+
+	if [ "$recursive" ]; then
+		recursive="-r"
+	fi
+
+	util_log_debug "[local] Copy $remote_path -> $local_path"
+
+	cp $recursive $remote_path $local_path
+}
+
 cdepl_cluster_file_system_cmd()
 {
 	local cmd="$1"

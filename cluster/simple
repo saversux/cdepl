@@ -136,6 +136,42 @@ cdepl_cluster_gather_log_files()
 	# We assume a shared file system is available on a simple cluster -> nothing to do here
 }
 
+cdepl_cluster_upload_to_remote()
+{
+	local local_path=$1
+	local remote_path=$2
+	local recursive=$3
+
+	if [ "$recursive" ]; then
+		recursive="-r"
+	fi
+
+	util_log_debug "[simple] Upload $local_path -> $remote_path"
+
+	# Use ControlMaster to establish the TCP connection, once, and keep it active
+	# until all sessions are closed and no further session was established
+	# within 60 seconds
+	scp $recursive -o ControlMaster=auto -o ControlPath=~/.ssh/cdepl_%r@%h:%p.sock -o ControlPersist=60 $local_path ${__SIMPLE_USER}@${__SIMPLE_NODE_MAP[0]}:${remote_path} > /dev/null 2>&1
+}
+
+cdepl_cluster_download_from_remote()
+{
+	local remote_path=$1
+	local local_path=$2
+	local recursive=$3
+
+	if [ "$recursive" ]; then
+		recursive="-r"
+	fi
+
+	util_log_debug "[simple] Download $remote_path -> $local_path"
+
+	# Use ControlMaster to establish the TCP connection, once, and keep it active
+	# until all sessions are closed and no further session was established
+	# within 60 seconds
+	scp $recursive -o ControlMaster=auto -o ControlPath=~/.ssh/cdepl_%r@%h:%p.sock -o ControlPersist=60 ${__SIMPLE_USER}@${__SIMPLE_NODE_MAP[0]}:$remote_path $local_path > /dev/null 2>&1
+}
+
 cdepl_cluster_file_system_cmd()
 {
 	local cmd="$1"

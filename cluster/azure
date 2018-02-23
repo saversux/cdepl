@@ -141,8 +141,10 @@ cdepl_cluster_file_system_cmd()
 	# We do not use a shared file system for azure -> send command to all nodes
 
 	local ret=""
+
 	for i in `seq 0 $((__SIMPLE_MAX_NODE_COUNT - 1))`; do
 		cur=$(cdepl_cluster_node_cmd "$i" "$cmd")
+
 		if [ "$cur" != "" ]; then
 			if [ "$ret" == "" ]; then
 				ret="$cur"
@@ -151,6 +153,7 @@ cdepl_cluster_file_system_cmd()
 			fi
 		fi
 	done
+
 	echo "$ret"
 }
 
