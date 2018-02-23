@@ -356,13 +356,11 @@ cdepl_app_dxnet_start_node()
 		fi
 
 		for node in $(seq $node_range_start $node_range_end); do
-			__cdepl_app_dxnet_create_node_base_config $node
 			__cdepl_app_dxnet_start_node $node &
 		done
 
 		wait
 	else
-		__cdepl_app_dxnet_create_node_base_config $node_range_start
 		__cdepl_app_dxnet_start_node $node_range_start
 	fi
 }
@@ -607,10 +605,13 @@ __cdepl_app_dxnet_create_node_base_config()
 	local node=$1
 
 	local node_config_path="${__DXNET_OUT_CONF_PATH}/node_${node}.conf"
-	local node_config="$(cdepl_cluster_node_cmd 0 "cat $__DXNET_CONFIG_PATH")"
+	local tmp_file="/tmp/tmp_dxnet_${node}.conf"
 
 	# Tremendously speed this up by caching the nodes config
 	if [ ! "$__DXNET_CACHED_NODES_CONFIG" ]; then
+		cdepl_cluster_download_from_remote $__DXNET_CONFIG_PATH $tmp_file
+		local node_config=$(cat $tmp_file)
+
 		# Insert node config mappings
 		# Create replacement string for nodes configuration:
 		local default_node="{
@@ -681,8 +682,10 @@ __cdepl_app_dxnet_create_node_base_config()
 
 	new_config="$(echo "$new_config" | sed "s/m_numMessageHandlerThreads.*/m_numMessageHandlerThreads\": \"${msg_handler_cnt}\"\,/g")"
 
+	echo "$new_config" > $tmp_file
+
 	# Write back new config
-	cdepl_cluster_node_cmd $node "echo '$new_config' > '${node_config_path}'"
+	cdepl_cluster_upload_to_remote $tmp_file $node_config_path
 }
 
 __cdepl_app_dxnet_start()
