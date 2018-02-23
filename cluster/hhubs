@@ -168,6 +168,14 @@ cdepl_cluster_node_cmd()
 	__cdepl_cluster_hhubs_remote_node_cmd ${__HHUBS_NODE_MAP[$node]} "$cmd"
 }
 
+cdepl_cluster_cp_to_remote_filesystem()
+{
+	local local_path=$1
+	local remote_path=$2
+
+
+}
+
 cdepl_cluster_file_system_cmd()
 {
 	local cmd="$1"
@@ -445,6 +453,28 @@ __cdepl_cluster_hhubs_remote_node_cmd()
 	# command before it using &&, e.g. cd ~ && nohup ...
 	# This will hang the session with controlmaster
 	ssh -o ControlMaster=auto -o ControlPath=~/.ssh/cdepl_%r@%h:%p.sock -o ControlPersist=60 $dest -n -f "ssh $node \"$cmd\""
+}
+cdepl_cluster_cp_to_remote_filesystem
+__cdepl_cluster_hhubs_cp_to_sollipulli()
+{
+	local cmd="$1"
+
+	local dest=""
+
+	if [ "$__HHUBS_SOLLIPULLI_MODE" = "1" ]; then
+		dest="${__HHUBS_SOLLIPULLI_USER}@sollipulli"
+	else
+		dest="${__HHUBS_SOLLIPULLI_USER}@134.99.112.82 -p 55517"
+	fi
+
+	# -n -f for nohup
+	# Use ControlMaster to establish the TCP connection, once and keep it active
+	# until all sessions are closed and no further session was established
+	# within 60 seconds
+	# Note when using nohup: You must redirect stdin/stdout and not add any
+	# command before it using &&, e.g. cd ~ && nohup ...
+	# This will hang the session with controlmaster
+	ssh -o ControlMaster=auto -o ControlPath=~/.ssh/cdepl_%r@%h:%p.sock -o ControlPersist=60 $dest -n -f "$cmd"
 }
 
 __cdepl_cluster_hhubs_remote_sollipulli_cmd()

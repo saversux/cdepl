@@ -578,9 +578,13 @@ __cdepl_app_dxram_create_node_base_config()
 		local end="$(echo "${node_config}" | sed -ne '/m_nodesConfig/{s///; :a' -e 'n;p;ba' -e '}')"
 		end="$(echo "${end}" | sed -ne '/],/{s///; :a' -e 'n;p;ba' -e '}')"
 		new_config="$(echo -e "${new_config}\n${end}")"
+
+		__DXRAM_CACHED_NODES_CONFIG=$new_config
 	else
 		local new_config="$__DXRAM_CACHED_NODES_CONFIG"
 	fi
+
+	echo "$new_config"
 
 	# Write back new config
 	cdepl_cluster_node_cmd $node "echo '$new_config' > '${node_config_path}'"
@@ -602,7 +606,6 @@ __cdepl_app_dxram_start_node()
 		logfile=${__DXRAM_OUT_LOG_PATH}/node${node}${__DXRAM_LOG_FILE_PEER_POSTFIX}
 	fi
 
-	__cdepl_app_dxram_resolve_default_config_values
 	__cdepl_app_dxram_create_node_base_config $node
 
 	if [ "${__DXRAM_NODE_TYPE[$node]}" = "S" ]; then
