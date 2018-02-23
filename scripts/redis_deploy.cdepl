@@ -87,12 +87,19 @@ cdepl_script_deploy()
 
 	cdepl_app_redis_init $REDIS_PATH $TOTAL_NODES
 
-	# Form Redis-cluster
 	local cluster=()
 	for i in $(seq 0 $((TOTAL_NODES - 1))); do
 		cdepl_app_redis_start_node $i
 		cluster+=("${i}")
 	done
+
+	util_log "[cdepl] Waiting for all instances to finish initializing..."
+
+	for i in $(seq 0 $((TOTAL_NODES - 1))); do
+		cdepl_app_redis_wait_finished $i
+	done
+
+	util_log "[cdepl] Finished!"
 
 	cdepl_app_redis_form_cluster "${cluster[@]}"
 

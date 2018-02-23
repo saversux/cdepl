@@ -50,7 +50,8 @@ cdepl_app_redis_init()
 	__cdepl_app_redis_check_ruby
 
 	# Initialize output folder
-	cdepl_cluster_file_system_cmd "mkdir -p ${__REDIS_OUT_PATH}/cluster"
+	cdepl_cluster_file_system_cmd "mkdir -p ${__REDIS_OUT_PATH}/conf"
+	cdepl_cluster_file_system_cmd "mkdir -p ${__REDIS_OUT_PATH}/log"
 
 	util_log "[redis] Initialized: ${__REDIS_PATH}"
 	util_log "[redis] Output: ${__REDIS_OUT_PATH}"
@@ -66,7 +67,32 @@ cdepl_app_redis_start_node()
 	local node=$1
 
 	util_log "[$node][redis] Starting Redis..."
-	cdepl_cluster_node_cmd $node "${__REDIS_EXECUTABLE} --port ${__REDIS_PORT} --cluster-enabled yes --cluster-config-file ${__REDIS_OUT_PATH}/cluster/node_${node}.conf --cluster-node-timeout 5000 --appendonly no --protected-mode no --daemonize yes"
+	cdepl_cluster_node_cmd $node "nohup ${__REDIS_EXECUTABLE} --port ${__REDIS_PORT} --cluster-enabled yes --cluster-config-file ${__REDIS_OUT_PATH}/conf/node_${node}.conf --cluster-node-timeout 5000 --appendonly no --protected-mode no --daemonize yes > ${__REDIS_OUT_PATH}/log/node_${node}.log 2>&1 &"
+}
+
+##
+# Wait for Redis to finish initializing on a specified node
+#
+# $1 The node-number
+##
+cdepl_app_redis_wait_finished()
+{
+	local node=$1
+
+	local log_path="${__REDIS_OUT_PATH}/log/node_${node}.log"
+	local ready=$(cdepl_cluster_node_cmd $node "cat '${log_path}' | grep 'Configuration loaded'")
+	local i=0
+
+	while [ -z "$ready" ]; do
+		if [ "$i" -gt "29" ]; then
+			util_log_error_and_exit "[$node][redis] Redis did not finish initializing after 30 seconds! Cleaning up node..."
+		fi
+
+		sleep 1s
+
+		ready=$(cdepl_cluster_node_cmd $node "cat '${log_path}' | grep 'Configuration loaded'")
+		i=$((i + 1))
+	done
 }
 
 ##
