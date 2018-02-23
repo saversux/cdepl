@@ -47,6 +47,8 @@ cdepl_app_redis_init()
 		util_log_error_and_exit "[login][redis]: File does not exist: ${__REDIS_BENCHMARK_EXECUTABLE}"
 	fi
 
+	__cdepl_app_redis_check_ruby
+
 	# Initialize output folder
 	cdepl_cluster_file_system_cmd "mkdir -p ${__REDIS_OUT_PATH}/cluster"
 
@@ -119,4 +121,26 @@ cdepl_app_redis_node_cleanup()
 	local node=$1
 
 	cdepl_cluster_node_cmd $node "pkill -9 redis"
+}
+
+##
+# Check if Ruby and the Redis ruby-package are installed on the first node.
+# This is necessary, because Redis uses a Ruby-script to form a cluster
+# of multiple running instances of Redis.
+##
+__cdepl_app_redis_check_ruby()
+{
+	# Check if Ruby is installed on the first node.
+	cdepl_cluster_node_cmd 0 "command -v ruby" > /dev/null 2>&1
+
+	if [ "$?" != "0" ]; then
+		util_log_error_and_exit "[0][redis] Ruby must be installed on node 0 in order to form a Redis-cluster!"
+	fi
+
+	# Check if the redis ruby-pacakge is installed
+	cdepl_cluster_node_cmd 0 "gem list -i redis" > /dev/null 2>&1
+
+	if [ "$?" != "0" ]; then
+		util_log_error_and_exit "[0][redis] The Redis-library for Ruby must be installed on node 0 in order to form a Redis-cluster! Try running 'gem install redis' on this node."
+	fi
 }

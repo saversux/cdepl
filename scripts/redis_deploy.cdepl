@@ -80,20 +80,6 @@ cdepl_script_cluster_node_setup()
 
 cdepl_script_deploy()
 {
-	# Check if Ruby is installed on the first node
-	cdepl_cluster_node_cmd 0 "command -v ruby" > /dev/null 2>&1
-
-	if [ "$?" != "0" ]; then
-		util_log_error_and_exit "[0] Ruby must be installed on node 0 in order to form a Redis-cluster!"
-	fi
-
-	# Check if the redis ruby-pacakge is installed
-	cdepl_cluster_node_cmd 0 "gem list -i redis" > /dev/null 2>&1
-
-	if [ "$?" != "0" ]; then
-		util_log_error_and_exit "[0] The Redis-library for Ruby must be installed on node 0 in order to form a Redis-cluster! Try running 'gem install redis' on this node."
-	fi
-
 	# Kill any leftovers
 	for i in $(seq 0 $((TOTAL_NODES - 1))); do
 		cdepl_app_redis_node_cleanup $i
