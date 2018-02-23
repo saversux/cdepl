@@ -101,9 +101,11 @@ cdepl_script_deploy()
 	done
 
 	util_log "[cdepl] Waiting for all instances to finish initializing..."
+
 	for i in $(seq 0 $((TOTAL_NODES - 1))); do
 		cdepl_app_aerospike_wait_finished $i
 	done
+	
 	util_log "[cdepl] Finished!"
 
 	util_log "[cdepl] Waiting 5 seconds before cleanup..."
