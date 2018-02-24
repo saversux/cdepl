@@ -1,0 +1,123 @@
+#!/bin/bash 
+
+#
+# Example for (basic) redis deployment on localhost
+#
+
+TOTAL_NODES=""
+
+# Cluster type and user selected
+CLUSTER_TYPE=""
+CLUSTER_USER=""
+
+# Redis parameters
+REDIS_PATH=""
+
+##
+# $1 The amount of nodes to deploy redis on
+# $2 The cluster-type
+# $3 The cluster-user
+##
+cdepl_script_process_cmd_args()
+{
+	local total_nodes="$1"
+	local cluster_type="$2"
+	local cluster_user="$3"
+	local cluster_type_init_args="${@:4}"
+
+	if [ ! "$total_nodes" ]; then
+		util_log_error "Missing argument 'total_nodes'"
+		util_log_error_and_exit "Usage: <total_nodes> <cluster_type> <cluster_user> [init args for cluster type...]"
+	fi
+
+	if [ ! "$cluster_type" ]; then
+		util_log_error "Missing argument 'cluster_type'"
+		util_log_error_and_exit "Usage: <total_nodes> <cluster_type> <cluster_user> [init args for cluster type...]"
+	fi
+
+	if [ ! "$cluster_user" ]; then
+		util_log_error "Missing argument 'cluster_user'"
+		util_log_error_and_exit "Usage: <total_nodes> <cluster_type> <cluster_user> [init args for cluster type...]"
+	fi
+
+	TOTAL_NODES="$total_nodes"
+	CLUSTER_TYPE="$cluster_type"
+	CLUSTER_USER="$cluster_user"
+	CLUSTER_TYPE_INIT_ARGS="$cluster_type_init_args"
+	REDIS_PATH="/home/${CLUSTER_USER}/redis"
+}
+
+cdepl_script_cluster_node_setup()
+{
+	# Set the log level to output debug info
+	util_log_set_level "$UTIL_LOG_LEVEL_DEBUG"
+	
+	# Init the cluster environment to deploy to
+	cdepl_cluster_init $CLUSTER_TYPE $CLUSTER_USER $CLUSTER_TYPE_INIT_ARGS
+	
+	# Load application modules of apps you want to deploy
+	cdepl_cluster_app_load "redis"
+	
+	# Alloc total number of nodes for this deployment
+	cdepl_cluster_node_alloc $TOTAL_NODES
+	
+	# Walltime for your deployment, might be ignored depending
+	# on cluster environment selected
+	cdepl_cluster_walltime "01:00:00"
+
+	# Allocate resources
+	for i in $(seq 0 $((TOTAL_NODES - 1))); do
+		cdepl_cluster_node_mem $i 5120
+		cdepl_cluster_node_cpus $i 4
+		cdepl_cluster_node_network $i "eth"
+		cdepl_cluster_node_excl $i
+	done
+
+	# Set our output path for log files and configurations 
+	# for the applications deployed
+	cdepl_deploy_setup_out_path $CLUSTER_USER
+}
+
+cdepl_script_deploy()
+{
+	# Check if Ruby is installed on the first node
+	cdepl_cluster_node_cmd 0 "command -v ruby" > /dev/null 2>&1
+
+	if [ "$?" != "0" ]; then
+		util_log_error_and_exit "[0] Ruby must be installed on node 0 in order to form a Redis-cluster!"
+	fi
+
+	# Check if the redis ruby-pacakge is installed
+	cdepl_cluster_node_cmd 0 "gem list -i redis" > /dev/null 2>&1
+
+	if [ "$?" != "0" ]; then
+		util_log_error_and_exit "[0] The Redis-library for Ruby must be installed on node 0 in order to form a Redis-cluster! Try running 'gem install redis' on this node."
+	fi
+
+	# Kill any leftovers
+	for i in $(seq 0 $((TOTAL_NODES - 1))); do
+		cdepl_app_redis_node_cleanup $i
+	done
+
+	cdepl_app_redis_init $REDIS_PATH $TOTAL_NODES
+
+	# Form Redis-cluster
+	local cluster=()
+	for i in $(seq 0 $((TOTAL_NODES - 1))); do
+		cdepl_app_redis_start_node $i
+		cluster+=("${i}")
+	done
+
+	cdepl_app_redis_form_cluster "${cluster[@]}"
+
+	util_log "[cdepl] Waiting 5 seconds before cleanup..."
+	sleep 5s
+}
+
+cdepl_script_cleanup()
+{
+	# Kill any leftovers
+	for i in $(seq 0 $((TOTAL_NODES - 1))); do
+		cdepl_app_redis_node_cleanup $i
+	done
+}
