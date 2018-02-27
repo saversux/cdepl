@@ -64,7 +64,7 @@ cdepl_script_cluster_node_setup()
 cdepl_script_deploy()
 {
 	# Initialize dxnet deployment
-	cdepl_app_dxnet_init $DXNET_PATH
+	cdepl_app_dxnet_init $DXNET_PATH $TOTAL_NODES
 	
 	# Kill any still running instances from previous deployments
 	for i in $(seq 0 $((TOTAL_NODES - 1))); do
