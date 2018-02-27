@@ -33,6 +33,8 @@ __DXNET_OUT_PATH=""
 __DXNET_OUT_CONF_PATH=""
 __DXNET_OUT_LOG_PATH=""
 
+__DXNET_TOTAL_NODES=""
+
 __DXNET_CACHED_NODES_CONFIG=""
 
 __DXNET_WORKLOAD=()
@@ -55,12 +57,19 @@ __DXNET_NODE_REMOTE_PROFILE_YJP_AGENT_LIB=()
 #
 # $1 Path to folder containing build output of dxnet (or dxram) with dxnet.jar
 #    /dxram.jar
+# $2 Number of nodes of allocation actually used
 ##
 cdepl_app_dxnet_init()
 {
 	local path=$1
+	local total_nodes=$2
+
+	if [ "$total_nodes" -gt "$(cdepl_cluster_get_alloc_node_count)" ]; then
+		util_log_error_and_exit "[dxnet] Can't use more nodes ($total_nodes) than available/allocated $(cdepl_cluster_get_alloc_node_count)"
+	fi
 
 	__DXNET_PATH="$(cdepl_cluster_node_cmd 0 "readlink -f $path")"
+	__DXNET_TOTAL_NODES="$total_nodes"
 	__DXNET_CONFIG_PATH="${__DXNET_PATH}/config/dxnet.json"
 	__DXNET_LOG4J_CONFIG_PATH="${__DXNET_PATH}/config/log4j.xml"
 
@@ -98,8 +107,8 @@ depl_app_dxnet_workload()
 	local node=$1
 	local workload=$2
 
-	if [ "$node" -ge "$(cdepl_cluster_get_alloc_node_count)" ]; then
-		util_log_error_and_exit "[$node][dxnet] Invalid node id $node > $(cdepl_cluster_get_alloc_node_count)"
+	if [ "$node" -ge "$__DXNET_TOTAL_NODES" ]; then
+		util_log_error_and_exit "[$node][dxnet] Invalid node id $node > $__DXNET_TOTAL_NODES"
 	fi
 
 	if [ "$workload" -lt "0" ] || [ "$workload" -gt "3" ]; then
@@ -120,8 +129,8 @@ depl_app_dxnet_msg_send_count()
 	local node=$1
 	local msg_count=$2
 
-	if [ "$node" -ge "$(cdepl_cluster_get_alloc_node_count)" ]; then
-		util_log_error_and_exit "[$node][dxnet] Invalid node id $node > $(cdepl_cluster_get_alloc_node_count)"
+	if [ "$node" -ge "$__DXNET_TOTAL_NODES" ]; then
+		util_log_error_and_exit "[$node][dxnet] Invalid node id $node > $__DXNET_TOTAL_NODES"
 	fi
 
 	if [ "$msg_count" -lt "0" ]; then
@@ -142,8 +151,8 @@ depl_app_dxnet_msg_recv_count()
 	local node=$1
 	local msg_count=$2
 
-	if [ "$node" -ge "$(cdepl_cluster_get_alloc_node_count)" ]; then
-		util_log_error_and_exit "[$node][dxnet] Invalid node id $node > $(cdepl_cluster_get_alloc_node_count)"
+	if [ "$node" -ge "$__DXNET_TOTAL_NODES" ]; then
+		util_log_error_and_exit "[$node][dxnet] Invalid node id $node > $__DXNET_TOTAL_NODES"
 	fi
 
 	if [ "$msg_count" -lt "0" ]; then
@@ -164,8 +173,8 @@ depl_app_dxnet_msg_size()
 	local node=$1
 	local msg_size=$2
 
-	if [ "$node" -ge "$(cdepl_cluster_get_alloc_node_count)" ]; then
-		util_log_error_and_exit "[$node][dxnet] Invalid node id $node > $(cdepl_cluster_get_alloc_node_count)"
+	if [ "$node" -ge "$__DXNET_TOTAL_NODES" ]; then
+		util_log_error_and_exit "[$node][dxnet] Invalid node id $node > $__DXNET_TOTAL_NODES"
 	fi
 
 	if [ "$msg_size" -lt "0" ]; then
@@ -186,8 +195,8 @@ cdepl_app_dxnet_node_send_threads()
 	local node=$1
 	local send_threads=$2
 
-	if [ "$node" -ge "$(cdepl_cluster_get_alloc_node_count)" ]; then
-		util_log_error_and_exit "[$node][dxnet] Invalid node id $node > $(cdepl_cluster_get_alloc_node_count)"
+	if [ "$node" -ge "$__DXNET_TOTAL_NODES" ]; then
+		util_log_error_and_exit "[$node][dxnet] Invalid node id $node > $__DXNET_TOTAL_NODES"
 	fi
 
 	if [ "$send_threads" -lt "0" ]; then
@@ -210,8 +219,8 @@ cdepl_app_dxnet_node_send_targets()
 	local node=$1
 	local target_nodeids="${@:2}"
 
-	if [ "$node" -ge "$(cdepl_cluster_get_alloc_node_count)" ]; then
-		util_log_error_and_exit "[$node][dxnet] Invalid node id $node > $(cdepl_cluster_get_alloc_node_count)"
+	if [ "$node" -ge "$__DXNET_TOTAL_NODES" ]; then
+		util_log_error_and_exit "[$node][dxnet] Invalid node id $node > $__DXNET_TOTAL_NODES"
 	fi
 
 	__DXNET_SEND_TARGETS[$node]="$target_nodeids"
@@ -246,8 +255,8 @@ cdepl_app_dxnet_node_port()
 	local node=$1
 	local port=$2
 
-	if [ "$node" -ge "$(cdepl_cluster_get_alloc_node_count)" ]; then
-		util_log_error_and_exit "[$node][dxnet] Invalid node id $node > $(cdepl_cluster_get_alloc_node_count)"
+	if [ "$node" -ge "$__DXNET_TOTAL_NODES" ]; then
+		util_log_error_and_exit "[$node][dxnet] Invalid node id $node > $__DXNET_TOTAL_NODES"
 	fi
 
 	if [ "$port" -gt "65536" ] || [ "$port" -lt "0" ]; then
@@ -268,8 +277,8 @@ cdepl_app_dxnet_node_message_handler()
 	local node=$1
 	local msg_handler=$2
 
-	if [ "$node" -ge "$(cdepl_cluster_get_alloc_node_count)" ]; then
-		util_log_error_and_exit "[$node][dxnet] Invalid node id $node > $(cdepl_cluster_get_alloc_node_count)"
+	if [ "$node" -ge "$__DXNET_TOTAL_NODES" ]; then
+		util_log_error_and_exit "[$node][dxnet] Invalid node id $node > $__DXNET_TOTAL_NODES"
 	fi
 
 	__DXNET_NODE_MSG_HANDLER[$node]="$msg_handler"
@@ -286,8 +295,8 @@ cdepl_app_dxnet_run_as_sudo()
 {
 	local node=$1
 
-	if [ "$node" -ge "$(cdepl_cluster_get_alloc_node_count)" ]; then
-		util_log_error_and_exit "[$node][dxnet] Invalid node id $node > $(cdepl_cluster_get_alloc_node_count)"
+	if [ "$node" -ge "$__DXNET_TOTAL_NODES" ]; then
+		util_log_error_and_exit "[$node][dxnet] Invalid node id $node > $__DXNET_TOTAL_NODES"
 	fi
 
 	if [ "$(cdepl_cluster_allows_sudo)" ]; then
@@ -309,8 +318,8 @@ cdepl_app_dxnet_remote_debug()
 	local node=$1
 	local port=$2
 
-	if [ "$node" -ge "$(cdepl_cluster_get_alloc_node_count)" ]; then
-		util_log_error_and_exit "[$node][dxnet] Invalid node id $node > $(cdepl_cluster_get_alloc_node_count)"
+	if [ "$node" -ge "$__DXNET_TOTAL_NODES" ]; then
+		util_log_error_and_exit "[$node][dxnet] Invalid node id $node > $__DXNET_TOTAL_NODES"
 	fi
 
 	__DXNET_NODE_REMOTE_DEBUG_PORT[$node]="$port"
@@ -330,8 +339,8 @@ cdepl_app_dxnet_remote_profile_yjp()
 	local port=$2
 	local agent_lib=$3
 
-	if [ "$node" -ge "$(cdepl_cluster_get_alloc_node_count)" ]; then
-		util_log_error_and_exit "[$node][dxnet] Invalid node id $node > $(cdepl_cluster_get_alloc_node_count)"
+	if [ "$node" -ge "$__DXNET_TOTAL_NODES" ]; then
+		util_log_error_and_exit "[$node][dxnet] Invalid node id $node > $__DXNET_TOTAL_NODES"
 	fi
 
 	# Check if the agent lib is available
@@ -580,7 +589,7 @@ __cdepl_app_dxnet_resolve_default_config_values()
 		__DXNET_NODE_NETWORK="eth"
 	fi
 
-	local node_count="$(cdepl_cluster_get_alloc_node_count)"
+	local node_count="$__DXNET_TOTAL_NODES"
 
 	for i in `seq 0 $((node_count - 1))`; do
 		if [ ! "${__DXNET_WORKLOAD[$i]}" ]; then
@@ -639,7 +648,7 @@ __cdepl_app_dxnet_create_node_base_config()
 		local first_iterartion=true
 
 		# Create "List" of node configs for configuration file
-		for i in `seq 0 $(($(cdepl_cluster_get_alloc_node_count) - 1))`; do
+		for i in `seq 0 $(($__DXNET_TOTAL_NODES - 1))`; do
 			local ip=""
 			local port=""
 
