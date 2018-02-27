@@ -527,10 +527,10 @@ filter_list()
 #
 # $1 Network type: ib, eth, lb
 # $2 Benchmark type: one2all, all2one, all2all, ring
-# $3 Message type: msg, rr (Request-Response)
-# $4 Total message count
-# $5 Range of node counts to execute, e.g. 0 for all, other value for single 
+# $3 Range of node counts to execute, e.g. 0 for all, other value for single 
 #    count or range like 2-8 (2 and 8 including)
+# $4 Message type: msg, rr (Request-Response)
+# $5 Total message count
 # $6 Range of sizes to execute, e.g. 0 for all, other value for single 
 #    count or range like 2-8 (2 and 8 including)
 # $7 Range of (send) threads to execute, e.g. 0 for all, other value for single 
@@ -543,9 +543,9 @@ benchmark()
 {
 	local network_type=$1
 	local bench_type=$2
-	local msg_type=$3
-	local msg_count=$4
-	local range_nodes=$5
+	local range_nodes=$3
+	local msg_type=$4
+	local msg_count=$5
 	local range_sizes=$6
 	local range_threads=$7
 	local range_msg_handlers=$8
@@ -570,7 +570,7 @@ benchmark()
 		util_log_error_and_exit "Invalid message type type: $msg_type"
 	fi
 
-	echo "##### $name start: $network_type $bench_type $msg_type $msg_count $range_nodes $range_sizes $range_threads $range_msg_handlers ######"
+	echo "##### $name start: $network_type $bench_type $range_nodes $msg_type $msg_count $range_sizes $range_threads $range_msg_handlers ######"
 
 	for node in $nodes; do
 		if [ "$node" -gt "$TOTAL_NODES" ]; then
@@ -635,12 +635,12 @@ benchmark_00()
 	echo "##### WARMUP $network_type THROUGHPUT ######"
 
 	# Throughput
-	benchmark $network_type "one2all" "msg" 20000000 2 16384 1 2 "benchmark_00"
+	benchmark $network_type "one2all" 2 "msg" 20000000 16384 1 2 "benchmark_00"
 
 	echo "##### WARMUP $network_type LATENCY ######"
 
 	# Latency
-	benchmark $network_type "one2all" "rr" 4000000 2 1 1 2 "benchmark_00"
+	benchmark $network_type "one2all" 2 "rr" 4000000 1 1 2 "benchmark_00"
 }
 
 ##
@@ -653,7 +653,7 @@ benchmark_01()
 {
 	local network_type=$1
 
-	benchmark $network_type "one2all" "msg" 100000000 2 0 1 2 "benchmark_01"
+	benchmark $network_type "one2all" 2 "msg" 100000000 0 1 2 "benchmark_01"
 }
 
 ##
@@ -666,7 +666,7 @@ benchmark_02()
 {
 	local network_type=$1
 
-	benchmark $network_type "all2all" "msg" 100000000 2 0 1 2 "benchmark_02"
+	benchmark $network_type "all2all" 2 "msg" 100000000 0 1 2 "benchmark_02"
 }
 
 ##
@@ -679,7 +679,7 @@ benchmark_03()
 {
 	local network_type=$1
 
-	benchmark $network_type "one2all" "rr" 100000000 2 0 1 2 "benchmark_03"
+	benchmark $network_type "one2all" 2 "rr" 100000000 0 1 2 "benchmark_03"
 }
 
 ##
@@ -692,7 +692,7 @@ benchmark_04()
 {
 	local network_type=$1
 
-	benchmark $network_type "all2all" "rr" 100000000 2 0 1 2 "benchmark_04"
+	benchmark $network_type "all2all" 2 "rr" 100000000 0 1 2 "benchmark_04"
 }
 
 ##
@@ -705,7 +705,7 @@ benchmark_05()
 {
 	local network_type=$1
 
-	benchmark $network_type "all2all" "rr" 100000000 2 1 0 0 "benchmark_05"
+	benchmark $network_type "all2all" 2 "rr" 100000000 1 0 0 "benchmark_05"
 }
 
 ##
@@ -718,7 +718,7 @@ benchmark_06()
 {
 	local network_type=$1
 
-	benchmark $network_type "all2all" "msg" 100000000 0 0 1 2 "benchmark_06"
+	benchmark $network_type "all2all" 0 "msg" 100000000 0 1 2 "benchmark_06"
 }
 
 ##
@@ -731,7 +731,7 @@ benchmark_07()
 {
 	local network_type=$1
 
-	benchmark $network_type "all2all" "msg" 100000000 0 16 0 8 "benchmark_07"
+	benchmark $network_type "all2all" 0 "msg" 100000000 16 0 8 "benchmark_07"
 }
 
 ##
@@ -744,7 +744,7 @@ benchmark_08()
 {
 	local network_type=$1
 
-	benchmark $network_type "all2all" "rr" 100000000 0 1 0 8 "benchmark_08"
+	benchmark $network_type "all2all" 0 "rr" 100000000 1 0 8 "benchmark_08"
 }
 
 ##
@@ -757,7 +757,7 @@ benchmark_09()
 {
 	local network_type=$1
 
-	benchmark $network_type "all2all" "rr" 100000000 0 64 0 8 "benchmark_09"
+	benchmark $network_type "all2all" 0 "rr" 100000000 64 0 8 "benchmark_09"
 }
 
 ##
@@ -771,7 +771,7 @@ benchmark_10()
 {
 	local network_type=$1
 
-	benchmark $network_type "ring" "msg" 100000000 0 0 1 2 "benchmark_10"
+	benchmark $network_type "ring" 0 "msg" 100000000 0 1 2 "benchmark_10"
 }
 
 ##
@@ -783,7 +783,7 @@ benchmark_11()
 {
 	local network_type=$1
 
-	benchmark $network_type "all2one" "msg" 100000000 0 64 0 8 "benchmark_11"
+	benchmark $network_type "all2one" 0 "msg" 100000000 64 0 8 "benchmark_11"
 }
 
 ##
@@ -795,7 +795,7 @@ benchmark_12()
 {
 	local network_type=$1
 
-	benchmark $network_type "all2one" "rr" 100000000 0 64 0 8 "benchmark_12"
+	benchmark $network_type "all2one" 0 "rr" 100000000 64 0 8 "benchmark_12"
 }
 
 ##
@@ -807,7 +807,7 @@ benchmark_13()
 {
 	local network_type=$1
 
-	benchmark $network_type "one2all" "msg" 100000000 0 64 0 8 "benchmark_13"
+	benchmark $network_type "one2all" 0 "msg" 100000000 64 0 8 "benchmark_13"
 }
 
 ################################################################################
@@ -876,7 +876,7 @@ cdepl_script_process_cmd_args()
 		util_log_error_and_exit "Benchmark args determine the execution mode:
   comprehensive: <network type: ib, eth>
   selective: <benchmark name, e.g. benchmark_01> <network type: ib, eth>
-  User parameters (refer to function 'benchmark'): <network type: ib, eth> <bench_type> <msg_type> <msg_count> <range_nodes> <range_sizes> <range_threads> <range_msg_handlers>"
+  User parameters (refer to function 'benchmark'): <network type: ib, eth> <bench_type> <range_node_count> <msg_type> <msg_count> <range_sizes> <range_threads> <range_msg_handlers>"
 	fi
 
 	DXNET_PATH="/home/${CLUSTER_USER}/dxnet"
