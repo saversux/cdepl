@@ -489,11 +489,13 @@ __cdepl_cluster_hhubs_upload_to_sollipulli()
 	local recursive=$3
 
 	local dest=""
+	local port=""
 
 	if [ "$__HHUBS_SOLLIPULLI_MODE" = "1" ]; then
 		dest="${__HHUBS_SOLLIPULLI_USER}@sollipulli:${remote_path}"
 	else
-		dest="${__HHUBS_SOLLIPULLI_USER}@134.99.112.82:${remote_path} -p 55517"
+		port="-P 55517"
+		dest="${__HHUBS_SOLLIPULLI_USER}@134.99.112.82:${remote_path}"
 	fi
 
 	if [ "$recursive " ]; then
@@ -503,7 +505,7 @@ __cdepl_cluster_hhubs_upload_to_sollipulli()
 	# Use ControlMaster to establish the TCP connection, once and keep it active
 	# until all sessions are closed and no further session was established
 	# within 60 seconds
-	scp $recursive -o ControlMaster=auto -o ControlPath=~/.ssh/cdepl_%r@%h:%p.sock -o ControlPersist=60 $local_path $dest > /dev/null 2>&1
+	scp $recursive -o ControlMaster=auto -o ControlPath=~/.ssh/cdepl_%r@%h:%p.sock -o ControlPersist=60 $port $local_path $dest > /dev/null 2>&1
 }
 
 __cdepl_cluster_hhubs_download_from_sollipulli()
@@ -513,11 +515,13 @@ __cdepl_cluster_hhubs_download_from_sollipulli()
 	local recursive=$3
 
 	local dest=""
+	local port=""
 
 	if [ "$__HHUBS_SOLLIPULLI_MODE" = "1" ]; then
 		dest="${__HHUBS_SOLLIPULLI_USER}@sollipulli:${remote_path}"
 	else
-		dest="${__HHUBS_SOLLIPULLI_USER}@134.99.112.82:${remote_path} -p 55517"
+		port="-P 55517"
+		dest="${__HHUBS_SOLLIPULLI_USER}@134.99.112.82:${remote_path}"
 	fi
 
 	if [ "$recursive " ]; then
@@ -527,7 +531,7 @@ __cdepl_cluster_hhubs_download_from_sollipulli()
 	# Use ControlMaster to establish the TCP connection, once and keep it active
 	# until all sessions are closed and no further session was established
 	# within 60 seconds
-	scp $recursive -o ControlMaster=auto -o ControlPath=~/.ssh/cdepl_%r@%h:%p.sock -o ControlPersist=60 $dest $local_path > /dev/null 2>&1
+	scp $recursive -o ControlMaster=auto -o ControlPath=~/.ssh/cdepl_%r@%h:%p.sock -o ControlPersist=60 $port $dest $local_path > /dev/null 2>&1
 }
 
 __cdepl_cluster_hhubs_remote_sollipulli_cmd()
