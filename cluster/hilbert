@@ -51,8 +51,8 @@ cdepl_cluster_get_base_path_deploy_out()
 {
 	local user=$1
 
-    # Use scratch_gs instead of home -> more space
-	echo "/scratch_gs/$user"
+    # Use gpfs instead of home -> more space
+	echo "/gpfs/project/$user"
 }
 
 cdepl_cluster_node_alloc()
