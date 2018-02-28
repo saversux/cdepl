@@ -59,7 +59,7 @@ benchmark_loopback()
 	echo "##### Loopback benchmark: $workload $msg_per_node $msg_size $threads $msg_handler"
 
 	# Initialize dxnet deployment
-	cdepl_app_dxnet_init $DXNET_PATH 1
+	cdepl_app_dxnet_init $DXNET_PATH 2
 
 	# Kill any still running instances from previous deployments
 	cdepl_app_dxnet_node_cleanup 0
