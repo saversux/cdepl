@@ -29,13 +29,12 @@ readonly __HILBERT_QDEL="/opt/pbs/bin/qdel"
 __HILBERT_NODE_EXCL_FIRST_CALL=""
 
 __HILBERT_TOTAL_NODES="0"
-# Default walltime 1 hour
-__HILBERT_WALLTIME="00:01:00"
 __HILBERT_CPUS_PER_NODE="0"
 __HILBERT_MEM_MB_PER_NODE="0"
 
 __HILBERT_USER=""
 __HILBERT_PROJECT=""
+__HILBERT_WALLTIME=""
 __HILBERT_JOB_NAME=""
 __HILBERT_QUEUE=""
 __HILBERT_NODES_EXPLICIT=""
@@ -70,13 +69,6 @@ cdepl_cluster_node_alloc()
 cdepl_cluster_get_alloc_node_count()
 {
 	echo "$__HILBERT_TOTAL_NODES"
-}
-
-cdepl_cluster_walltime()
-{
-	local walltime=$1
-
-	__HILBERT_WALLTIME="$walltime"
 }
 
 cdepl_cluster_node_excl()
@@ -260,6 +252,15 @@ _cdepl_cluster_on_init()
 	local cluster_user=$1
 	# Required for job system
 	local project_name=$2
+	# Also required for job system
+	local walltime=$3
+
+	# Default walltime 30 mins if not specified
+	if [ ! "$walltime" ]; then
+		walltime="00:30:00"
+	fi
+
+	__HILBERT_WALLTIME="$walltime"
 
     # Optional arguments, e.g.
     # q=Devel
@@ -269,7 +270,7 @@ _cdepl_cluster_on_init()
     local queue=""
     local nodes=""
 
-    for arg in "${@:3}"; do
+    for arg in "${@:4}"; do
         case "${arg:0:2}" in
             "j=") job_name="${arg:2}" ;;
             "q=") queue="${arg:2}" ;;
@@ -278,7 +279,7 @@ _cdepl_cluster_on_init()
         esac
     done
 
-	util_log_debug "[hilbert] on_init: user $cluster_user project $project_name"
+	util_log_debug "[hilbert] on_init: user $cluster_user project $project_name $walltime"
 
 	__HILBERT_USER="$cluster_user"
 
