@@ -71,21 +71,6 @@ cdepl_cluster_get_alloc_node_count()
 }
 
 ##
-# Set the walltime when allocating resources
-#
-# If you are deploying against a job system, it might require you to specify
-# the walltime of your job you want to run.
-#
-# $1: Walltime, format: HH:MM:SS
-##
-cdepl_cluster_walltime()
-{
-	local walltime=$1
-
-	# stub
-}
-
-##
 # Allocate all hardware resources available on a particular node
 #
 # If multiple jobs can be executed on the same node by the job system, you

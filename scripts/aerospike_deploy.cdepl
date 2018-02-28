@@ -70,9 +70,6 @@ cdepl_script_cluster_node_setup()
 	
 	# Alloc total number of nodes for this deployment
 	cdepl_cluster_node_alloc $TOTAL_NODES
-	
-    # Walltime for your deployment, required for hilbert
-	cdepl_cluster_walltime $CLUSTER_WALLTIME
 
 	# Allocate resources
 	for i in $(seq 0 $((TOTAL_NODES - 1))); do

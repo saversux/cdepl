@@ -60,10 +60,6 @@ cdepl_script_cluster_node_setup()
 	
 	# Alloc total number of nodes for this deployment
 	cdepl_cluster_node_alloc $TOTAL_NODES
-	
-	# Walltime for your deployment, might be ignored depending
-	# on cluster environment selected
-	cdepl_cluster_walltime "01:00:00"
 
 	# Allocate resources
 	for i in $(seq 0 $((TOTAL_NODES - 1))); do

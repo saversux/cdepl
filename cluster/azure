@@ -43,13 +43,6 @@ cdepl_cluster_get_alloc_node_count()
 	echo "$__SIMPLE_TOTAL_NODES"
 }
 
-cdepl_cluster_walltime()
-{
-	local walltime=$1
-
-	# Not supporting walltime, ignore
-}
-
 cdepl_cluster_node_excl()
 {
 	local node=$1
