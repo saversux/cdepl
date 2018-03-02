@@ -380,7 +380,7 @@ benchmark_one_to_all()
 	cdepl_deploy_archive_out_path "dxnet_${workload}_${total_nodes}_${msg_size}_${threads}_${msg_handler}" ${RESULT_ARCHIVES_OUT_PATH}/${benchmark_name}
 
 	# Reset output path for next benchmark call
-	cdepl_deploy_setup_out_path $OUT_PATH
+	cdepl_deploy_setup_out_path $CLUSTER_USER
 }
 
 ##
