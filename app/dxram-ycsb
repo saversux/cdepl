@@ -18,7 +18,7 @@ readonly __DXRAM_YCSB_LOG_FILE_STORE_POSTFIX="_store"
 readonly __DXRAM_YCSB_LOG_FILE_BENCH_POSTFIX="_bench"
 
 readonly __DXRAM_YCSB_MAIN_CLASS="de.hhu.bsinfo.dxram.DXRAM"
-readonly __DXRAM_YCSB_CLASS_PATH="lib/slf4j-api-1.6.1.jar:lib/zookeeper-3.4.3.jar:lib/gson-2.7.jar:lib/log4j-api-2.7.jar:lib/log4j-core-2.7.jar:lib:dxram.jar"
+readonly __DXRAM_YCSB_CLASS_PATH="lib/slf4j-api-1.6.1.jar:lib/zookeeper-3.4.3.jar:lib/gson-2.7.jar:lib/log4j-api-2.7.jar:lib/log4j-core-2.7.jar:lib/perf-timer.jar:lib:dxram.jar"
 
 readonly __DXRAM_YCSB_DEFAULT_S_PORT="22221"
 readonly __DXRAM_YCSB_DEFAULT_PS_PORT="22222"
@@ -38,7 +38,7 @@ __DXRAM_YCSB_OUT_PATH=""
 __DXRAM_YCSB_OUT_CONF_PATH=""
 __DXRAM_YCSB_OUT_LOG_PATH=""
 
-__DXRAM_YCSB_CACHED_NODES_CONFIG
+__DXRAM_YCSB_CACHED_NODES_CONFIG=""
 
 __DXRAM_YCSB_ZOOKEEPER_NODE=""
 __DXRAM_YCSB_ZOOKEEPER_PORT=""
@@ -369,7 +369,7 @@ cdepl_app_dxram_ycsb_node_wait_superpeer_started()
 		local success=$(cdepl_cluster_node_cmd $node "cat $logfile 2> /dev/null | sed 's,\x1B\[[0-9;]*[a-zA-Z],,g' | grep '$__DXRAM_YCSB_DEFAULT_STARTUP_CONDITION'")
 		local fail_init=$(cdepl_cluster_node_cmd $node "cat $logfile 2> /dev/null | sed 's,\x1B\[[0-9;]*[a-zA-Z],,g' | grep '^Initializing DXRAM failed.$'")
 		# Abort execution after an exception was thrown (every exception but NetworkResponseCancelledException)
-		local fail_error=$(cdepl_cluster_node_cmd $node "cat $logfile 2> /dev/null | sed 's,\x1B\[[0-9;]*[a-zA-Z],,g' | grep -i 'exception' | grep -v 'NetworkResponseCancelledException'")
+		local fail_error=$(cdepl_cluster_node_cmd $node "cat $logfile 2> /dev/null | sed 's,\x1B\[[0-9;]*[a-zA-Z],,g' | grep -i 'exception' | grep -v 'NetworkResponseCancelledException' | grep -v 'fpu_exception'")
 		# "A fatal error" -> JVM segfaults
 		local fail_error2=$(cdepl_cluster_node_cmd $node "cat $logfile 2> /dev/null | sed 's,\x1B\[[0-9;]*[a-zA-Z],,g' | grep -i -e '\[ERROR\]' -e '\# A fatal error'")
 
@@ -419,7 +419,7 @@ cdepl_app_dxram_ycsb_storage_finished_loading()
 
 		local success=$(cdepl_cluster_node_cmd $node "cat $logfile 2> /dev/null | sed 's,\x1B\[[0-9;]*[a-zA-Z],,g' | grep '$__DXRAM_YCSB_RUN_OR_LOAD_DONE_CONDITION'")
 		# Abort execution after an exception was thrown (every exception but NetworkResponseCancelledException)
-		local fail_error=$(cdepl_cluster_node_cmd $node "cat $logfile 2> /dev/null | sed 's,\x1B\[[0-9;]*[a-zA-Z],,g' | grep -i 'exception' | grep -v 'NetworkResponseCancelledException'")
+		local fail_error=$(cdepl_cluster_node_cmd $node "cat $logfile 2> /dev/null | sed 's,\x1B\[[0-9;]*[a-zA-Z],,g' | grep -i 'exception' | grep -v 'NetworkResponseCancelledException' | grep -v 'fpu_exception'")
 		# "A fatal error" -> JVM segfaults
 		local fail_error2=$(cdepl_cluster_node_cmd $node "cat $logfile 2> /dev/null | sed 's,\x1B\[[0-9;]*[a-zA-Z],,g' | grep -i -e '\[ERROR\]' -e '\# A fatal error'")
 
@@ -457,7 +457,7 @@ cdepl_app_dxram_ycsb_benchmark_wait_finished()
 
 		local success=$(cdepl_cluster_node_cmd $node "cat $logfile 2> /dev/null | sed 's,\x1B\[[0-9;]*[a-zA-Z],,g' | grep '$__DXRAM_YCSB_RUN_OR_LOAD_DONE_CONDITION'")
 		# Abort execution after an exception was thrown (every exception but NetworkResponseCancelledException)
-		local fail_error=$(cdepl_cluster_node_cmd $node "cat $logfile 2> /dev/null | sed 's,\x1B\[[0-9;]*[a-zA-Z],,g' | grep -i 'exception' | grep -v 'NetworkResponseCancelledException'")
+		local fail_error=$(cdepl_cluster_node_cmd $node "cat $logfile 2> /dev/null | sed 's,\x1B\[[0-9;]*[a-zA-Z],,g' | grep -i 'exception' | grep -v 'NetworkResponseCancelledException' | grep -v 'fpu_exception'")
 		# "A fatal error" -> JVM segfaults
 		local fail_error2=$(cdepl_cluster_node_cmd $node "cat $logfile 2> /dev/null | sed 's,\x1B\[[0-9;]*[a-zA-Z],,g' | grep -i -e '\[ERROR\]' -e '\# A fatal error'")
 
@@ -484,7 +484,7 @@ cdepl_app_dxram_ycsb_benchmark_wait_finished()
 # $2 Optional: Node id range end (including) and first parameter is interpreted
 #    as range start (including)
 ##
-cdepl_app_dxram_node_cleanup()
+cdepl_app_dxram_ycsb_node_cleanup()
 {
 	local node_range_start=$1
 	local node_range_end=$2
@@ -928,7 +928,7 @@ __cdepl_app_dxram_ycsb_cleanup()
 {
 	local node=$1
 
-	__cdepl_app_dxram_ycsb_cleanup
+	util_log "[$node][dxram-ycsb] Cleanup..."
 
 	local pid=$(__cdepl_app_dxram_ycsb_get_instance_running_pid $node)
 
