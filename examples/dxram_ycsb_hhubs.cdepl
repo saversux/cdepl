@@ -21,7 +21,7 @@ TOTAL_NODES=3
 
 # Cluster type and user selected
 CLUSTER_TYPE="hhubs"
-CLUSTER_USER="user"
+CLUSTER_USER="nothaas"
 
 # Parameters for zookeeper
 ZK_PATH="/home/${CLUSTER_USER}/zookeeper"
