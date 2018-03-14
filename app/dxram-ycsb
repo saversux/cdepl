@@ -404,6 +404,7 @@ cdepl_app_dxram_ycsb_node_wait_superpeer_started()
 cdepl_app_dxram_ycsb_storage_finished_loading()
 {
 	local node=$1
+	local hide_progress=$2
 
 	local type="${__DXRAM_YCSB_NODE_TYPE[$node]}"
 	local logfile=${__DXRAM_YCSB_OUT_LOG_PATH}/node${node}${__DXRAM_YCSB_LOG_FILE_STORE_POSTFIX}
@@ -415,7 +416,22 @@ cdepl_app_dxram_ycsb_storage_finished_loading()
 	util_log "[$node][dxram-ycsb][$type] Waiting for storage loading to finish: $__DXRAM_YCSB_RUN_OR_LOAD_DONE_CONDITION"
 
 	while true; do
-		echo -n "."
+		if [ ! "$hide_progress" ]; then
+			local progress=$(cdepl_cluster_node_cmd $node "cat $logfile | grep 'current ops' | tail -n 1")
+
+			if [ ! "$progress" ]; then
+				echo -n "."
+			else
+				if [ "$first_progress" = "1" ]; then
+					first_progress=0
+					echo ""
+				fi
+
+				echo "[$node] ${progress}"
+			fi
+		else
+			echo -n "."
+		fi
 
 		local success=$(cdepl_cluster_node_cmd $node "cat $logfile 2> /dev/null | sed 's,\x1B\[[0-9;]*[a-zA-Z],,g' | grep '$__DXRAM_YCSB_RUN_OR_LOAD_DONE_CONDITION'")
 		# Abort execution after an exception was thrown (every exception but NetworkResponseCancelledException)
@@ -423,14 +439,23 @@ cdepl_app_dxram_ycsb_storage_finished_loading()
 		# "A fatal error" -> JVM segfaults
 		local fail_error2=$(cdepl_cluster_node_cmd $node "cat $logfile 2> /dev/null | sed 's,\x1B\[[0-9;]*[a-zA-Z],,g' | grep -i -e '\[ERROR\]' -e '\# A fatal error'")
 
-		if [ "$success" ]; then
-			util_log "[$node][dxram-ycsb][$type] Storage loading complete"
-
-			break
-		elif [ "$fail_error" ] || [ "$fail_error2" ]; then
+		if [ "$fail_error" ] || [ "$fail_error2" ]; then
 			echo ""
-			util_log_error_and_exit "[$node][dxram-ycsb][$type] Failed, error or exception. See log file $logfile"
-			return 1
+			err=""
+			
+			if [ "$fail_error" ]; then
+				err="$fail_error"
+			else
+				err="$fail_error2"
+			fi
+
+			util_log_error_and_exit "[$node][dxram-ycsb][$type] Failed, error or exception:\n${err}\nSee log file $logfile"
+		fi
+
+		if [ "$success" ]; then
+			echo ""
+			util_log "[$node][dxram-ycsb][$type] Storage loading complete"
+			break;
 		fi
 
 		sleep 1.0
@@ -442,6 +467,7 @@ cdepl_app_dxram_ycsb_storage_finished_loading()
 cdepl_app_dxram_ycsb_benchmark_wait_finished()
 {
 	local node=$1
+	local hide_progress=$2
 
 	local type="${__DXRAM_YCSB_NODE_TYPE[$node]}"
 	local logfile=${__DXRAM_YCSB_OUT_LOG_PATH}/node${node}${__DXRAM_YCSB_LOG_FILE_BENCH_POSTFIX}
@@ -453,7 +479,22 @@ cdepl_app_dxram_ycsb_benchmark_wait_finished()
 	util_log "[$node][dxram-ycsb][$type] Waiting for benchmark to finish: $__DXRAM_YCSB_RUN_OR_LOAD_DONE_CONDITION"
 
 	while true; do
-		echo -n "."
+		if [ ! "$hide_progress" ]; then
+			local progress=$(cdepl_cluster_node_cmd $node "cat $logfile | grep 'current ops' | tail -n 1")
+
+			if [ ! "$progress" ]; then
+				echo -n "."
+			else
+				if [ "$first_progress" = "1" ]; then
+					first_progress=0
+					echo ""
+				fi
+
+				echo "[$node] ${progress}"
+			fi
+		else
+			echo -n "."
+		fi
 
 		local success=$(cdepl_cluster_node_cmd $node "cat $logfile 2> /dev/null | sed 's,\x1B\[[0-9;]*[a-zA-Z],,g' | grep '$__DXRAM_YCSB_RUN_OR_LOAD_DONE_CONDITION'")
 		# Abort execution after an exception was thrown (every exception but NetworkResponseCancelledException)
@@ -461,14 +502,23 @@ cdepl_app_dxram_ycsb_benchmark_wait_finished()
 		# "A fatal error" -> JVM segfaults
 		local fail_error2=$(cdepl_cluster_node_cmd $node "cat $logfile 2> /dev/null | sed 's,\x1B\[[0-9;]*[a-zA-Z],,g' | grep -i -e '\[ERROR\]' -e '\# A fatal error'")
 
-		if [ "$success" ]; then
-			util_log "[$node][dxram-ycsb][$type] Benchmark completed"
-
-			break
-		elif [ "$fail_error" ] || [ "$fail_error2" ]; then
+		if [ "$fail_error" ] || [ "$fail_error2" ]; then
 			echo ""
-			util_log_error_and_exit "[$node][dxram-ycsb][$type] Failed, error or exception. See log file $logfile"
-			return 1
+			err=""
+			
+			if [ "$fail_error" ]; then
+				err="$fail_error"
+			else
+				err="$fail_error2"
+			fi
+
+			util_log_error_and_exit "[$node][dxram-ycsb][$type] Failed, error or exception:\n${err}\nSee log file $logfile"
+		fi
+
+		if [ "$success" ]; then
+			echo ""
+			util_log "[$node][dxram-ycsb][$type] Benchmark completed"
+			break;
 		fi
 
 		sleep 1.0
