@@ -44,8 +44,15 @@ __HILBERT_JOB_ID=""
 __HILBERT_NODE_MAPPING=()
 
 declare -gA __HILBERT_DEPENDENCY_MAP
-__HILBERT_DEPENDENCY_MAP["java/1.8"]="Java/1.8.0_151"
+__HILBERT_DEPENDENCY_MAP["boost/1.55.0"]="Boost/1.55.0"
+__HILBERT_DEPENDENCY_MAP["boost/1.62.0"]="Boost/1.62.0"
+__HILBERT_DEPENDENCY_MAP["gcc/4.9.4"]="gcc/4.9.4"
 __HILBERT_DEPENDENCY_MAP["gcc/6.1"]="gcc/6.1.0"
+__HILBERT_DEPENDENCY_MAP["gcc/6.1.0"]="gcc/6.1.0"
+__HILBERT_DEPENDENCY_MAP["java/1.8"]="Java/1.8.0_151"
+__HILBERT_DEPENDENCY_MAP["java/1.8.0"]="Java/1.8.0_151"
+__HILBERT_DEPENDENCY_MAP["pcre/8.38.0"]="pcre/8.38"
+__HILBERT_DEPENDENCY_MAP["protobuf/2.6.1"]="protobuf/2.6.1"
 
 cdepl_cluster_get_base_path_deploy_out()
 {
