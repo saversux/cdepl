@@ -70,7 +70,7 @@ cdepl_app_dxnet_init()
 
 	__DXNET_PATH="$(cdepl_cluster_node_cmd 0 "readlink -f $path")"
 	__DXNET_TOTAL_NODES="$total_nodes"
-	__DXNET_CONFIG_PATH="${__DXNET_PATH}/config/dxnet.json"
+	__DXNET_CONFIG_PATH="${__DXNET_PATH}/config/dxnet.conf"
 	__DXNET_LOG4J_CONFIG_PATH="${__DXNET_PATH}/config/log4j.xml"
 
 	__DXNET_OUT_PATH="${__DEPLOY_CUR_OUT_PATH}/dxnet"
@@ -548,6 +548,8 @@ __cdepl_app_dxnet_check()
 	else
 		util_log_error_and_exit "[0][dxnet] Could not find dxram.jar/dxnet.jar in $__DXNET_PATH"
 	fi
+
+	util_log_debug "[dxnet] Auto detected jar package: $__DXNET_JAR_FILE in $__DXNET_PATH"
 }
 
 __cdepl_app_dxnet_check_config()
