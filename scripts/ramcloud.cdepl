@@ -1,0 +1,124 @@
+#
+# Copyright (C) 2018 Heinrich-Heine-Universitaet Duesseldorf, Institute of Computer Science, Department Operating Systems
+#
+# This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>
+#
+
+#!/bin/bash
+
+#
+# Deploy a simple ramcloud setup with a single coordinator and X servers 
+# (X = total nodes - 1)
+# A few basic settings are already hardcoded in this script (e.g. key-value 
+# store mem). Use this script to get started with deployment and adjust it
+# according to your target setup and requirements
+#
+
+# Cluster settings set in cdepl_script_process_cmd_args
+TOTAL_NODES=""
+CLUSTER_TYPE=""
+CLUSTER_USER=""
+CLUSTER_TYPE_INIT_ARGS=""
+
+# Paths set in cdepl_script_process_cmd_args
+RAMCLOUD_PATH=""
+
+RAMCLOUD_SERVER_MEM_MB="1024"
+
+cdepl_script_process_cmd_args()
+{
+	local total_nodes="$1"
+	local cluster_type="$2"
+	local cluster_user="$3"
+	local cluster_type_init_args="${@:4}"
+
+	if [ ! "$total_nodes" ]; then
+		util_log_error "Missing argument 'total_nodes'"
+		util_log_error_and_exit "Usage: <total_nodes> <cluster_type> <cluster_user> [init args for cluster type...]"
+	fi
+
+	if [ ! "$cluster_type" ]; then
+		util_log_error "Missing argument 'cluster_type'"
+		util_log_error_and_exit "Usage: <total_nodes> <cluster_type> <cluster_user> [init args for cluster type...]"
+	fi
+
+	if [ ! "$cluster_user" ]; then
+		util_log_error "Missing argument 'cluster_user'"
+		util_log_error_and_exit "Usage: <total_nodes> <cluster_type> <cluster_user> [init args for cluster type...]"
+	fi
+
+	TOTAL_NODES="$total_nodes"
+	CLUSTER_TYPE="$cluster_type"
+	CLUSTER_USER="$cluster_user"
+	CLUSTER_TYPE_INIT_ARGS="$cluster_type_init_args"
+
+	RAMCLOUD_PATH="/home/${CLUSTER_USER}/RAMCloud"
+}
+
+cdepl_script_cluster_node_setup()
+{
+	# Set the log level to output debug info
+	util_log_set_level "$UTIL_LOG_LEVEL_DEBUG"
+
+	# Init the cluster environment to deploy to
+	cdepl_cluster_init $CLUSTER_TYPE $CLUSTER_USER $CLUSTER_TYPE_INIT_ARGS
+
+	# Load application modules of apps you want to deploy
+	cdepl_cluster_app_load "ramcloud"
+
+	# Alloc total number of nodes for this deployment
+	cdepl_cluster_node_alloc $TOTAL_NODES
+
+    # Reserve all nodes exclusive (all resources available)
+	for i in $(seq 0 $((TOTAL_NODES - 1))); do
+		#cdepl_cluster_node_excl $i
+		cdepl_cluster_node_cpus $i 4
+		cdepl_cluster_node_mem $i 4096
+	done
+
+	# Set our output path for log files and configurations 
+	# for the applications deployed
+	cdepl_deploy_setup_out_path $CLUSTER_USER
+}
+
+cdepl_script_deploy()
+{
+	# Initialize ramcloud deployment
+	cdepl_app_ramcloud_init $RAMCLOUD_PATH
+
+	# Kill any still running instances from previous deployments
+	cdepl_app_ramcloud_node_cleanup 0 $((TOTAL_NODES - 1))
+
+	# Apply node settings before starting any nodes
+	cdepl_app_ramcloud_node_type 0 "C"
+
+	for i in `seq 1 $((TOTAL_NODES - 1))`; do
+		cdepl_app_ramcloud_node_type $i "S"
+		cdepl_app_ramcloud_node_memory $i $RAMCLOUD_SERVER_MEM_MB
+	done
+
+	# Start coordinator and wait before starting servers
+	cdepl_app_ramcloud_start_node 0
+	cdepl_app_ramcloud_node_wait_started 0
+
+	# Start all peers
+	cdepl_app_ramcloud_start_node 1 $((TOTAL_NODES - 1))
+
+	# Wait for all peers to be started
+	for i in `seq 1 $((TOTAL_NODES - 1))`; do
+		cdepl_app_ramcloud_node_wait_started $i
+	done
+}
+
+cdepl_script_cleanup()
+{
+    # Don't cleanup here, use a separate kill script instead
+    local stub=""
+}
