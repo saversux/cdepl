@@ -436,8 +436,13 @@ echo \"Job finished\"
     echo "Wait time elapsed: 00:00:00"
 
 	while true; do
+		# Hack to trigger cache flush of gpfs to avoid waiting longer than
+		# necessary (approx 3 sec compared to 30 sec)
+		__cdepl_cluster_login_cmd "ls $__DEPLOY_CUR_OUT_PATH > /dev/null 2>&1"
+
 		if [ "$(__cdepl_cluster_login_cmd "[ -f ${node_mappings_path} ] && echo 1")" = "1" ]; then
 			node_mappings=$(__cdepl_cluster_login_cmd "cat $node_mappings_path")
+			
 			while read -r line; do
 				local id=$(echo "$line" | cut -d ' ' -f 1)
 				local hostname=$(echo "$line" | cut -d ' ' -f 2)
