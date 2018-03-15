@@ -1,0 +1,342 @@
+#!/bin/bash
+
+readonly __RAMCLOUD_LOG_FILE_COORDINATOR_POSTFIX="_coordinator"
+readonly __RAMCLOUD_LOG_FILE_SERVER_POSTFIX="_server"
+
+readonly __RAMCLOUD_COORDINATOR_REL_PATH="obj.master/coordinator"
+readonly __RAMCLOUD_SERVER_REL_PATH="obj.master/server"
+
+readonly __RAMCLOUD_NETWORK_PORT_COORDINATOR="11100"
+readonly __RAMCLOUD_NETWORK_PORT_SERVER="11101"
+
+readonly __RAMCLOUD_DEFAULT_STARTUP_CONDITION_COORDINATOR="Coordinator state has been recovered from external storage; starting service"
+readonly __RAMCLOUD_DEFAULT_STARTUP_CONDITION_SERVER="My server ID is "
+
+readonly __RAMCLOUD_REQUIRED_ENVIRONMENT="gcc/4.9.4 java/1.8.0 protobuf/2.6.1 boost/1.55.0 boost/1.62.0 pcre/8.38.0"
+
+__RAMCLOUD_PATH=""
+
+__RAMCLOUD_OUT_PATH=""
+__RAMCLOUD_OUT_LOG_PATH=""
+
+__RAMCLOUD_NODE_FIRST_COORDINATOR=""
+__RAMCLOUD_NODE_TYPE=()
+__RAMCLOUD_NODE_RUN_SUDO=()
+__RAMCLOUD_NETWORK_TRANSPORT="basic+udp"
+__RAMCLOUD_NODE_MEMORY=()
+__RAMCLOUD_NODE_WORKER_THREADS=()
+
+cdepl_app_ramcloud_init()
+{
+    local path="$1"
+
+    __RAMCLOUD_PATH="$(cdepl_cluster_file_system_cmd "readlink -f $path")"
+
+    __RAMCLOUD_OUT_PATH="${__DEPLOY_CUR_OUT_PATH}/ramcloud"
+    __RAMCLOUD_OUT_LOG_PATH="${__RAMCLOUD_OUT_PATH}/log"
+
+    # Check if ramcloud path is available
+	if [ "$(cdepl_cluster_file_system_cmd "[ -d $__RAMCLOUD_PATH ] && echo \"1\"")" != "1" ]; then
+		util_log_error_and_exit "[ramcloud]: Path does not exist: $__RAMCLOUD_PATH"
+	fi
+
+    if [ "$(cdepl_cluster_file_system_cmd "[ -f ${__RAMCLOUD_PATH}/${__RAMCLOUD_COORDINATOR_REL_PATH} ] && echo \"1\"")" != "1" ]; then
+		util_log_error_and_exit "[ramcloud]: Could not find coordinator executable in $__RAMCLOUD_PATH"
+	fi
+
+    if [ "$(cdepl_cluster_file_system_cmd "[ -f ${__RAMCLOUD_PATH}/${__RAMCLOUD_SERVER_REL_PATH} ] && echo \"1\"")" != "1" ]; then
+		util_log_error_and_exit "[ramcloud]: Could not find server executable in $__RAMCLOUD_PATH"
+	fi    
+
+    # Output path setup
+	cdepl_cluster_file_system_cmd "mkdir -p $__RAMCLOUD_OUT_LOG_PATH"
+
+    util_log "[ramcloud] Initialized: $__RAMCLOUD_PATH"
+	util_log "[ramcloud] Output: $__RAMCLOUD_OUT_PATH"
+}
+
+cdepl_app_ramcloud_node_type()
+{
+    local node=$1
+    local type=$2
+
+    # No default values. If node type not set explicitly, node is not considered to run a RAMCloud instance
+	if [ "$node" -ge "$(cdepl_cluster_get_alloc_node_count)" ]; then
+		util_log_error_and_exit "[$node][ramcloud] Invalid node id $node > $(cdepl_cluster_get_alloc_node_count)"
+	fi
+
+    if [ "$type" != "C" ] && [ "$type" != "S" ]; then
+		util_log_error_and_exit "[$node][ramcloud] Invalid node type $type for node $node"
+	fi
+
+    if [ "$type" = "C" ] && [ ! "$__RAMCLOUD_NODE_FIRST_COORDINATOR" ]; then
+        __RAMCLOUD_NODE_FIRST_COORDINATOR="$(cdepl_cluster_node_resolve_node_to_hostname $node)"
+    fi
+
+    __RAMCLOUD_NODE_TYPE[$node]="$type"
+}
+
+cdepl_app_ramcloud_run_as_sudo()
+{
+	local node=$1
+
+	if [ "$node" -ge "$(cdepl_cluster_get_alloc_node_count)" ]; then
+		util_log_error_and_exit "[$node][ramcloud] Invalid node id $node > $(cdepl_cluster_get_alloc_node_count)"
+	fi
+
+	if [ "$(cdepl_cluster_allows_sudo)" ]; then
+		__RAMCLOUD_NODE_RUN_SUDO[$node]="1"
+	else
+		util_log_warn "[$node][ramcloud] Cluster type does not allow running commands as sudo, ignored"
+	fi
+}
+
+cdepl_app_ramcloud_network_transport()
+{
+    local type=$1
+
+    __RAMCLOUD_NETWORK_TRANSPORT="$type"
+}
+
+cdepl_app_ramcloud_node_memory()
+{
+    local node=$1
+    local memory=$2
+
+	if [ "$node" -ge "$(cdepl_cluster_get_alloc_node_count)" ]; then
+		util_log_error_and_exit "[$node][ramcloud] Invalid node id $node > $(cdepl_cluster_get_alloc_node_count)"
+	fi
+
+    __RAMCLOUD_NODE_MEMORY[$node]="$memory"
+}
+
+cdepl_app_ramcloud_node_worker_threads()
+{
+    local node=$1
+    local threads=$2
+
+	if [ "$node" -ge "$(cdepl_cluster_get_alloc_node_count)" ]; then
+		util_log_error_and_exit "[$node][ramcloud] Invalid node id $node > $(cdepl_cluster_get_alloc_node_count)"
+	fi
+
+    __RAMCLOUD_NODE_WORKER_THREADS[$node]="$threads"
+}
+
+cdepl_app_ramcloud_start_node()
+{
+	local node_range_start=$1
+	local node_range_end=$2
+
+	if [ "$node_range_end" ]; then
+		for node in $(seq $node_range_start $node_range_end); do
+			__cdepl_app_ramcloud_start_node $node &
+		done
+
+		wait
+	else
+		__cdepl_app_ramcloud_start_node $node_range_start
+	fi
+}
+
+cdepl_app_ramcloud_node_wait_started()
+{
+    local node=$1
+    local condition=$2
+
+    local type="${__RAMCLOUD_NODE_TYPE[$node]}"
+	local logfile=""
+
+	if [ "$type" = "C" ]; then
+		logfile=${__RAMCLOUD_OUT_LOG_PATH}/node${node}${__RAMCLOUD_LOG_FILE_COORDINATOR_POSTFIX}
+	else
+		logfile=${__RAMCLOUD_OUT_LOG_PATH}/node${node}${__RAMCLOUD_LOG_FILE_SERVER_POSTFIX}
+	fi
+
+	# Use default condition if not specfied
+	if [ ! "$condition" ]; then
+		if [ "$type" = "C" ]; then
+            condition="$__RAMCLOUD_DEFAULT_STARTUP_CONDITION_COORDINATOR"
+        else
+            condition="$__RAMCLOUD_DEFAULT_STARTUP_CONDITION_SERVER"
+        fi
+	fi
+
+    util_log "[$node][ramcloud][$type] Waiting for startup: $condition"
+
+    while true; do
+		echo -n "."
+
+		local success=$(cdepl_cluster_node_cmd $node "cat $logfile 2> /dev/null | sed 's,\x1B\[[0-9;]*[a-zA-Z],,g' | grep '$condition'")
+		local fail_error=$(cdepl_cluster_node_cmd $node "cat $logfile 2> /dev/null | sed 's,\x1B\[[0-9;]*[a-zA-Z],,g' | grep -i 'ERROR'")
+
+		if [ "$success" ]; then
+			local pid=""
+            
+            if [ "$type" = "C" ]; then
+                pid="$(cdepl_cluster_node_cmd $node "pgrep coordinator")"
+            else
+                pid="$(cdepl_cluster_node_cmd $node "pgrep server")"
+            fi
+
+			echo ""
+
+			if [ ! "$pid" ]; then
+				util_log_error_and_exit "[$node][ramcloud][$type] Could not find started process"
+			fi
+
+			util_log "[$node][ramcloud][$type] Started (pid: $pid)"
+
+			break
+		elif [ "$fail_error" ]; then
+			echo ""
+			util_log_error_and_exit "[$node][ramcloud][$type] Failed, error or exception:\n${fail_error}\nSee log file $logfile"
+			return 2
+		fi
+
+		sleep 1.0
+	done
+
+	return 0
+}
+
+cdepl_app_ramcloud_node_cleanup()
+{
+    local node_range_start=$1
+	local node_range_end=$2
+
+    if [ "$node_range_end" ]; then
+		for node in $(seq $node_range_start $node_range_end); do
+			__cdepl_app_ramcloud_cleanup $node &
+		done
+
+		wait
+	else
+		__cdepl_app_ramcloud_cleanup $node_range_start
+	fi
+}
+
+__cdepl_app_ramcloud_start_node()
+{
+    local node=$1
+
+    if [ "${__RAMCLOUD_NODE_TYPE[$node]}" = "" ]; then
+		util_log_error_and_exit "[$node][ramcloud] No node type set, cannot start instance"
+	fi
+
+	local logfile=""
+
+	if [ "${__RAMCLOUD_NODE_TYPE[$node]}" = "C" ]; then
+		logfile=${__RAMCLOUD_OUT_LOG_PATH}/node${node}${__RAMCLOUD_LOG_FILE_COORDINATOR_POSTFIX}
+        __cdepl_app_ramcloud_start_coordinator $node $logfile
+	else
+		logfile=${__RAMCLOUD_OUT_LOG_PATH}/node${node}${__RAMCLOUD_LOG_FILE_SERVER_POSTFIX}
+        __cdepl_app_ramcloud_start_server $node $logfile
+	fi
+}
+
+__cdepl_app_ramcloud_start_coordinator()
+{
+	local node=$1
+	local logfile=$2
+
+    util_log "[$node][ramcloud][C] Starting coordinator, logfile: $logfile"
+
+    local hostname=$(cdepl_cluster_node_resolve_node_to_hostname $node)
+
+    local root=""
+
+	if [ "${__RAMCLOUD_NODE_RUN_SUDO[$node]}" = "1" ]; then
+		util_log "[$node][ramcloud][C] Running with sudo"
+		root="sudo -P"
+	fi
+
+    local args=""
+
+    # Coordinator locator
+    args="-C ${__RAMCLOUD_NETWORK_TRANSPORT}:host=$hostname,port=${__RAMCLOUD_NETWORK_PORT_COORDINATOR}"
+
+    # Don't use && instead of ;
+	# This will hang if the ssh with controlmaster and nohup is used
+	cdepl_cluster_node_cmd $node "cd $RAMCLOUD_PATH ; $root nohup $__RAMCLOUD_COORDINATOR_REL_PATH $args > $logfile 2>&1 &" "$__RAMCLOUD_REQUIRED_ENVIRONMENT"
+}
+
+__cdepl_app_ramcloud_start_server()
+{
+	local node=$1
+	local logfile=$2
+
+    util_log "[$node][ramcloud][S] Starting server, logfile: $logfile"
+
+    local hostname=$(cdepl_cluster_node_resolve_node_to_hostname $node)
+
+    local root=""
+    
+	if [ "${__RAMCLOUD_NODE_RUN_SUDO[$node]}" = "1" ]; then
+		util_log "[$node][ramcloud][C] Running with sudo"
+		root="sudo -P"
+	fi
+
+    local args=""
+
+    # Coordinator locator
+    args="-C ${__RAMCLOUD_NETWORK_TRANSPORT}:host=${__RAMCLOUD_NODE_FIRST_COORDINATOR},port=${__RAMCLOUD_NETWORK_PORT_COORDINATOR}"
+    # Service locator for server
+    args="${args} -L ${__RAMCLOUD_NETWORK_TRANSPORT}:host=$hostname,port=${__RAMCLOUD_NETWORK_PORT_SERVER}"
+
+    # Master storage memory in MB
+    if [ "${__RAMCLOUD_NODE_MEMORY[$node]}" ]; then
+		args="${args} --totalMasterMemory ${__RAMCLOUD_NODE_MEMORY[$node]}"
+	fi
+
+    # Number of worker threads for dispatching incoming network data
+    if [ "${__RAMCLOUD_NODE_WORKER_THREADS[$node]}" ]; then
+		args="${args} --maxCores ${__RAMCLOUD_NODE_WORKER_THREADS[$node]}"
+	fi
+
+    # Some fixed arguments
+    # Path to backup storage
+    args="${args} -f /dev/null"
+    args="${args} --segmentFrames 10000 "
+    # Number of replicas -> 0
+    args="${args} -r 0"
+    # Master only, no backups
+    args="${args} -M"
+
+    # Don't use && instead of ;
+	# This will hang if the ssh with controlmaster and nohup is used
+	cdepl_cluster_node_cmd $node "cd $RAMCLOUD_PATH ; $root nohup $__RAMCLOUD_SERVER_REL_PATH $args > $logfile 2>&1 &" "$__RAMCLOUD_REQUIRED_ENVIRONMENT"
+}
+
+__cdepl_app_ramcloud_cleanup()
+{
+	local node=$1
+
+	util_log "[$node][ramcloud] Cleanup..."
+
+    # Search for both, server and coordinator on node
+    local pid="$(cdepl_cluster_node_cmd $node "pgrep coordinator")"
+    pid="${pid} $(cdepl_cluster_node_cmd $node "pgrep server")"
+
+	if [ "$pid" ]; then
+		# If we or someone else left some garbage processes on the node multiple
+		# pids are returned
+		for i in $pid; do
+			local kill_out=$(cdepl_cluster_node_cmd $node "kill -9 $i 2>&1")
+
+			if [ "$?" = "0" ] && [ ! "$kill_out" ]; then
+				util_log "[$node][ramcloud] Killed (pid: $i)"
+			elif [ "$kill_out" ]; then
+				# Probably operation not permitted, try root
+				cdepl_cluster_node_cmd $node "sudo -P kill -9 $i > /dev/null 2>&1"
+
+				if [ "$?" = "0" ]; then
+					util_log "[$node][ramcloud] Killed (root) (pid: $i)"
+				elif [ "$?" != "1" ]; then
+					util_log_warn "[$node][ramcloud] Killing (root) $i failed, RAMCloud instance(s) might stay alive"
+				fi
+			elif [ "$?" != "1" ]; then
+				util_log_warn "[$node][ramcloud] Killing $i failed, RAMCloud instance(s) might stay alive"
+			fi
+		done
+	fi
+}
