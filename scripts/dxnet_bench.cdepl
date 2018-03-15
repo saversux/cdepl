@@ -230,9 +230,7 @@ benchmark_ring()
 	cdepl_app_dxnet_init $DXNET_PATH $total_nodes
 
 	# Kill any still running instances from previous deployments
-	for i in $(seq 0 $((total_nodes - 1))); do
-		cdepl_app_dxnet_node_cleanup $i
-	done
+	cdepl_app_dxnet_node_cleanup 0 $((total_nodes - 1))
 
 	# Ring structure
 	# One node sends to its successor and receives from its predecessor
