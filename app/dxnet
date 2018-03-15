@@ -377,8 +377,20 @@ cdepl_app_dxnet_start_node()
 			__cdepl_app_dxnet_create_node_base_config $node_range_start
 		fi
 
+		local counter=0
+
 		for node in $(seq $node_range_start $node_range_end); do
 			__cdepl_app_dxnet_start_node $node &
+		
+			counter=$((counter + 1))
+
+			# Parallel deploy in batches of 10 which is the default limit
+			# for parallel connections on ssh servers, stay slightly below 
+			# this limit (sometimes, 10 causes errors on multiplexing)
+			if [ "$counter" -ge "8" ]; then
+				wait
+				counter=0
+			fi
 		done
 
 		wait
@@ -400,8 +412,21 @@ cdepl_app_dxnet_node_cleanup()
 	local node_range_end=$2
 
 	if [ "$node_range_end" ]; then
+		local counter=0
+
 		for node in $(seq $node_range_start $node_range_end); do
 			__cdepl_app_dxnet_node_cleanup $node &
+
+			counter=$((counter + 1))
+
+			# Parallel deploy in batches of 10 which is the default limit
+			# for parallel connections on ssh servers, stay slightly below 
+			# this limit (sometimes, 10 causes errors on multiplexing)
+			if [ "$counter" -ge "8" ]; then
+				wait
+				sleep 1
+				counter=0
+			fi
 		done
 
 		wait
@@ -707,6 +732,7 @@ __cdepl_app_dxnet_create_node_base_config()
 	new_config="$(echo "$new_config" | sed "s/m_numMessageHandlerThreads.*/m_numMessageHandlerThreads\": \"${msg_handler_cnt}\"\,/g")"
 
 	echo "$new_config" > $tmp_file
+	sync
 
 	# Write back new config
 	cdepl_cluster_upload_to_remote $tmp_file $node_config_path
