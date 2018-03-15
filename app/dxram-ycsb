@@ -415,6 +415,8 @@ cdepl_app_dxram_ycsb_storage_finished_loading()
 
 	util_log "[$node][dxram-ycsb][$type] Waiting for storage loading to finish: $__DXRAM_YCSB_RUN_OR_LOAD_DONE_CONDITION"
 
+	local first_progress=1
+
 	while true; do
 		if [ ! "$hide_progress" ]; then
 			local progress=$(cdepl_cluster_node_cmd $node "cat $logfile | grep 'current ops' | tail -n 1")
@@ -477,6 +479,8 @@ cdepl_app_dxram_ycsb_benchmark_wait_finished()
 	fi
 
 	util_log "[$node][dxram-ycsb][$type] Waiting for benchmark to finish: $__DXRAM_YCSB_RUN_OR_LOAD_DONE_CONDITION"
+
+	local first_progress=1
 
 	while true; do
 		if [ ! "$hide_progress" ]; then
