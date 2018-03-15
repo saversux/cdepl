@@ -1,0 +1,425 @@
+#!/bin/bash
+
+readonly __RAMCLOUD_YCSB_REL_BIN_YCSB="bin/ycsb"
+readonly __RAMCLOUD_YCSB_REL_RC_LIB="obj.master/libramcloud.so "
+
+readonly __RAMCLOUD_YCSB_NETWORK_PORT_COORDINATOR="11100"
+readonly __RAMCLOUD_YCSB_NETWORK_PORT_SERVER="11101"
+
+readonly __RAMCLOUD_YCSB_LOAD_DONE_COND="\[INSERT\], Return"
+readonly __RAMCLOUD_YCSB_BENCH_DONE_COND="\[OVERALL\], RunTime"
+
+readonly __RAMCLOUD_YCSB_REQUIRED_ENVIRONMENT="gcc/4.9.4 java/1.8.0 protobuf/2.6.1 boost/1.55.0 boost/1.62.0 pcre/8.38.0"
+
+__RAMCLOUD_YCSB_PATH=""
+__RAMCLOUD_YCSB_RC_PATH=""
+
+__RAMCLOUD_YCSB_OUT_PATH=""
+__RAMCLOUD_YCSB_OUT_LOG_PATH=""
+
+__RAMCLOUD_YCSB_NODE_COORDINATOR_HOSTNAME=""
+__RAMCLOUD_YCSB_NODE_RUN_SUDO=()
+__RAMCLOUD_YCSB_NETWORK_TRANSPORT="basic+udp"
+
+__RAMCLOUD_YCSB_NODE_TYPE=()
+__RAMCLOUD_YCSB_TOTAL_STORAGE_NODES=""
+
+__RAMCLOUD_YCSB_NODE_THREADS=()
+
+# Specify workload inline
+__RAMCLOUD_YCSB_WORKLOAD_RECORDCOUNT=""
+__RAMCLOUD_YCSB_WORKLOAD_OPERATIONCOUNT=""
+__RAMCLOUD_YCSB_WORKLOAD_READPROPORTION=""
+__RAMCLOUD_YCSB_WORKLOAD_UPDATEPROPORTION=""
+__RAMCLOUD_YCSB_WORKLOAD_REQUESTDISTRIBUTION=""
+__RAMCLOUD_YCSB_WORKLOAD_FIELDCOUNT=""
+__RAMCLOUD_YCSB_WORKLOAD_FIELDLENGTH=""
+
+__RAMCLOUD_YCSB_NODE_INSERTSTART=()
+
+cdepl_app_ramcloud_ycsb_init()
+{
+    local path="$1"
+    local ramcloud_path="$2"
+
+    __RAMCLOUD_YCSB_PATH="$(cdepl_cluster_file_system_cmd "readlink -f $path")"
+    __RAMCLOUD_YCSB_RC_PATH="$(cdepl_cluster_file_system_cmd "readlink -f $ramcloud_path")"
+
+    __RAMCLOUD_YCSB_OUT_PATH="${__DEPLOY_CUR_OUT_PATH}/ramcloud-ycsb"
+    __RAMCLOUD_YCSB_OUT_LOG_PATH="${__RAMCLOUD_YCSB_OUT_PATH}/log"
+
+    # Check if ramcloud path is available
+	if [ "$(cdepl_cluster_file_system_cmd "[ -d $__RAMCLOUD_YCSB_PATH ] && echo \"1\"")" != "1" ]; then
+		util_log_error_and_exit "[ramcloud-ycsb]: Path does not exist: $__RAMCLOUD_YCSB_PATH"
+	fi
+
+    if [ "$(cdepl_cluster_file_system_cmd "[ -d $__RAMCLOUD_YCSB_RC_PATH ] && echo \"1\"")" != "1" ]; then
+		util_log_error_and_exit "[ramcloud-ycsb]: Path does not exist: $__RAMCLOUD_YCSB_RC_PATH"
+	fi
+
+    if [ "$(cdepl_cluster_file_system_cmd "[ -f ${__RAMCLOUD_YCSB_PATH}/${__RAMCLOUD_YCSB_REL_BIN_YCSB} ] && echo \"1\"")" != "1" ]; then
+		util_log_error_and_exit "[ramcloud-ycsb]: Could not find ycsb executable in $__RAMCLOUD_YCSB_PATH"
+	fi
+
+    # Output path setup
+	cdepl_cluster_file_system_cmd "mkdir -p $__RAMCLOUD_YCSB_OUT_LOG_PATH"
+
+    util_log "[ramcloud-ycsb] Initialized: $__RAMCLOUD_YCSB_PATH"
+	util_log "[ramcloud-ycsb] Output: $__RAMCLOUD_YCSB_OUT_PATH"
+}
+
+cdepl_app_ramcloud_ycsb_node_coordinator()
+{
+    local node=$1
+
+    if [ "$node" -ge "$(cdepl_cluster_get_alloc_node_count)" ]; then
+		util_log_error_and_exit "[$node][ramcloud-ycsb] Invalid node id $node > $(cdepl_cluster_get_alloc_node_count)"
+	fi
+
+    __RAMCLOUD_YCSB_NODE_COORDINATOR_HOSTNAME="$(cdepl_cluster_node_resolve_node_to_hostname $node)"
+}
+
+cdepl_app_ramcloud_ycsb_node_type()
+{
+	local node=$1
+	local type=$2
+
+	# No default values. If node type not set explicitly, node is not considered to run an instance
+	if [ "$node" -ge "$(cdepl_cluster_get_alloc_node_count)" ]; then
+		util_log_error_and_exit "[$node][ramcloud-ycsb] Invalid node id $node > $(cdepl_cluster_get_alloc_node_count)"
+	fi
+
+	# Load (L) and Benchmark (B)
+	case "$type" in
+		"L")
+			__RAMCLOUD_YCSB_NODE_TYPE[$node]="load"
+			;;
+		"B")
+			__RAMCLOUD_YCSB_NODE_TYPE[$node]="run"
+			;;
+		*)
+			util_log_error_and_exit "[$node][ramcloud-ycsb] Invalid node type $type for node $node"
+			;;
+	esac
+}
+
+cdepl_app_ramcloud_ycsb_run_as_sudo()
+{
+	local node=$1
+
+	if [ "$node" -ge "$(cdepl_cluster_get_alloc_node_count)" ]; then
+		util_log_error_and_exit "[$node][ramcloud-ycsb] Invalid node id $node > $(cdepl_cluster_get_alloc_node_count)"
+	fi
+
+	if [ "$(cdepl_cluster_allows_sudo)" ]; then
+		__RAMCLOUD_YCSB_NODE_RUN_SUDO[$node]="1"
+	else
+		util_log_warn "[$node][ramcloud-ycsb] Cluster type does not allow running commands as sudo, ignored"
+	fi
+}
+
+# note: has to match what's set up on the normal ramcloud module
+cdepl_app_ramcloud_ycsb_network_transport()
+{
+    local type=$1
+
+    __RAMCLOUD_YCSB_NETWORK_TRANSPORT="$type"
+}
+
+cdepl_app_ramcloud_ycsb_total_storage_nodes()
+{
+	local total_nodes=$1
+
+	__RAMCLOUD_YCSB_TOTAL_STORAGE_NODES="$total_nodes"
+}
+
+cdepl_app_ramcloud_ycsb_threads()
+{
+	local node=$1
+	local threads=$2
+
+	if [ "$node" -ge "$(cdepl_cluster_get_alloc_node_count)" ]; then
+		util_log_error_and_exit "[$node][ramcloud-ycsb] Invalid node id $node > $(cdepl_cluster_get_alloc_node_count)"
+	fi
+
+	__RAMCLOUD_YCSB_NODE_THREADS[$node]="$threads"
+}
+
+# specify inline workload instead of using workload config making the deploy
+# script more self containing
+cdepl_app_ramcloud_ycsb_workload()
+{
+	local recordcount=$1
+	local operationcount=$2
+	local readportion=$3
+	local updateportion=$4
+	local requestdistribution=$5
+	local fieldcount=$6
+	local fieldlength=$7
+
+	__RAMCLOUD_YCSB_WORKLOAD_RECORDCOUNT="$recordcount"
+	__RAMCLOUD_YCSB_WORKLOAD_OPERATIONCOUNT="$operationcount"
+	__RAMCLOUD_YCSB_WORKLOAD_READPROPORTION="$readportion"
+	__RAMCLOUD_YCSB_WORKLOAD_UPDATEPROPORTION="$updateportion"
+	__RAMCLOUD_YCSB_WORKLOAD_REQUESTDISTRIBUTION="$requestdistribution"
+	__RAMCLOUD_YCSB_WORKLOAD_FIELDCOUNT="$fieldcount"
+	__RAMCLOUD_YCSB_WORKLOAD_FIELDLENGTH="$fieldlength"
+}
+
+cdepl_app_ramcloud_ycsb_insertstart()
+{
+	local node=$1
+	local insertstart=$2
+
+	if [ "$node" -ge "$(cdepl_cluster_get_alloc_node_count)" ]; then
+		util_log_error_and_exit "[$node][ramcloud-ycsb] Invalid node id $node > $(cdepl_cluster_get_alloc_node_count)"
+	fi
+
+	__RAMCLOUD_YCSB_NODE_INSERTSTART[$node]="$insertstart"
+}
+
+# wrapper to easily set workloada
+cdepl_app_ramcloud_ycsb_workload_a()
+{
+	local recordcount=$1
+	local operationcount=$2
+
+	cdepl_app_ramcloud_ycsb_workload $recordcount $operationcount "0.5" "0.5" "zipfian" "10" "100"
+}
+
+# wrapper to easily set workloada
+cdepl_app_ramcloud_ycsb_workload_b()
+{
+	local recordcount=$1
+	local operationcount=$2
+
+	cdepl_app_ramcloud_ycsb_workload $recordcount $operationcount "0.95" "0.05" "zipfian" "10" "100"
+}
+
+# wrapper to easily set workloada
+cdepl_app_ramcloud_ycsb_workload_g()
+{
+	local recordcount=$1
+	local operationcount=$2
+
+	cdepl_app_ramcloud_ycsb_workload $recordcount $operationcount "0.5" "0.5" "zipfian" "1" "64"
+}
+
+cdepl_app_ramcloud_ycsb_start_node()
+{
+	local node_range_start=$1
+	local node_range_end=$2
+
+    # We must know the coordinator to bootstrap
+    if [ ! "$__RAMCLOUD_YCSB_NODE_COORDINATOR_HOSTNAME" ]; then
+        util_log_error_and_exit "[ramcloud-ycsb] Can't start any nodes. Please specify the node where the coordinator is started"
+    fi
+
+	if [ "$node_range_end" ]; then
+		for node in $(seq $node_range_start $node_range_end); do
+			__cdepl_app_ramcloud_ycsb_start_node $node &
+		done
+
+		wait
+	else
+		__cdepl_app_ramcloud_ycsb_start_node $node_range_start
+	fi
+}
+
+cdepl_app_ramcloud_ycsb_storage_finished_loading()
+{
+	local node=$1
+	local hide_progress=$2
+
+    local type="${__RAMCLOUD_YCSB_NODE_TYPE[$node]}"
+    local logfile=${__RAMCLOUD_YCSB_OUT_LOG_PATH}/node${node}_${type}
+
+	util_log "[$node][ramcloud-ycsb][$type] Waiting for loading to finish: $__RAMCLOUD_YCSB_LOAD_DONE_COND"
+
+	local first_progress=1
+
+	while true; do
+		if [ ! "$hide_progress" ]; then
+			cdepl_cluster_node_cmd $node "ls ${__RAMCLOUD_YCSB_OUT_LOG_PATH} > /dev/null 2>&1"
+			local progress=$(cdepl_cluster_node_cmd $node "cat $logfile | grep 'current ops' | tail -n 1")
+
+			if [ ! "$progress" ]; then
+				echo -n "."
+			else
+				if [ "$first_progress" = "1" ]; then
+					first_progress=0
+					echo ""
+				fi
+
+				echo "[$node] ${progress}"
+			fi
+		else
+			echo -n "."
+		fi
+
+		local success=$(cdepl_cluster_node_cmd $node "cat $logfile 2> /dev/null | sed 's,\x1B\[[0-9;]*[a-zA-Z],,g' | grep '$__RAMCLOUD_YCSB_LOAD_DONE_COND'")
+		# Abort execution after an exception was thrown
+		local fail_error=$(cdepl_cluster_node_cmd $node "cat $logfile 2> /dev/null | sed 's,\x1B\[[0-9;]*[a-zA-Z],,g' | grep -i 'exception'")
+		# "A fatal error" -> JVM segfaults
+		local fail_error2=$(cdepl_cluster_node_cmd $node "cat $logfile 2> /dev/null | sed 's,\x1B\[[0-9;]*[a-zA-Z],,g' | grep -i -e '\[ERROR\]' -e '\# A fatal error'")
+
+		if [ "$success" ]; then
+			util_log "[$node][ramcloud-ycsb][$type] Storage loading complete"
+
+			break
+		elif [ "$fail_error" ] || [ "$fail_error2" ]; then
+			echo ""
+			util_log_error_and_exit "[$node][ramcloud-ycsb][$type] Failed, error or exception. See log file $logfile"
+			return 1
+		fi
+
+		sleep 1.0
+	done
+
+	return 0
+}
+
+cdepl_app_ramcloud_ycsb_benchmark_wait_finished()
+{
+	local node=$1
+	local hide_progress=$2
+
+    local type="${__RAMCLOUD_YCSB_NODE_TYPE[$node]}"
+    local logfile=${__RAMCLOUD_YCSB_OUT_LOG_PATH}/node${node}_${type}
+
+	util_log "[$node][ramcloud-ycsb][$type] Waiting for benchmark to finish: $__RAMCLOUD_YCSB_BENCH_DONE_COND"
+
+	local first_progress=1
+
+	while true; do
+		if [ ! "$hide_progress" ]; then
+			local progress=$(cdepl_cluster_node_cmd $node "cat $logfile | grep 'current ops' | tail -n 1")
+
+			if [ ! "$progress" ]; then
+				echo -n "."
+			else
+				if [ "$first_progress" = "1" ]; then
+					first_progress=0
+					echo ""
+				fi
+
+				echo "[$node] ${progress}"
+			fi
+		else
+			echo -n "."
+		fi
+
+		local success=$(cdepl_cluster_node_cmd $node "cat $logfile 2> /dev/null | sed 's,\x1B\[[0-9;]*[a-zA-Z],,g' | grep '$__RAMCLOUD_YCSB_BENCH_DONE_COND'")
+		# Abort execution after an exception was thrown
+		local fail_error=$(cdepl_cluster_node_cmd $node "cat $logfile 2> /dev/null | sed 's,\x1B\[[0-9;]*[a-zA-Z],,g' | grep -i 'exception'")
+		# "A fatal error" -> JVM segfaults
+		local fail_error2=$(cdepl_cluster_node_cmd $node "cat $logfile 2> /dev/null | sed 's,\x1B\[[0-9;]*[a-zA-Z],,g' | grep -i -e '\[ERROR\]' -e '\# A fatal error'")
+
+		if [ "$success" ]; then
+			util_log "[$node][ramcloud-ycsb][$type] Benchmark completed"
+
+			break
+		elif [ "$fail_error" ] || [ "$fail_error2" ]; then
+			echo ""
+			util_log_error_and_exit "[$node][ramcloud-ycsb][$type] Failed, error or exception. See log file $logfile"
+			return 1
+		fi
+
+		sleep 1.0
+	done
+
+	return 0
+}
+
+__cdepl_app_ramcloud_ycsb_start_node()
+{
+    local node=$1
+
+    local type="${__RAMCLOUD_YCSB_NODE_TYPE[$node]}"
+
+    if [ ! "$type" ]; then
+        util_log_error_and_exit "[$node][ramcloud-ycsb] No node type specified"
+    fi
+
+    local logfile=${__RAMCLOUD_YCSB_OUT_LOG_PATH}/node${node}_${type}
+
+    util_log "[$node][ramcloud-ycsb][$type] Starting client, logfile: $logfile"
+
+    local hostname=$(cdepl_cluster_node_resolve_node_to_hostname $node)
+
+    local root=""
+    
+	if [ "${__RAMCLOUD_NODE_RUN_SUDO[$node]}" = "1" ]; then
+		util_log "[$node][ramcloud-ycsb][$type] Running with sudo"
+		root="sudo -P"
+	fi
+
+    local args=""
+
+    # Node type: load or run
+    args="$type"
+	# Workload parameter is required but overridden
+    args="${args} ramcloud -s -P workloads/workloada"
+
+    if [ ! "${__RAMCLOUD_YCSB_TOTAL_STORAGE_NODES}" ]; then
+        util_log_error_and_exit "[$node][ramcloud-ycsb][$type] No total storage nodes specified"
+    fi
+
+    args="${args} -p ramcloud.tableServerSpan=${__RAMCLOUD_YCSB_TOTAL_STORAGE_NODES}"
+
+    # Get some log output
+    args="${args} -p ramcloud.debug=true"
+
+    # Coordinator locator
+    args="${args} -p ramcloud.coordinatorLocator=${__RAMCLOUD_YCSB_NETWORK_TRANSPORT}:host=${__RAMCLOUD_YCSB_NODE_COORDINATOR_HOSTNAME},port=${__RAMCLOUD_YCSB_NETWORK_PORT_COORDINATOR}"
+
+    if [ ! "${__RAMCLOUD_YCSB_NODE_THREADS[$node]}" ]; then
+		# Auto default to single thread
+		__RAMCLOUD_YCSB_NODE_THREADS[$node]="1"
+	fi
+
+	if [ ! "${__RAMCLOUD_YCSB_NODE_INSERTSTART[$node]}" ] && [ "$type" = "load" ]; then
+		util_log_error_and_exit "[$node][ramcloud-ycsb][$type] Missing value for insertstart parameter for storage"
+	fi
+
+	if [ "${__RAMCLOUD_YCSB_NODE_INSERTSTART[$node]}" ]; then
+		args="$args -p insertstart=${__RAMCLOUD_YCSB_NODE_INSERTSTART[$node]}"
+	fi
+
+	args="$args -p scanproportion=0.0"
+	args="$args -p updateproportion=0.0"
+
+	if [ "$__RAMCLOUD_YCSB_WORKLOAD_RECORDCOUNT" ]; then
+		args="$args -p recordcount=$__RAMCLOUD_YCSB_WORKLOAD_RECORDCOUNT"
+	fi
+
+	if [ "$__RAMCLOUD_YCSB_WORKLOAD_OPERATIONCOUNT" ]; then
+		args="$args -p operationcount=$__RAMCLOUD_YCSB_WORKLOAD_OPERATIONCOUNT"
+	fi
+
+	if [ "$__RAMCLOUD_YCSB_WORKLOAD_READPROPORTION" ]; then
+		args="$args -p readproportion=$__RAMCLOUD_YCSB_WORKLOAD_READPROPORTION"
+	fi
+
+	if [ "$__RAMCLOUD_YCSB_WORKLOAD_UPDATEPROPORTION" ]; then
+		args="$args -p updateproportion=$__RAMCLOUD_YCSB_WORKLOAD_UPDATEPROPORTION"
+	fi
+
+	if [ "$__RAMCLOUD_YCSB_WORKLOAD_REQUESTDISTRIBUTION" ]; then
+		args="$args -p requestdistribution=$__RAMCLOUD_YCSB_WORKLOAD_REQUESTDISTRIBUTION"
+	fi
+
+	if [ "$__RAMCLOUD_YCSB_WORKLOAD_FIELDCOUNT" ]; then
+		args="$args -p fieldcount=$__RAMCLOUD_YCSB_WORKLOAD_FIELDCOUNT"
+	fi
+
+	if [ "$__RAMCLOUD_YCSB_WORKLOAD_FIELDLENGTH" ]; then
+		args="$args -p fieldlength=$__RAMCLOUD_YCSB_WORKLOAD_FIELDLENGTH"
+	fi
+
+    args="$args -threads ${__RAMCLOUD_YCSB_NODE_THREADS[$node]}"
+
+    # Don't use && instead of ;
+	# This will hang if the ssh with controlmaster and nohup is used
+	cdepl_cluster_node_cmd $node "cd $RAMCLOUD_YCSB_PATH ; LD_PRELOAD=${__RAMCLOUD_YCSB_RC_PATH}/${__RAMCLOUD_YCSB_REL_RC_LIB} $root nohup $__RAMCLOUD_YCSB_REL_BIN_YCSB $args > $logfile 2>&1 &" "$__RAMCLOUD_YCSB_REQUIRED_ENVIRONMENT"
+}
