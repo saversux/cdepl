@@ -88,8 +88,8 @@ cdepl_app_dxram_ycsb_init()
 	__DXRAM_YCSB_ZOOKEEPER_PORT="$zookeeper_port"
 
 	# Check if dxram ycsb path is available
-	if [ "$(cdepl_cluster_file_system_cmd "[ -d $__DXRAM_YCSB_PATH ] && echo \"1\"")" != "1" ]; then
-		util_log_error_and_exit "[dxram-ycsb]: Path does not exist: $__DXRAM_YCSB_PATH"
+	if [ ! "$__DXRAM_YCSB_PATH" ] || [ "$(cdepl_cluster_file_system_cmd "[ -d $__DXRAM_YCSB_PATH ] && echo \"1\"")" != "1" ]; then
+		util_log_error_and_exit "[dxram-ycsb]: Path does not exist ($path), resolved path: $__DXRAM_YCSB_PATH"
 	fi
 
 	__cdepl_app_dxram_ycsb_check

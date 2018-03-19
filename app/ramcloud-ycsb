@@ -49,8 +49,8 @@ cdepl_app_ramcloud_ycsb_init()
     __RAMCLOUD_YCSB_OUT_LOG_PATH="${__RAMCLOUD_YCSB_OUT_PATH}/log"
 
     # Check if ramcloud path is available
-	if [ "$(cdepl_cluster_file_system_cmd "[ -d $__RAMCLOUD_YCSB_PATH ] && echo \"1\"")" != "1" ]; then
-		util_log_error_and_exit "[ramcloud-ycsb]: Path does not exist: $__RAMCLOUD_YCSB_PATH"
+	if [ ! "$__RAMCLOUD_YCSB_PATH" ] || [ "$(cdepl_cluster_file_system_cmd "[ -d $__RAMCLOUD_YCSB_PATH ] && echo \"1\"")" != "1" ]; then
+		util_log_error_and_exit "[ramcloud-ycsb]: Path does not exist ($path), resolved path: $__RAMCLOUD_YCSB_PATH"
 	fi
 
     if [ "$(cdepl_cluster_file_system_cmd "[ -d $__RAMCLOUD_YCSB_RC_PATH ] && echo \"1\"")" != "1" ]; then

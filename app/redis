@@ -35,8 +35,8 @@ cdepl_app_redis_init()
 		__REDIS_PORT=$port
 	fi
 
-	if [ "$(cdepl_cluster_file_system_cmd "[ -d ${__REDIS_PATH} ] && echo \"1\"")" != "1" ]; then
-		util_log_error_and_exit "[redis]: Path does not exist: ${__REDIS_PATH}"
+	if [ ! "$__REDIS_PATH" ] || [ "$(cdepl_cluster_file_system_cmd "[ -d ${__REDIS_PATH} ] && echo \"1\"")" != "1" ]; then
+		util_log_error_and_exit "[redis]: Path does not exist ($path), resolved path: ${__REDIS_PATH}"
 	fi
 
 	if [ "$(cdepl_cluster_file_system_cmd "[ -f ${__REDIS_EXECUTABLE} ] && echo \"1\"")" != "1" ]; then

@@ -81,8 +81,8 @@ cdepl_app_dxnet_init()
 	__DXNET_CACHED_NODES_CONFIG=""
 
 	# Check if dxnet path is available
-	if [ "$(cdepl_cluster_file_system_cmd "[ -d $__DXNET_PATH ] && echo \"1\"")" != "1" ]; then
-		util_log_error_and_exit "[dxnet]: Path does not exist: $__DXNET_PATH"
+	if [ ! "$__DXNET_PATH" ] || [ "$(cdepl_cluster_file_system_cmd "[ -d $__DXNET_PATH ] && echo \"1\"")" != "1" ]; then
+		util_log_error_and_exit "[dxnet]: Path does not exist ($path), resolved path: $__DXNET_PATH"
 	fi
 
 	__cdepl_app_dxnet_check
