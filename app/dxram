@@ -21,7 +21,7 @@ readonly __DXRAM_LOG_FILE_SUPERPEER_POSTFIX="_superpeer"
 readonly __DXRAM_LOG_FILE_PEER_POSTFIX="_peer"
 
 readonly __DXRAM_MAIN_CLASS="de.hhu.bsinfo.dxram.DXRAM"
-readonly __DXRAM_CLASS_PATH="lib/slf4j-api-1.6.1.jar:lib/zookeeper-3.4.3.jar:lib/gson-2.7.jar:lib/log4j-api-2.7.jar:lib/log4j-core-2.7.jar:lib:dxram.jar"
+readonly __DXRAM_CLASS_PATH="lib/slf4j-api-1.6.1.jar:lib/zookeeper-3.4.3.jar:lib/gson-2.7.jar:lib/log4j-api-2.7.jar:lib/log4j-core-2.7.jar:lib/perf-timer.jar:lib:dxram.jar"
 
 readonly __DXRAM_DEFAULT_S_PORT="22221"
 readonly __DXRAM_DEFAULT_P_PORT="22222"
