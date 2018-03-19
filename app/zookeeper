@@ -140,11 +140,14 @@ cdepl_app_zookeeper_cleanup()
 	local node_range_end=$2
 
 	if [ "$node_range_end" ]; then
+		local pids=""
+
 		for node in $(seq $node_range_start $node_range_end); do
 			__cdepl_app_zookeeper_cleanup $node &
+			pids="$pids $!"
 		done
 
-		wait
+		wait $pids
 	else
 		__cdepl_app_zookeeper_cleanup $node_range_start
 	fi

@@ -216,11 +216,14 @@ cdepl_app_ramcloud_ycsb_start_node()
     fi
 
 	if [ "$node_range_end" ]; then
+		local pids=""
+		
 		for node in $(seq $node_range_start $node_range_end); do
 			__cdepl_app_ramcloud_ycsb_start_node $node &
+			pids="$pids $!"
 		done
 
-		wait
+		wait $pids
 	else
 		__cdepl_app_ramcloud_ycsb_start_node $node_range_start
 	fi
