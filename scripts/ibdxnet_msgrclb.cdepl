@@ -1,0 +1,232 @@
+#
+# Copyright (C) 2018 Heinrich-Heine-Universitaet Duesseldorf, Institute of Computer Science, Department Operating Systems
+#
+# This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>
+#
+
+#!/bin/bash
+
+#
+# Comprehensive benchmark for testing and debugging Ibdxnet
+#
+
+# Total nodes to use
+TOTAL_NODES=""
+
+# Cluster type and user selected
+CLUSTER_TYPE=""
+CLUSTER_USER=""
+CLUSTER_TYPE_INIT_ARGS=""
+
+BENCHMARK_ARGS=""
+
+# Ibdxnet path
+IBDXNET_PATH=""
+
+# All results are compressed and stored here
+RESULT_ARCHIVES_OUT_PATH=""
+
+##
+# Uni-directional point to point
+##
+benchmark_01()
+{
+    cdepl_app_ibdxnet_msgrclb_node_list 0 1
+    cdepl_app_ibdxnet_msgrclb_node_list 1 0
+
+    cdepl_app_ibdxnet_msgrclb_run_as_sudo 0
+    cdepl_app_ibdxnet_msgrclb_run_as_sudo 1
+
+    cdepl_app_ibdxnet_msgrclb_send_targets 0 1
+
+    cdepl_app_ibdxnet_msgrclb_start_node 0 1
+
+    echo "Running endless, check log files for output or interrupt with ctrl + c"
+
+    while true; do
+        sleep 1
+    done
+}
+
+##
+# Bi-directional point to point
+##
+benchmark_02()
+{
+    cdepl_app_ibdxnet_msgrclb_node_list 0 1
+    cdepl_app_ibdxnet_msgrclb_node_list 1 0
+
+    cdepl_app_ibdxnet_msgrclb_run_as_sudo 0
+    cdepl_app_ibdxnet_msgrclb_run_as_sudo 1
+
+    cdepl_app_ibdxnet_msgrclb_send_targets 0 1
+    cdepl_app_ibdxnet_msgrclb_send_targets 1 0
+
+    cdepl_app_ibdxnet_msgrclb_start_node 0 1
+
+    echo "Running endless, check log files for output or interrupt with ctrl + c"
+
+    while true; do
+        sleep 1
+    done
+}
+
+##
+# All to all bi-directional
+##
+benchmark_03()
+{
+    for i in $(seq 0 $((TOTAL_NODES - 1))); do
+		local targets=""
+
+		for j in $(seq 0 $((TOTAL_NODES - 1))); do
+			if [ "$i" != "$j" ]; then
+				targets="$targets $j"
+			fi
+		done
+
+		cdepl_app_ibdxnet_msgrclb_node_list $i $targets
+        cdepl_app_ibdxnet_msgrclb_send_targets $i $targets
+        cdepl_app_ibdxnet_msgrclb_run_as_sudo $i
+	done
+
+    cdepl_app_ibdxnet_msgrclb_start_node 0 $((TOTAL_NODES - 1))
+
+    echo "Running endless, check log files for output or interrupt with ctrl + c"
+
+    while true; do
+        sleep 1
+    done
+}
+
+################################################################################
+
+cdepl_script_process_cmd_args()
+{
+	local total_nodes="$1"
+	local cluster_type="$2"
+	local cluster_user="$3"
+
+	if [ ! "$total_nodes" ]; then
+		util_log_error "Missing argument 'total_nodes'"
+		util_log_error_and_exit "Usage: <total_nodes> <cluster_type> <cluster_user> [init args for cluster type...] -- [benchmark args...]"
+	fi
+
+	if [ ! "$cluster_type" ]; then
+		util_log_error "Missing argument 'cluster_type'"
+		util_log_error_and_exit "Usage: <total_nodes> <cluster_type> <cluster_user> [init args for cluster type...] -- [benchmark args...]"
+	fi
+
+	if [ ! "$cluster_user" ]; then
+		util_log_error "Missing argument 'cluster_user'"
+		util_log_error_and_exit "Usage: <total_nodes> <cluster_type> <cluster_user> [init args for cluster type...] -- [benchmark args...]"
+	fi
+
+	TOTAL_NODES="$total_nodes"
+	CLUSTER_TYPE="$cluster_type"
+	CLUSTER_USER="$cluster_user"
+
+	local cluster_type_init_args=""
+	local benchmark_args=""
+
+	# Iterate further cluster type and program arguments
+	local prog_args=""
+	
+	for elem in "${@:4}"; do
+		if [ "$elem" = "--" ]; then
+			prog_args="1"
+			continue
+		fi
+
+		if [ ! "$prog_args" ]; then
+			if [ ! "$cluster_type_init_args" ]; then
+				cluster_type_init_args="$elem"
+			else
+				cluster_type_init_args="$cluster_type_init_args $elem"
+			fi
+		else
+			if [ ! "$benchmark_args" ]; then
+				benchmark_args="$elem"
+			else
+				benchmark_args="$benchmark_args $elem"
+			fi
+		fi
+	done
+
+	CLUSTER_TYPE_INIT_ARGS="$cluster_type_init_args"
+	BENCHMARK_ARGS="$benchmark_args"
+
+	# Check benchmark args here for early abort if invalid
+	local argc=$(echo $BENCHMARK_ARGS | wc -w)
+
+	if [ "$argc" != "1" ] && [ "$argc" != "2" ] && [ "$argc" != "8" ]; then
+		util_log_error "Missing benchmark arguments"
+		util_log_error_and_exit "Usage: <total_nodes> <cluster_type> <cluster_user> [init args for cluster type...] -- <benchmark name, e.g. benchmark_01>"
+	fi
+
+	IBDXNET_PATH="/home/${CLUSTER_USER}/ibdxnet"
+}
+
+cdepl_script_cluster_node_setup()
+{
+    if [ "$TOTAL_NODES" -lt 2 ]; then
+        util_log_error_and_exit "Minumum number of total nodes must be 2"
+    fi
+
+	# Set the log level to output debug info
+	util_log_set_level "$UTIL_LOG_LEVEL_DEBUG"
+
+	# Init the cluster environment to deploy to
+	cdepl_cluster_init $CLUSTER_TYPE $CLUSTER_USER $CLUSTER_TYPE_INIT_ARGS
+
+	# Load application modules of apps you want to deploy
+	cdepl_cluster_app_load "ibdxnet-msgrclb"
+
+	# Alloc total number of nodes for this deployment
+	cdepl_cluster_node_alloc $TOTAL_NODES
+
+	# Reserve all nodes exclusive (all resources available)
+	for i in $(seq 0 $((TOTAL_NODES - 1))); do
+		# Ibdxnet is not optimized for multi socket setups and doesn't perform
+		# well with them, limit to single socket
+		cdepl_cluster_node_cpu_limit_single_socket $i
+		cdepl_cluster_node_excl $i
+	done
+
+	# Set our output path for log files and configurations
+	# for the applications deployed
+	cdepl_deploy_setup_out_path $CLUSTER_USER
+}
+
+cdepl_script_deploy()
+{
+	cdepl_app_ibdxnet_msgrclb_init "${IBDXNET_PATH}/build/bin" $TOTAL_NODES
+
+    # Kill any still running instances from previous deployments
+	cdepl_app_ibdxnet_msgrclb_node_cleanup 0 $((TOTAL_NODES - 1))
+
+	local argc=$(echo $BENCHMARK_ARGS | wc -w)
+
+	if [ "$argc" = "1" ]; then
+		local benchmark_func="$(echo $BENCHMARK_ARGS | cut -d ' ' -f 1)"
+
+		util_log "Executing $benchmark_func"
+
+		eval "$benchmark_func"
+	else
+		util_log_error_and_exit "Invalid parameters"
+	fi
+}
+
+cdepl_script_cleanup()
+{
+	# Kill any leftovers
+	cdepl_app_ibdxnet_msgrclb_node_cleanup 0 $((TOTAL_NODES - 1))
+}
