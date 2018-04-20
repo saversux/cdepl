@@ -570,37 +570,38 @@ benchmark()
 
 	echo "##### $name start: $network_type $bench_type $range_nodes $msg_type $msg_count $range_sizes $range_threads $range_msg_handlers ######"
 
-	for node in $nodes; do
-		if [ "$node" -gt "$TOTAL_NODES" ]; then
-			util_log_warn "Can't execute benchmark with $node nodes, not enough nodes available ($TOTAL_NODES), skipping"
+	# Intentional "typo" due to some naming bug
+	for nnode in $nodes; do
+		if [ "$nnode" -gt "$TOTAL_NODES" ]; then
+			util_log_warn "Can't execute benchmark with $nnode nodes, not enough nodes available ($TOTAL_NODES), skipping"
 			continue
 		fi
 
 		for size in $sizes; do
 			for thread in $threads; do
 				for msg_handler in $msg_handlers; do
-					# Scale down message count once exceeding 16k to avoid unnecessary long
+					# Scale down message count once exceeding 4k to avoid unnecessary long
 					# running benchmarks
 					msg_count_tmp=$msg_count
-					scale=$(echo "$size / 16384" | bc)
+					scale=$(echo "$size / 4096" | bc)
 
 					if [ "$scale" -gt 1 ]; then
 						msg_count_tmp=$(echo "$msg_count_tmp / $scale" | bc)
 						echo "For large message size, scaling down message count: $msg_count_tmp"
 					fi
 
-					case $bench_type in
+					case "$bench_type" in
 						"one2all")
-							benchmark_one_to_all $network_type $workload $node $msg_count_tmp $size $thread $msg_handler $name
+							benchmark_one_to_all "$network_type" "$workload" "$nnode" "$msg_count_tmp" "$size" "$thread" "$msg_handler" "$name"
 							;;
 						"all2one")
-							benchmark_all_to_one $network_type $workload $node $msg_count_tmp $size $thread $msg_handler $name
+							benchmark_all_to_one "$network_type" "$workload" "$nnode" "$msg_count_tmp" "$size" "$thread" "$msg_handler" "$name"
 							;;
 						"all2all")
-							benchmark_all_to_all $network_type $workload $node $msg_count_tmp $size $thread $msg_handler $name
+							benchmark_all_to_all "$network_type" "$workload" "$nnode" "$msg_count_tmp" "$size" "$thread" "$msg_handler" "$name"
 							;;
 						"ring")
-							benchmark_ring $network_type $workload $node $msg_count_tmp $size $thread $msg_handler $name
+							benchmark_ring $network_type "$workload" "$nnode" "$msg_count_tmp" "$size" "$thread" "$msg_handler" "$name"
 							;;
 						*)
 							util_log_error_and_exit "Invalid benchmark type: $bench_type"
@@ -651,7 +652,7 @@ benchmark_01()
 {
 	local network_type=$1
 
-	benchmark $network_type "one2all" 2 "msg" 100000000 0 1 2 "benchmark_01"
+	benchmark $network_type "one2all" 2 "msg" 100000000 0 1 1 "benchmark_01"
 }
 
 ##
@@ -664,7 +665,7 @@ benchmark_02()
 {
 	local network_type=$1
 
-	benchmark $network_type "all2all" 2 "msg" 100000000 0 1 2 "benchmark_02"
+	benchmark $network_type "all2all" 2 "msg" 100000000 0 1 1 "benchmark_02"
 }
 
 ##
@@ -677,7 +678,7 @@ benchmark_03()
 {
 	local network_type=$1
 
-	benchmark $network_type "one2all" 2 "rr" 100000000 0 1 2 "benchmark_03"
+	benchmark $network_type "one2all" 2 "rr" 10000000 0 1 1 "benchmark_03"
 }
 
 ##
@@ -690,7 +691,7 @@ benchmark_04()
 {
 	local network_type=$1
 
-	benchmark $network_type "all2all" 2 "rr" 100000000 0 1 2 "benchmark_04"
+	benchmark $network_type "all2all" 2 "rr" 10000000 0 1 2 "benchmark_04"
 }
 
 ##
@@ -703,7 +704,7 @@ benchmark_05()
 {
 	local network_type=$1
 
-	benchmark $network_type "all2all" 2 "rr" 100000000 1 0 0 "benchmark_05"
+	benchmark $network_type "all2all" 2 "rr" 10000000 1 0 0 "benchmark_05"
 }
 
 ##
@@ -742,7 +743,7 @@ benchmark_08()
 {
 	local network_type=$1
 
-	benchmark $network_type "all2all" 0 "rr" 100000000 1 0 8 "benchmark_08"
+	benchmark $network_type "all2all" 0 "rr" 10000000 1 0 8 "benchmark_08"
 }
 
 ##
@@ -755,7 +756,7 @@ benchmark_09()
 {
 	local network_type=$1
 
-	benchmark $network_type "all2all" 0 "rr" 100000000 64 0 8 "benchmark_09"
+	benchmark $network_type "all2all" 0 "rr" 10000000 64 0 8 "benchmark_09"
 }
 
 ##
@@ -793,7 +794,7 @@ benchmark_12()
 {
 	local network_type=$1
 
-	benchmark $network_type "all2one" 0 "rr" 100000000 64 0 8 "benchmark_12"
+	benchmark $network_type "all2one" 0 "rr" 10000000 64 0 8 "benchmark_12"
 }
 
 ##
