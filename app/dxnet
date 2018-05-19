@@ -533,28 +533,14 @@ cdepl_app_dxnet_node_get_results()
 
 	# Wait for results to appear
 	while true; do
-		local res_send="$(cdepl_cluster_node_cmd $node "cat $logfile | grep '\[SEND'")"
-		local res_recv="$(cdepl_cluster_node_cmd $node "cat $logfile | grep '\[RECV'")"
+		local res="$(cdepl_cluster_node_cmd $node "cat $logfile | grep '\[RESULTS'")"
 
-		local res_rtt="$(cdepl_cluster_node_cmd $node "cat $logfile | grep '\[RTT'")"
-
-		# Collect timeouts
-		local res_timeouts="$(cdepl_cluster_node_cmd $node "cat $logfile" | grep '\[DXNet.*timeout' | wc -l)"
-
-		if [ ! "$res_send" ] || [ ! "$res_recv" ]; then
+		if [ ! "$res" ]; then
 			sleep 1
 			continue
 		fi
 
-		printf "%s\n" "$res_send"
-		printf "%s\n" "$res_recv"
-
-		# Not available with messages, only
-		if [ "$res_rtt" ]; then
-			printf "%s\n" "$res_rtt"
-		fi
-
-		printf "[TIMEOUTS] %s\n" "$res_timeouts"
+		printf "%s\n" "$res"
 
 		break
 	done
