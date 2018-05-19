@@ -576,7 +576,14 @@ __cdepl_cluster_hhubs_sollipulli_check()
 	fi
 
 	if [ "$?" != "0" ]; then
-		util_log_error_and_exit "[hhubs] Can't connect to login node, ensure passwordless auth is set up and the cluster user is valid"
+		# Check if the login node is reachable
+		local state="$(ping -c1 -W1 134.99.112.82 &> /dev/null && echo '1' || echo '')"
+
+		if [ ! "$state" ]; then
+			util_log_error_and_exit "[hhubs] Can't connect to login node, server down or not reachable"
+		else
+			util_log_error_and_exit "[hhubs] Can't connect to login node, ensure passwordless auth is set up and the cluster user is valid"
+		fi
 	fi
 
 	util_log_debug "[hhubs] sollipulli available, mode $__HHUBS_SOLLIPULLI_MODE"
