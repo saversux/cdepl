@@ -95,6 +95,10 @@ cdepl_script_deploy()
 	cdepl_app_dxram_node_type 0 "S"
 
 	for i in `seq 1 $((TOTAL_NODES - 1))`; do
+		# Disable sending backups on the selected peers
+		cdepl_app_dxram_peer_backup_src $i false
+		# Disable receiving backups on the selected peers
+		cdepl_app_dxram_peer_backup_dst $i false
 		cdepl_app_dxram_node_type $i "P"
 		cdepl_app_dxram_peer_kvss $i 4096
 		# When running localhost, we have to assign different ports for the peers

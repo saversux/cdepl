@@ -28,6 +28,8 @@ readonly __DXRAM_DEFAULT_P_PORT="22222"
 readonly __DXRAM_DEFAULT_NETWORK="eth"
 readonly __DXRAM_DEFAULT_MSG_HANDLER="2"
 readonly __DXRAM_DEFAULT_P_KVSS="1024"
+readonly __DXRAM_DEFAULT_P_BACKUP_SRC="false"
+readonly __DXRAM_DEFAULT_P_BACKUP_DST="false"
 
 readonly __DXRAM_PROCESS_IDENTIFIER="dxramdeployscript"
 readonly __DXRAM_DEFAULT_STARTUP_CONDITION="!---ooo---!"
@@ -56,6 +58,8 @@ __DXRAM_NODE_REMOTE_DEBUG_PORT=()
 __DXRAM_NODE_REMOTE_PROFILE_YJP_PORT=()
 __DXRAM_NODE_REMOTE_PROFILE_YJP_AGENT_LIB=()
 __DXRAM_NODE_PEER_KVSS=()
+__DXRAM_NODE_PEER_BACKUP_SRC=()
+__DXRAM_NODE_PEER_BACKUP_DST=()
 
 ##
 # Initialize and setup the DXRAM environment. This must be called before any
@@ -278,6 +282,44 @@ cdepl_app_dxram_peer_kvss()
 	__DXRAM_NODE_PEER_KVSS[$node]="$kvss"
 }
 
+##
+# Enables/Disables sending backups from the target DXRam instance. The
+# instance must be declared as a Peer.
+#
+# $1 node Node of the DXRAM instance
+# $2 value true or false
+##
+cdepl_app_dxram_peer_backup_src()
+{
+	local node=$1
+	local value=$2
+
+	if [ "$node" -ge "$(cdepl_cluster_get_alloc_node_count)" ]; then
+		util_log_error_and_exit "[$node][dxram] Invalid node id $node > $(cdepl_cluster_get_alloc_node_count)"
+	fi
+
+	__DXRAM_NODE_PEER_BACKUP_SRC[$node]="$value"
+}
+
+##
+# Enables/Disables receiving backups on the target DXRam instance. The
+# instance must be declared as a Peer.
+#
+# $1 node Node of the DXRAM instance
+# $2 value true or false
+##
+cdepl_app_dxram_peer_backup_dst()
+{
+	local node=$1
+	local value=$2
+
+	if [ "$node" -ge "$(cdepl_cluster_get_alloc_node_count)" ]; then
+		util_log_error_and_exit "[$node][dxram] Invalid node id $node > $(cdepl_cluster_get_alloc_node_count)"
+	fi
+
+	__DXRAM_NODE_PEER_BACKUP_DST[$node]="$value"
+}
+
 cdepl_app_dxram_auto_detect_node_config_params()
 {
 	local node=$1
@@ -483,6 +525,18 @@ __cdepl_app_dxram_resolve_default_config_values()
 		# Only for explicitly set node types = DXRAM instance
 		if [ "${__DXRAM_NODE_TYPE[$i]}" = "S" ] && [ "${__DXRAM_NODE_PORT[$i]}" = "" ]; then
 			__DXRAM_NODE_PORT[$i]="$__DXRAM_DEFAULT_S_PORT"
+		fi
+
+		if [ "${__DXRAM_NODE_TYPE[$i]}" = "P" ] && [ "${__DXRAM_NODE_PORT[$i]}" = "" ]; then
+			__DXRAM_NODE_PORT[$i]="$__DXRAM_DEFAULT_P_PORT"
+		fi
+
+		if [ "${__DXRAM_NODE_TYPE[$i]}" = "P" ] && [ "${__DXRAM_NODE_PEER_BACKUP_SRC[$i]}" = "" ]; then
+			__DXRAM_NODE_PEER_BACKUP_SRC[$i]="$__DXRAM_DEFAULT_P_BACKUP_SRC"
+		fi
+
+		if [ "${__DXRAM_NODE_TYPE[$i]}" = "P" ] && [ "${__DXRAM_NODE_PEER_BACKUP_DST[$i]}" = "" ]; then
+			__DXRAM_NODE_PEER_BACKUP_DST[$i]="$__DXRAM_DEFAULT_P_BACKUP_DST"
 		fi
 
 		if [ "${__DXRAM_NODE_TYPE[$i]}" = "P" ] && [ "${__DXRAM_NODE_PORT[$i]}" = "" ]; then
@@ -724,8 +778,11 @@ __cdepl_app_dxram_start_peer()
 	vm_opts="$vm_opts -Ddxram.m_config.m_engineConfig.m_address.m_ip=$ip"
 	vm_opts="$vm_opts -Ddxram.m_config.m_engineConfig.m_address.m_port=${__DXRAM_NODE_PORT[$node]}"
 	vm_opts="$vm_opts -Ddxram.m_config.m_engineConfig.m_role=Peer"
-
+	
 	# Optional dxram node specific settings
+
+	vm_opts="$vm_opts -Ddxram.m_config.m_componentConfigs[BackupComponentConfig].m_backupActive=${__DXRAM_NODE_PEER_BACKUP_SRC[$node]}"
+	vm_opts="$vm_opts -Ddxram.m_config.m_componentConfigs[BackupComponentConfig].m_availableForBackup=${__DXRAM_NODE_PEER_BACKUP_DST[$node]}"
 
 	if [ "${__DXRAM_NODE_NETWORK[$node]}" = "eth" ]; then
 		vm_opts="$vm_opts -Ddxram.m_config.m_componentConfigs[NetworkComponentConfig].m_core.m_device=Ethernet"
