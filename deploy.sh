@@ -15,6 +15,7 @@
 
 __DEPLOY_OUT_PATH=""
 __DEPLOY_CUR_OUT_PATH=""
+__DEPLOY_LOCAL_TMP_PATH=""
 
 ##
 # Setup the output path for configuration files, log files, job scripts etc
@@ -42,8 +43,11 @@ cdepl_deploy_setup_out_path()
 
 	__DEPLOY_OUT_PATH="$(cdepl_cluster_get_base_path_deploy_out $user)/$subdir_name"
 	__DEPLOY_CUR_OUT_PATH="${__DEPLOY_OUT_PATH}/${filename}_$(date '+%Y-%m-%d_%H-%M-%S-%3N')"
+	__DEPLOY_LOCAL_TMP_PATH="~/cdepl_tmp"
 
 	cdepl_cluster_file_system_cmd "mkdir -p $__DEPLOY_CUR_OUT_PATH"
+	# This path is local for tmp downloads from the lucster
+	mkdir -p $__DEPLOY_LOCAL_TMP_PATH
 
 	util_log "[deploy] Deployment output path: $__DEPLOY_CUR_OUT_PATH"
 }
@@ -57,6 +61,15 @@ cdepl_deploy_setup_out_path()
 cdepl_deploy_get_out_path()
 {
 	echo "$__DEPLOY_OUT_PATH"
+}
+
+##
+# Get the currently set local tmp path used by the application modules to 
+# download/upload configuration files to the local node/the cluster
+##
+cdepl_deploy_get_local_tmp_path()
+{
+	echo "$__DEPLOY_LOCAL_TMP_PATH"
 }
 
 ##
