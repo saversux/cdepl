@@ -628,7 +628,7 @@ __cdepl_app_dxram_ycsb_create_node_base_config()
 	local node=$1
 
 	local node_config_path="${__DXRAM_YCSB_OUT_CONF_PATH}/node_${node}.conf"
-	local tmp_file="/tmp/tmp_dxram_ycsb_${node}.conf"
+	local tmp_file="$(cdepl_deploy_get_local_tmp_path)/tmp_dxram_ycsb_${node}.conf"
 
 	# Create base node config once and cache it
 	if [ ! "$__DXRAM_YCSB_CACHED_NODES_CONFIG" ]; then

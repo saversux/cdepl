@@ -666,7 +666,7 @@ __cdepl_app_dxnet_create_node_base_config()
 	local node=$1
 
 	local node_config_path="${__DXNET_OUT_CONF_PATH}/node_${node}.conf"
-	local tmp_file="/tmp/tmp_dxnet_${node}.conf"
+	local tmp_file="$(cdepl_deploy_get_local_tmp_path)/tmp_dxnet_${node}.conf"
 
 	# Tremendously speed this up by caching the nodes config
 	if [ ! "$__DXNET_CACHED_NODES_CONFIG" ]; then
