@@ -46,6 +46,9 @@ cdepl_deploy_setup_out_path()
 	__DEPLOY_LOCAL_TMP_PATH="/tmp/cdepl"
 
 	cdepl_cluster_file_system_cmd "mkdir -p $__DEPLOY_CUR_OUT_PATH"
+	# create symlink to created folder
+	cdepl_cluster_file_system_cmd "ln -sfn $__DEPLOY_CUR_OUT_PATH/ $__DEPLOY_OUT_PATH/${filename}"
+
 	# This path is local for tmp downloads from the lucster
 	mkdir -p $__DEPLOY_LOCAL_TMP_PATH
 
