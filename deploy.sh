@@ -24,29 +24,32 @@ __DEPLOY_LOCAL_TMP_PATH=""
 # directory or somewhere accessable.
 #
 # $1: User name of the account to use on the target cluster
-# $2: Optional, name of the directory to put all output files to (defaults to 
-#     cdepl_out)
+# $2: Optional, absolute path of output directory for all output files, e.g. 
+#     log/config files. If not specified default output dir in user's home dir
 ##
 cdepl_deploy_setup_out_path()
 {
 	local user=$1
-	local subdir_name=$2
+	local output_dir=$2
 
 	# Use the deploy script name for the out folder
 	local filename=$(basename "${BASH_SOURCE[1]}")
 	local extension="${filename##*.}"
 	filename="${filename%.*}"
 
-	if [ ! "$subdir_name" ]; then
-		subdir_name="cdepl_out"
+	# Have default output dir if user does not want a specific location
+	if [ ! "$output_dir" ]; then
+		__DEPLOY_OUT_PATH="$(cdepl_cluster_get_base_path_deploy_out $user)/cdepl_out"
+	else 
+		__DEPLOY_OUT_PATH="$output_dir"
 	fi
 
-	__DEPLOY_OUT_PATH="$(cdepl_cluster_get_base_path_deploy_out $user)/$subdir_name"
 	__DEPLOY_CUR_OUT_PATH="${__DEPLOY_OUT_PATH}/${filename}_$(date '+%Y-%m-%d_%H-%M-%S-%3N')"
 	__DEPLOY_LOCAL_TMP_PATH="/tmp/cdepl"
 
 	cdepl_cluster_file_system_cmd "mkdir -p $__DEPLOY_CUR_OUT_PATH"
-	# create symlink to created folder
+
+	# create symlink to latest output folder
 	cdepl_cluster_file_system_cmd "ln -sfn $__DEPLOY_CUR_OUT_PATH/ $__DEPLOY_OUT_PATH/${filename}"
 
 	# This path is local for tmp downloads from the lucster
