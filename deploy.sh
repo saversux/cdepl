@@ -43,7 +43,7 @@ cdepl_deploy_setup_out_path()
 
 	__DEPLOY_OUT_PATH="$(cdepl_cluster_get_base_path_deploy_out $user)/$subdir_name"
 	__DEPLOY_CUR_OUT_PATH="${__DEPLOY_OUT_PATH}/${filename}_$(date '+%Y-%m-%d_%H-%M-%S-%3N')"
-	__DEPLOY_LOCAL_TMP_PATH="~/cdepl_tmp"
+	__DEPLOY_LOCAL_TMP_PATH="/tmp/cdepl"
 
 	cdepl_cluster_file_system_cmd "mkdir -p $__DEPLOY_CUR_OUT_PATH"
 	# This path is local for tmp downloads from the lucster

@@ -17,11 +17,10 @@
 # App module for DXRAM
 ##
 
+readonly __DXRAM_BINARY="bin/dxram"
+
 readonly __DXRAM_LOG_FILE_SUPERPEER_POSTFIX="_superpeer"
 readonly __DXRAM_LOG_FILE_PEER_POSTFIX="_peer"
-
-readonly __DXRAM_MAIN_CLASS="de.hhu.bsinfo.dxram.DXRAM"
-readonly __DXRAM_CLASS_PATH="lib/slf4j-api-1.6.1.jar:lib/zookeeper-3.4.3.jar:lib/gson-2.7.jar:lib/log4j-api-2.7.jar:lib/log4j-core-2.7.jar:lib/perf-timer.jar:lib:dxram.jar"
 
 readonly __DXRAM_DEFAULT_S_PORT="22221"
 readonly __DXRAM_DEFAULT_P_PORT="22222"
@@ -79,7 +78,7 @@ cdepl_app_dxram_init()
 
 	__DXRAM_PATH="$(cdepl_cluster_node_cmd 0 "readlink -f $path")"
 	__DXRAM_CONFIG_PATH="${__DXRAM_PATH}/config/dxram.json"
-	__DXRAM_LOG4J_CONFIG_PATH="${__DXRAM_PATH}/config/log4j.xml"
+	__DXRAM_LOG4J_CONFIG_PATH="${__DXRAM_PATH}/config/log4j2.xml"
 
 	__DXRAM_OUT_PATH="${__DEPLOY_CUR_OUT_PATH}/dxram"
 	__DXRAM_OUT_CONF_PATH="${__DXRAM_OUT_PATH}/conf"
@@ -479,8 +478,8 @@ cdepl_app_dxram_node_cleanup()
 
 __cdepl_app_dxram_check()
 {
-	if [ "$(cdepl_cluster_node_cmd 0 "[ -f ${__DXRAM_PATH}/dxram.jar ] && echo 1")" != "1" ]; then
-		util_log_error_and_exit "[0][dxram] Could not find dxram.jar in $__DXRAM_PATH"
+	if [ "$(cdepl_cluster_node_cmd 0 "[ -f ${__DXRAM_PATH}/${__DXRAM_BINARY} ] && echo 1")" != "1" ]; then
+		util_log_error_and_exit "[0][dxram] Could not find dxram executable in $__DXRAM_PATH/bin"
 	fi
 }
 
@@ -492,7 +491,7 @@ __cdepl_app_dxram_check_config()
 
 		# Don't run this on the login node (might not have java installed)
 		# Use the first actual cluster node instead
-		cdepl_cluster_node_cmd 0 "cd $__DXRAM_PATH && java -Dlog4j.configurationFile=$__DXRAM_LOG4J_CONFIG_PATH -Ddxram.config=$__DXRAM_CONFIG_PATH -cp $__DXRAM_CLASS_PATH $__DXRAM_MAIN_CLASS > /dev/null 2>&1" "$__DXRAM_REQUIRED_ENVIRONMENT"
+		cdepl_cluster_node_cmd 0 "cd $__DXRAM_PATH && DXRAM_OPTS='-Dlog4j.configurationFile=$__DXRAM_LOG4J_CONFIG_PATH -Ddxram.config=$__DXRAM_CONFIG_PATH' ./$__DXRAM_BINARY > /dev/null 2>&1" "$__DXRAM_REQUIRED_ENVIRONMENT"
 
 		# Sanity check
 		if [ "$(cdepl_cluster_node_cmd 0 "[ -f $__DXRAM_CONFIG_PATH ] && echo \"1\"")" != "1" ]; then
@@ -507,7 +506,7 @@ __cdepl_app_dxram_check_config()
 			util_log "[0][dxram] Configuration file $__DXRAM_CONFIG_PATH corrupted, deleting and creating default"
 
 			# Configuration file seems to be corrupted -> start dxram once to create new configuration
-			cdepl_cluster_node_cmd 0 "rm $__DXRAM_CONFIG_PATH && cd $__DXRAM_PATH && java -Dlog4j.configurationFile=$__DXRAM_LOG4J_CONFIG_PATH -Ddxram.config=$__DXRAM_CONFIG_PATH -cp $__DXRAM_CLASS_PATH $__DXRAM_MAIN_CLASS && sync > /dev/null 2>&1" "$__DXRAM_REQUIRED_ENVIRONMENT"
+			cdepl_cluster_node_cmd 0 "rm $__DXRAM_CONFIG_PATH && cd $__DXRAM_PATH && DXRAM_OPTS='-Dlog4j.configurationFile=$__DXRAM_LOG4J_CONFIG_PATH -Ddxram.config=$__DXRAM_CONFIG_PATH' ./$__DXRAM_BINARY && sync > /dev/null 2>&1" "$__DXRAM_REQUIRED_ENVIRONMENT"
 
 			# Sanity check
 			if [ "$(cdepl_cluster_node_cmd 0 "[ -f $__DXRAM_CONFIG_PATH ] && echo \"1\"")" != "1" ]; then
@@ -750,7 +749,7 @@ __cdepl_app_dxram_start_superpeer()
 
 	# Don't use && instead of ;
 	# This will hang if the ssh with controlmaster and nohup is used
-	cdepl_cluster_node_cmd $node "cd $__DXRAM_PATH ; $root nohup java -D${__DXRAM_PROCESS_IDENTIFIER} $vm_opts -cp $__DXRAM_CLASS_PATH $__DXRAM_MAIN_CLASS > $logfile 2>&1 &" "$__DXRAM_REQUIRED_ENVIRONMENT"
+	cdepl_cluster_node_cmd $node "cd $__DXRAM_PATH ; JAVA_OPTS='$vm_opts' DXRAM_OPTS='-D${__DXRAM_PROCESS_IDENTIFIER}' $root nohup ./$__DXRAM_BINARY > $logfile 2>&1 &" "$__DXRAM_REQUIRED_ENVIRONMENT"
 }
 
 __cdepl_app_dxram_start_peer()
@@ -821,7 +820,7 @@ __cdepl_app_dxram_start_peer()
 
 	# Don't use && instead of ;
 	# This will hang if the ssh with controlmaster and nohup is used
-	cdepl_cluster_node_cmd $node "cd $__DXRAM_PATH ; $root nohup java -D${__DXRAM_PROCESS_IDENTIFIER} $vm_opts -cp $__DXRAM_CLASS_PATH $__DXRAM_MAIN_CLASS > $logfile 2>&1 &" "req_env"
+	cdepl_cluster_node_cmd $node "cd $__DXRAM_PATH ; JAVA_OPTS='$vm_opts' DXRAM_OPTS='-D${__DXRAM_PROCESS_IDENTIFIER}' $root nohup ./$__DXRAM_BINARY > $logfile 2>&1 &" "req_env"
 }
 
 __cdepl_app_dxram_get_instance_running_pid()
