@@ -18,16 +18,14 @@
 # and latency with various parameters
 ##
 
-readonly __DXNET_MAIN_CLASS="de.hhu.bsinfo.dxnet.DXNetMain"
-readonly __DXNET_CLASS_PATH="lib/gson-2.7.jar:lib/log4j-api-2.7.jar:lib/log4j-core-2.7.jar:lib/perf-timer.jar"
+readonly __DXNET_BINARY="bin/dxnet"
+
 readonly __DXNET_PROCESS_IDENTIFIER="dxnetdeployscript"
 readonly __DXNET_REQUIRED_ENVIRONMENT="java/1.8 gcc/6.1"
 
 __DXNET_PATH=""
 __DXNET_CONFIG_PATH=""
 __DXNET_LOG4J_CONFIG_PATH=""
-# Could be dxram.jar or dxnet.jar, autodetect
-__DXNET_JAR_FILE=""
 
 __DXNET_OUT_PATH=""
 __DXNET_OUT_CONF_PATH=""
@@ -574,15 +572,9 @@ cdepl_app_dxnet_node_cleanup()
 
 __cdepl_app_dxnet_check()
 {
-	if [ "$(cdepl_cluster_node_cmd 0 "[ -f ${__DXNET_PATH}/dxram.jar ] && echo 1")" = "1" ]; then
-		__DXNET_JAR_FILE="dxram.jar"
-	elif [ "$(cdepl_cluster_node_cmd 0 "[ -f ${__DXNET_PATH}/dxnet.jar ] && echo 1")" = "1" ]; then
-		__DXNET_JAR_FILE="dxnet.jar"
-	else
-		util_log_error_and_exit "[0][dxnet] Could not find dxram.jar/dxnet.jar in $__DXNET_PATH"
+	if [ "$(cdepl_cluster_node_cmd 0 "[ -f ${__DXNET_PATH}/${__DXNET_BINARY} ] && echo 1")" != "1" ]; then
+		util_log_error_and_exit "[0][dxnet] Could not find dxnet executable in $__DXNET_PATH/bin"
 	fi
-
-	util_log_debug "[dxnet] Auto detected jar package: $__DXNET_JAR_FILE in $__DXNET_PATH"
 }
 
 __cdepl_app_dxnet_check_config()
@@ -593,7 +585,7 @@ __cdepl_app_dxnet_check_config()
 
 		# Don't run this on the login node (might not have java installed)
 		# Use the first actual cluster node instead
-		cdepl_cluster_node_cmd 0 "cd $__DXNET_PATH && java -Dlog4j.configurationFile=$__DXNET_LOG4J_CONFIG_PATH -cp ${__DXNET_CLASS_PATH}:${__DXNET_JAR_FILE} $__DXNET_MAIN_CLASS $__DXNET_CONFIG_PATH > /dev/null 2>&1" "$__DXNET_REQUIRED_ENVIRONMENT"
+		cdepl_cluster_node_cmd 0 "cd $__DXNET_PATH && DXNET_OPTS='-Dlog4j.configurationFile=$__DXNET_LOG4J_CONFIG_PATH' ./$__DXNET_BINARY $__DXNET_CONFIG_PATH > /dev/null 2>&1" "$__DXNET_REQUIRED_ENVIRONMENT"
 
 		# Sanity check
 		if [ "$(cdepl_cluster_node_cmd 0 "[ -f $__DXNET_CONFIG_PATH ] && echo \"1\"")" != "1" ]; then
@@ -607,7 +599,7 @@ __cdepl_app_dxnet_check_config()
 			util_log "[0][dxnet] Configuration file $__DXNET_CONFIG_PATH corrupted, deleting and creating default"
 
 			# Configuration file seems to be corrupted -> start dxnet once to create new configuration
-			cdepl_cluster_node_cmd 0 "rm $__DXNET_CONFIG_PATH && cd $__DXNET_PATH && java -Dlog4j.configurationFile=$__DXNET_LOG4J_CONFIG_PATH -cp ${__DXNET_CLASS_PATH}:${__DXNET_JAR_FILE} $__DXNET_MAIN_CLASS $__DXNET_CONFIG_PATH > /dev/null 2>&1" "$__DXNET_REQUIRED_ENVIRONMENT"
+			cdepl_cluster_node_cmd 0 "rm $__DXNET_CONFIG_PATH && cd $__DXNET_PATH && DXNET_OPTS='-Dlog4j.configurationFile=$__DXNET_LOG4J_CONFIG_PATH' ./$__DXNET_BINARY $__DXNET_CONFIG_PATH > /dev/null 2>&1" "$__DXNET_REQUIRED_ENVIRONMENT"
 			cdepl_cluster_node_cmd 0 "sync"
 
 			# Sanity check
@@ -790,7 +782,7 @@ __cdepl_app_dxnet_start()
 
 	# Don't use && instead of ;
 	# This will hang if ssh with controlmaster and nohup is used
-	cdepl_cluster_node_cmd $node "cd $__DXNET_PATH ; $root nohup java -D${__DXNET_PROCESS_IDENTIFIER} $vm_opts -cp ${__DXNET_CLASS_PATH}:${__DXNET_JAR_FILE} $__DXNET_MAIN_CLASS $args > $logfile 2>&1 &" "$__DXNET_REQUIRED_ENVIRONMENT"
+	cdepl_cluster_node_cmd $node "cd $__DXNET_PATH ; JAVA_OPTS='$vm_opts' DXNET_OPTS='-D${__DXNET_PROCESS_IDENTIFIER}' $root nohup ./$__DXNET_BINARY $args > $logfile 2>&1 &" "$__DXNET_REQUIRED_ENVIRONMENT"
 }
 
 __cdepl_app_dxnet_start_node()
