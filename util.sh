@@ -48,7 +48,7 @@ util_log_error_and_exit()
 {
 	local msg=$1
 
-	printf "\e[1;31m${msg}\e[m\nCall trace:\n$(util_print_calltrace)\n"
+	>&2 printf "\e[1;31m${msg}\e[m\nCall trace:\n$(util_print_calltrace)\n"
 
 	exit -1
 }
@@ -63,7 +63,7 @@ util_log_error()
 	local msg=$1
 
 	if [ "$__UTIL_LOG_LEVEL" -ge "1" ]; then
-		printf "\e[1;31m${msg}\e[m\n"
+		>&2 printf "\e[1;31m${msg}\e[m\n"
 	fi
 }
 
@@ -77,7 +77,7 @@ util_log_warn()
 	local msg=$1
 
 	if [ "$__UTIL_LOG_LEVEL" -ge "2" ]; then
-		printf "\e[1;33m${msg}\e[m\n"
+		>&2 printf "\e[1;33m${msg}\e[m\n"
 	fi
 }
 
@@ -91,7 +91,7 @@ util_log()
 	local msg=$1
 
 	if [ "$__UTIL_LOG_LEVEL" -ge "3" ]; then
-		printf "\e[1;34m${msg}\e[m\n"
+		>&2 printf "\e[1;34m${msg}\e[m\n"
 	fi
 }
 
@@ -106,7 +106,7 @@ util_log_debug()
 	local args=${@:2}
 
 	if [ "$__UTIL_LOG_LEVEL" -ge "4" ]; then
-		printf "\e[1;32m${msg}\e[m\n" $args
+		>&2 printf "\e[1;32m${msg}\e[m\n" $args
 	fi
 }
 
@@ -121,7 +121,7 @@ util_print_calltrace()
 			break;
 		fi
 
-		echo "${BASH_SOURCE[$i]}:${FUNCNAME[$i]}:${BASH_LINENO[$i]}"
+		>&2 echo "${BASH_SOURCE[$i]}:${FUNCNAME[$i]}:${BASH_LINENO[$i]}"
 		i=$((i + 1))
 	done
 }
