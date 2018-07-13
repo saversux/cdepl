@@ -732,7 +732,7 @@ __cdepl_app_dxram_start_superpeer()
 	local root=""
 	if [ "${__DXRAM_NODE_RUN_SUDO[$node]}" = "1" ]; then
 		util_log "[$node][dxram][S] Running with sudo"
-		root="sudo -P"
+		root="sudo -E -P"
 	fi
 
 	if [ "${__DXRAM_NODE_REMOTE_DEBUG_PORT[$node]}" != "" ]; then
@@ -748,7 +748,7 @@ __cdepl_app_dxram_start_superpeer()
 	fi
 
 	# Don't use && instead of ;
-	# This will hang if the ssh with controlmaster and nohup is used
+	# This will hang if ssh with controlmaster and nohup is used
 	cdepl_cluster_node_cmd $node "cd $__DXRAM_PATH ; JAVA_OPTS='$vm_opts' DXRAM_OPTS='-D${__DXRAM_PROCESS_IDENTIFIER}' $root nohup ./$__DXRAM_BINARY > $logfile 2>&1 &" "$__DXRAM_REQUIRED_ENVIRONMENT"
 }
 
@@ -803,7 +803,7 @@ __cdepl_app_dxram_start_peer()
 	local root=""
 	if [ "${__DXRAM_NODE_RUN_SUDO[$node]}" = "1" ]; then
 		util_log "[$node][dxram][P] Running with sudo"
-		root="sudo -P"
+		root="sudo -E -P"
 	fi
 
 	if [ "${__DXRAM_NODE_REMOTE_DEBUG_PORT[$node]}" != "" ]; then
@@ -819,7 +819,7 @@ __cdepl_app_dxram_start_peer()
 	fi
 
 	# Don't use && instead of ;
-	# This will hang if the ssh with controlmaster and nohup is used
+	# This will hang if ssh with controlmaster and nohup is used
 	cdepl_cluster_node_cmd $node "cd $__DXRAM_PATH ; JAVA_OPTS='$vm_opts' DXRAM_OPTS='-D${__DXRAM_PROCESS_IDENTIFIER}' $root nohup ./$__DXRAM_BINARY > $logfile 2>&1 &" "req_env"
 }
 

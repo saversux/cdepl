@@ -763,7 +763,7 @@ __cdepl_app_dxnet_start()
 	local root=""
 	if [ "${__DXNET_NODE_RUN_SUDO[$node]}" = "1" ]; then
 		util_log "[$node][dxnet] Running with sudo"
-		root="sudo -P"
+		root="sudo -E -P"
 	fi
 
 	if [ "${__DXNET_NODE_REMOTE_DEBUG_PORT[$node]}" != "" ]; then
