@@ -898,7 +898,7 @@ __cdepl_app_dxram_ycsb_start_peer()
 		util_log "[$node][dxram-ydxb][$ycsb_type] On your local machine: establish a tunnel using 'ssh <target_hostname> -L ${__DXRAM_YCSB_NODE_REMOTE_PROFILE_YJP_PORT[$node]}:<target_hostname>:${__DXRAM_YCSB_NODE_REMOTE_PROFILE_YJP_PORT[$node]}' and connect with yourkit using 'Connect to remote application' with the arguments 'localhost:${__DXRAM_YCSB_NODE_REMOTE_PROFILE_YJP_PORT[$node]}'"
 	fi
 
-	vm_opts="$vm_opts -D{$__DXRAM_YCSB_PROCESS_IDENTIFIER}"
+	vm_opts="$vm_opts -D${__DXRAM_YCSB_PROCESS_IDENTIFIER}"
 
 	# YCSB settings
 
