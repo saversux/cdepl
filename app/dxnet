@@ -54,8 +54,8 @@ __DXNET_NODE_REMOTE_PROFILE_YJP_AGENT_LIB=()
 # Initialize and setup dxnet environment. This must be called before any other
 # function of the dxnet module.
 #
-# $1 Path to folder containing build output of dxnet (or dxram) with dxnet.jar
-#    /dxram.jar
+# $1 Path to folder containing build output of dxnet (or dxram) with bin, config,
+#    lib folder etc
 # $2 Number of nodes of allocation actually used
 ##
 cdepl_app_dxnet_init()

@@ -64,7 +64,7 @@ __DXRAM_NODE_PEER_BACKUP_DST=()
 # Initialize and setup the DXRAM environment. This must be called before any
 # other function of the dxram module.
 #
-# $1 path Path to folder containing build output of dxram with dxram.jar, config
+# $1 path Path to folder containing build output of dxram with bin, config
 #    folder etc
 # $2 zookeeper_node Node running the zookeeper server necessary to bootstrap
 #    DXRAM
@@ -334,7 +334,9 @@ cdepl_app_dxram_auto_detect_node_config_params()
 ##
 # Start a DXRAM instance on the target node.
 #
-# $1 node Target node id
+# $1 node_range_start Node id to start instance on (or range start)
+# $2 node_range_end (optional) If specified, all nodes from the range start to
+#    end are started
 ##
 cdepl_app_dxram_start_node()
 {

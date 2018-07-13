@@ -72,6 +72,16 @@ __DXRAM_YCSB_WORKLOAD_FIELDLENGTH=""
 
 __DXRAM_YCSB_NODE_INSERTSTART=()
 
+##
+# Initialize and setup the DXRAM YCSB environment. This must be called before any
+# other function of the dxram-ycsb module.
+#
+# $1 path Path to folder containing build output of ycsb-dxram with bin, config
+#    folder etc
+# $2 zookeeper_node Node running the zookeeper server necessary to bootstrap
+#    DXRAM
+# $3 zookeeper_port Port of the zookeper server running on the specified node
+##
 cdepl_app_dxram_ycsb_init()
 {
 	local path=$1
@@ -107,6 +117,18 @@ cdepl_app_dxram_ycsb_init()
 
 # in order to declare a node an actual DXRAM node, you have to assign a role
 # no default role, node will be ignored and not considered a dxram node
+
+##
+# Set the node type for a DXRAM YCSB instance running on a node.
+#
+# In order to declare a node an actual DXRAM node/instance, you have yo assign
+# a role. There is no default node role applied, otherwise. The node will be
+# ignored and not considered a DXRAM node/instance.
+#
+# $1 node Node to set the DXRAM YCSB role for
+# $2 type DXRAM YCSB node type to set for the specified node: S (superpeer), 
+#    PS (peer storage) or PB (peer benchmark)
+##
 cdepl_app_dxram_ycsb_node_type()
 {
 	local node=$1
@@ -125,6 +147,12 @@ cdepl_app_dxram_ycsb_node_type()
 	__DXRAM_YCSB_NODE_TYPE[$node]="$type"
 }
 
+##
+# Set the port for a node running a DXRAM YCSB instance
+#
+# $1 node Node of the DXRAM YCSB instance
+# $2 port Port (ethernet) to set
+##
 cdepl_app_dxram_ycsb_node_port()
 {
 	local node=$1
@@ -141,6 +169,12 @@ cdepl_app_dxram_ycsb_node_port()
 	__DXRAM_YCSB_NODE_PORT[$node]="$port"
 }
 
+##
+# Set the network type of DXRAM YCSB instance on the target node
+#
+# $1 node Node of the DXRAM YCSB instance
+# $2 network Network type to set (eth, ib)
+##
 cdepl_app_dxram_ycsb_node_network()
 {
 	local node=$1
@@ -157,6 +191,13 @@ cdepl_app_dxram_ycsb_node_network()
 	__DXRAM_YCSB_NODE_NETWORK[$node]="$network"
 }
 
+##
+# Set the number of message handlers for the network subsystem to use for the
+# DXRAM YCSB instance running on the target node
+#
+# $1 node Node of the DXRAM YCSB instance
+# $2 msg_handler Number of message handlers to use on the specified node
+##
 cdepl_app_dxram_ycsb_node_message_handler()
 {
 	local node=$1
@@ -169,6 +210,13 @@ cdepl_app_dxram_ycsb_node_message_handler()
 	__DXRAM_YCSB_NODE_MSG_HANDLER[$node]="$msg_handler"
 }
 
+##
+# Set the key-value store size (in MB) for the target DXRAM YCSB instance. The
+# instance must be declared as a PS (peer storage)
+#
+# $1 node Node of the DXRAM YCSB instance
+# $2 kvss Key-value storage size in MB
+##
 cdepl_app_dxram_ycsb_peer_kvss()
 {
 	local node=$1
@@ -181,6 +229,12 @@ cdepl_app_dxram_ycsb_peer_kvss()
 	__DXRAM_YCSB_NODE_PEER_KVSS[$node]="$kvss"
 }
 
+##
+# Run the DXRAM YCSB instance with sudo on the target node (e.g. might be necessary
+# if using InfiniBand networking)
+#
+# $1 node Node of the DXRAM YCSB instance
+##
 cdepl_app_dxram_ycsb_run_as_sudo()
 {
 	local node=$1
@@ -196,6 +250,14 @@ cdepl_app_dxram_ycsb_run_as_sudo()
 	fi
 }
 
+##
+# Run the DXRAM YCSB instance with parameters to enable remote debugging. Once
+# enabled, a string with information how to attach the debugger will be printed
+# on deployment
+#
+# $1 node Node of the DXRAM YCSB instance
+# $2 port Port to assign to the debugger to use
+##
 cdepl_app_dxram_ycsb_remote_debug()
 {
 	local node=$1
@@ -208,6 +270,15 @@ cdepl_app_dxram_ycsb_remote_debug()
 	__DXRAM_YCSB_NODE_REMOTE_DEBUG_PORT[$node]="$port"
 }
 
+##
+# Run the DXRAM YCSB instance with parameters to enable profiling with the Yourkit
+# profiler. A string with information how to attach the debugger will be printed
+# on deployment
+#
+# $1 node Node of the DXRAM YCSB instance
+# $2 port Port for the remote profiler
+# $3 agent_lib Path on the target node with the libyjpagent.so lib
+##
 cdepl_app_dxram_ycsb_remote_profile_yjp()
 {
 	local node=$1
@@ -227,6 +298,11 @@ cdepl_app_dxram_ycsb_remote_profile_yjp()
 	__DXRAM_YCSB_NODE_REMOTE_PROFILE_YJP_AGENT_LIB[$node]="$agent_lib"
 }
 
+##
+# Set the total number of storage nodes for the YCSB benchmark
+#
+# #1 total_nodes Total number of storages nodes
+##
 cdepl_app_dxram_ycsb_total_storage_nodes()
 {
 	local total_nodes=$1
@@ -234,6 +310,11 @@ cdepl_app_dxram_ycsb_total_storage_nodes()
 	__DXRAM_YCSB_TOTAL_STORAGE_NODES="$total_nodes"
 }
 
+##
+# Set the total number of benchmark nodes for the YCSB benchmark
+#
+# #1 total_nodes Total number of benchmark nodes
+##
 cdepl_app_dxram_ycsb_total_benchmark_nodes()
 {
 	local total_nodes=$1
@@ -241,6 +322,12 @@ cdepl_app_dxram_ycsb_total_benchmark_nodes()
 	__DXRAM_YCSB_TOTAL_BENCHMARK_NODES="$total_nodes"
 }
 
+##
+# Set the number of ycsb threads to run on a benchmark node
+#
+# $1 node Target benchmark node
+# $2 threads Number of threads to start on the target benchmark node
+##
 cdepl_app_dxram_ycsb_threads()
 {
 	local node=$1
@@ -255,6 +342,18 @@ cdepl_app_dxram_ycsb_threads()
 
 # specify inline workload instead of using workload config making the deploy
 # script more self containing
+##
+# Specify an inline workload instead of using a workload config making the
+# deployment script more self containing
+#
+# $1 recordcount Number of records to create per node
+# $2 operationcount Number of operations to execute by each benchmark node
+# $3 readportion Distribution of reads
+# $4 updateportion Distribution of updates
+# $5 requestdistribution Distribution of requests (zipfian, uniform)
+# $6 fieldcount Number of fields per object
+# $7 fieldlength Length of a single field
+##
 cdepl_app_dxram_ycsb_workload()
 {
 	local recordcount=$1
@@ -274,6 +373,12 @@ cdepl_app_dxram_ycsb_workload()
 	__DXRAM_YCSB_WORKLOAD_FIELDLENGTH="$fieldlength"
 }
 
+##
+# Set the insert start offset when creating/inserting objects during loading
+#
+# $1 node Target storage node
+# $2 insertstart Insert start offset for chunk IDs
+##
 cdepl_app_dxram_ycsb_insertstart()
 {
 	local node=$1
@@ -286,7 +391,12 @@ cdepl_app_dxram_ycsb_insertstart()
 	__DXRAM_YCSB_NODE_INSERTSTART[$node]="$insertstart"
 }
 
-# wrapper to easily set workloada
+##
+# Wrapper to set workload a
+#
+# $1 recordcount Number of records to create per node
+# $2 operationcount Number of operations to execute by each benchmark node
+##
 cdepl_app_dxram_ycsb_workload_a()
 {
 	local recordcount=$1
@@ -295,7 +405,12 @@ cdepl_app_dxram_ycsb_workload_a()
 	cdepl_app_dxram_ycsb_workload $recordcount $operationcount "0.5" "0.5" "zipfian" "10" "100"
 }
 
-# wrapper to easily set workloada
+##
+# Wrapper to set workload b
+#
+# $1 recordcount Number of records to create per node
+# $2 operationcount Number of operations to execute by each benchmark node
+##
 cdepl_app_dxram_ycsb_workload_b()
 {
 	local recordcount=$1
@@ -304,7 +419,12 @@ cdepl_app_dxram_ycsb_workload_b()
 	cdepl_app_dxram_ycsb_workload $recordcount $operationcount "0.95" "0.05" "zipfian" "10" "100"
 }
 
-# wrapper to easily set workloada
+##
+# Wrapper to set workload g
+#
+# $1 recordcount Number of records to create per node
+# $2 operationcount Number of operations to execute by each benchmark node
+##
 cdepl_app_dxram_ycsb_workload_g()
 {
 	local recordcount=$1
@@ -313,18 +433,14 @@ cdepl_app_dxram_ycsb_workload_g()
 	cdepl_app_dxram_ycsb_workload $recordcount $operationcount "0.5" "0.5" "zipfian" "1" "64"
 }
 
-cdepl_app_dxram_ycsb_auto_detect_node_config_params()
-{
-	local node=$1
-
-	# TODO: auto detect optimal
-	# network: if /dev/infiniband -> ib, eth otherwise
-	# msg handler count: total core count - 2
-	# kvss: 1GB OS, 2GB jvm, remain: kvss
-
-	util_log_error_and_exit "Auto detect node config and params not implemented, yet"
-}
-
+##
+##
+# Start a DXRAM YCSB instance on the target node.
+#
+# $1 node_range_start Node id to start instance on (or range start)
+# $2 node_range_end (optional) If specified, all nodes from the range start to
+#    end are started
+##
 cdepl_app_ycsb_dxram_start_node()
 {
 	local node_range_start=$1
@@ -355,6 +471,14 @@ cdepl_app_ycsb_dxram_start_node()
 		__cdepl_app_ycsb_dxram_start_node $node_range_start
 	fi
 }
+
+##
+# Wait for a started DXRAM YCSB instance to be started. A DXRAM YCSB instance is
+# considered started once all components and services are initialized
+# (signaled by a specific string to be printed).
+#
+# $1 node Target node id with started DXRAM YCSB instance
+##
 cdepl_app_dxram_ycsb_node_wait_superpeer_started()
 {
 	local node=$1
@@ -406,6 +530,12 @@ cdepl_app_dxram_ycsb_node_wait_superpeer_started()
 	return 0
 }
 
+##
+# Check for a YCSB storage instance if it finished loading
+#
+# $1 node Node id of a strange node to check
+# $2 hide_progress (optional) Set to 1 to hide output of the loading progress
+##
 cdepl_app_dxram_ycsb_storage_finished_loading()
 {
 	local node=$1
@@ -471,6 +601,12 @@ cdepl_app_dxram_ycsb_storage_finished_loading()
 	return 0
 }
 
+##
+# Check for a YCSB benchmark instance if it running the benchmark
+#
+# $1 node Node id of a benchmark node to check
+# $2 hide_progress (optional) Set to 1 to hide output of the benchmark progress
+##
 cdepl_app_dxram_ycsb_benchmark_wait_finished()
 {
 	local node=$1

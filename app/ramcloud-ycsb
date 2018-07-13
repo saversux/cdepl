@@ -37,6 +37,14 @@ __RAMCLOUD_YCSB_WORKLOAD_FIELDLENGTH=""
 
 __RAMCLOUD_YCSB_NODE_INSERTSTART=()
 
+##
+# Initialize and setup the RAMCloud YCSB environment. This must be called before any
+# other function of the dxram-ycsb module.
+#
+# $1 path Path to folder containing build output of YCSB benchmark with the
+#    RAMCloud client
+# $2 ramcloud_path Path to the RAMCloud installation/binaries
+##
 cdepl_app_ramcloud_ycsb_init()
 {
     local path="$1"
@@ -68,6 +76,12 @@ cdepl_app_ramcloud_ycsb_init()
 	util_log "[ramcloud-ycsb] Output: $__RAMCLOUD_YCSB_OUT_PATH"
 }
 
+##
+# Set the node type for a RAMCloud coordinator
+# Required to start RAMCloud
+#
+# $1 node Node to set as the RAMCloud coordinator
+##
 cdepl_app_ramcloud_ycsb_node_coordinator()
 {
     local node=$1
@@ -79,6 +93,17 @@ cdepl_app_ramcloud_ycsb_node_coordinator()
     __RAMCLOUD_YCSB_NODE_COORDINATOR_HOSTNAME="$(cdepl_cluster_node_resolve_node_to_hostname $node)"
 }
 
+##
+# Set the node type for a RAMCloud YCSB instance running on a node.
+#
+# In order to declare a node an actual RAMCloud node/instance, you have to assign
+# a role. There is no default node role applied, otherwise. The node will be
+# ignored and not considered a RAMCloud node/instance.
+#
+# $1 node Node to set the RAMCloud YCSB role for
+# $2 type RAMCloud YCSB node type to set for the specified node: L (load client),
+#         B (benchmark client)
+##
 cdepl_app_ramcloud_ycsb_node_type()
 {
 	local node=$1
@@ -103,6 +128,12 @@ cdepl_app_ramcloud_ycsb_node_type()
 	esac
 }
 
+##
+# Run the RAMCloud YCSB instance with sudo on the target node (e.g. might be necessary
+# if using InfiniBand networking)
+#
+# $1 node Node of the RAMCloud YCSB instance
+##
 cdepl_app_ramcloud_ycsb_run_as_sudo()
 {
 	local node=$1
@@ -118,7 +149,14 @@ cdepl_app_ramcloud_ycsb_run_as_sudo()
 	fi
 }
 
-# note: has to match what's set up on the normal ramcloud module
+##
+# Set the network transport type of the RAMCloud instance on the target node
+# Note: The type set here has to match the type set in the normal ramcloud
+# module for starting the backend storage
+#
+# $1 node Node of the RAMCloud instance
+# $2 network Network type to set, e.g. basic+udp (see RAMCloud documentation)
+##
 cdepl_app_ramcloud_ycsb_network_transport()
 {
     local type=$1
@@ -126,6 +164,11 @@ cdepl_app_ramcloud_ycsb_network_transport()
     __RAMCLOUD_YCSB_NETWORK_TRANSPORT="$type"
 }
 
+##
+# Set the total number of storage nodes for the YCSB benchmark
+#
+# #1 total_nodes Total number of storages nodes
+##
 cdepl_app_ramcloud_ycsb_total_storage_nodes()
 {
 	local total_nodes=$1
@@ -133,6 +176,12 @@ cdepl_app_ramcloud_ycsb_total_storage_nodes()
 	__RAMCLOUD_YCSB_TOTAL_STORAGE_NODES="$total_nodes"
 }
 
+##
+# Set the number of ycsb threads to run on a benchmark node
+#
+# $1 node Target benchmark node
+# $2 threads Number of threads to start on the target benchmark node
+##
 cdepl_app_ramcloud_ycsb_threads()
 {
 	local node=$1
@@ -145,8 +194,18 @@ cdepl_app_ramcloud_ycsb_threads()
 	__RAMCLOUD_YCSB_NODE_THREADS[$node]="$threads"
 }
 
-# specify inline workload instead of using workload config making the deploy
-# script more self containing
+##
+# Specify an inline workload instead of using a workload config making the
+# deployment script more self containing
+#
+# $1 recordcount Number of records to create per node
+# $2 operationcount Number of operations to execute by each benchmark node
+# $3 readportion Distribution of reads
+# $4 updateportion Distribution of updates
+# $5 requestdistribution Distribution of requests (zipfian, uniform)
+# $6 fieldcount Number of fields per object
+# $7 fieldlength Length of a single field
+##
 cdepl_app_ramcloud_ycsb_workload()
 {
 	local recordcount=$1
@@ -166,6 +225,12 @@ cdepl_app_ramcloud_ycsb_workload()
 	__RAMCLOUD_YCSB_WORKLOAD_FIELDLENGTH="$fieldlength"
 }
 
+##
+# Set the insert start offset when creating/inserting objects during loading
+#
+# $1 node Target storage node
+# $2 insertstart Insert start offset for chunk IDs
+##
 cdepl_app_ramcloud_ycsb_insertstart()
 {
 	local node=$1
@@ -178,7 +243,12 @@ cdepl_app_ramcloud_ycsb_insertstart()
 	__RAMCLOUD_YCSB_NODE_INSERTSTART[$node]="$insertstart"
 }
 
-# wrapper to easily set workloada
+##
+# Wrapper to set workload a
+#
+# $1 recordcount Number of records to create per node
+# $2 operationcount Number of operations to execute by each benchmark node
+##
 cdepl_app_ramcloud_ycsb_workload_a()
 {
 	local recordcount=$1
@@ -187,7 +257,12 @@ cdepl_app_ramcloud_ycsb_workload_a()
 	cdepl_app_ramcloud_ycsb_workload $recordcount $operationcount "0.5" "0.5" "zipfian" "10" "100"
 }
 
-# wrapper to easily set workloada
+##
+# Wrapper to set workload b
+#
+# $1 recordcount Number of records to create per node
+# $2 operationcount Number of operations to execute by each benchmark node
+##
 cdepl_app_ramcloud_ycsb_workload_b()
 {
 	local recordcount=$1
@@ -196,7 +271,12 @@ cdepl_app_ramcloud_ycsb_workload_b()
 	cdepl_app_ramcloud_ycsb_workload $recordcount $operationcount "0.95" "0.05" "zipfian" "10" "100"
 }
 
-# wrapper to easily set workloada
+##
+# Wrapper to set workload g
+#
+# $1 recordcount Number of records to create per node
+# $2 operationcount Number of operations to execute by each benchmark node
+##
 cdepl_app_ramcloud_ycsb_workload_g()
 {
 	local recordcount=$1
@@ -205,6 +285,13 @@ cdepl_app_ramcloud_ycsb_workload_g()
 	cdepl_app_ramcloud_ycsb_workload $recordcount $operationcount "0.5" "0.5" "zipfian" "1" "64"
 }
 
+##
+# Start a RAMCloud YCSB instance on the target node.
+#
+# $1 node_range_start Node id to start instance on (or range start)
+# $2 node_range_end (optional) If specified, all nodes from the range start to
+#    end are started
+##
 cdepl_app_ramcloud_ycsb_start_node()
 {
 	local node_range_start=$1
@@ -229,6 +316,12 @@ cdepl_app_ramcloud_ycsb_start_node()
 	fi
 }
 
+##
+# Check for a YCSB storage instance if it finished loading
+#
+# $1 node Node id of a strange node to check
+# $2 hide_progress (optional) Set to 1 to hide output of the loading progress
+##
 cdepl_app_ramcloud_ycsb_storage_finished_loading()
 {
 	local node=$1
@@ -282,6 +375,12 @@ cdepl_app_ramcloud_ycsb_storage_finished_loading()
 	return 0
 }
 
+##
+# Check for a YCSB benchmark instance if it running the benchmark
+#
+# $1 node Node id of a benchmark node to check
+# $2 hide_progress (optional) Set to 1 to hide output of the benchmark progress
+##
 cdepl_app_ramcloud_ycsb_benchmark_wait_finished()
 {
 	local node=$1

@@ -26,6 +26,12 @@ __RAMCLOUD_NETWORK_TRANSPORT="basic+udp"
 __RAMCLOUD_NODE_MEMORY=()
 __RAMCLOUD_NODE_WORKER_THREADS=()
 
+##
+# Initialize and setup the RAMCloud environment. This must be called before any
+# other function of the ramcloud module.
+#
+# $1 path Path to folder containing the RAMCloud data and binaries
+##
 cdepl_app_ramcloud_init()
 {
     local path="$1"
@@ -55,6 +61,16 @@ cdepl_app_ramcloud_init()
 	util_log "[ramcloud] Output: $__RAMCLOUD_OUT_PATH"
 }
 
+##
+# Set the node type for a RAMCloud instance running on a node.
+#
+# In order to declare a node an actual RAMCloud node/instance, you have to assign
+# a role. There is no default node role applied, otherwise. The node will be
+# ignored and not considered a RAMCloud node/instance.
+#
+# $1 node Node to set the RAMCloud role for
+# $2 type RAMCloud node type (C or S) to set for the specified node
+##
 cdepl_app_ramcloud_node_type()
 {
     local node=$1
@@ -76,6 +92,12 @@ cdepl_app_ramcloud_node_type()
     __RAMCLOUD_NODE_TYPE[$node]="$type"
 }
 
+##
+# Run the RAMCloud instance with sudo on the target node (e.g. might be necessary
+# if using InfiniBand networking)
+#
+# $1 node Node of the RAMCloud instance
+##
 cdepl_app_ramcloud_run_as_sudo()
 {
 	local node=$1
@@ -91,6 +113,12 @@ cdepl_app_ramcloud_run_as_sudo()
 	fi
 }
 
+##
+# Set the network transport type of the RAMCloud instance on the target node
+#
+# $1 node Node of the RAMCloud instance
+# $2 network Network type to set, e.g. basic+udp (see RAMCloud documentation)
+##
 cdepl_app_ramcloud_network_transport()
 {
     local type=$1
@@ -98,6 +126,13 @@ cdepl_app_ramcloud_network_transport()
     __RAMCLOUD_NETWORK_TRANSPORT="$type"
 }
 
+##
+# Set the key-value store size (in MB) for the target RAMCloud instance. The
+# instance must be declared as a storage.
+#
+# $1 node Node of the RAMCloud storage instance
+# $2 kvss Key-value storage size in MB
+##
 cdepl_app_ramcloud_node_memory()
 {
     local node=$1
@@ -110,6 +145,13 @@ cdepl_app_ramcloud_node_memory()
     __RAMCLOUD_NODE_MEMORY[$node]="$memory"
 }
 
+##
+# Set the number of worker threads (handling incoming RPCs) for the target 
+# RAMCloud instance
+#
+# $1 node Node of the RAMCloud instance
+# $2 threads Number of worker threads to run on the instance
+##
 cdepl_app_ramcloud_node_worker_threads()
 {
     local node=$1
@@ -122,6 +164,13 @@ cdepl_app_ramcloud_node_worker_threads()
     __RAMCLOUD_NODE_WORKER_THREADS[$node]="$threads"
 }
 
+##
+# Start a RAMCloud instance on the target node.
+#
+# $1 node_range_start Node id to start instance on (or range start)
+# $2 node_range_end (optional) If specified, all nodes from the range start to
+#    end are started
+##
 cdepl_app_ramcloud_start_node()
 {
 	local node_range_start=$1
@@ -141,6 +190,15 @@ cdepl_app_ramcloud_start_node()
 	fi
 }
 
+##
+# Wait for a started RAMCloud instance to be started. A RAMCloud instance is
+# considered started once it is initialized (log is monitored for a specific
+# string to be printed)
+#
+# $1 node Target node id with started RAMCloud instance
+# $2 condition Optional parameter to specify a different condition (string)
+#    to wait for instead of using the default RAMCloud startup string.
+##
 cdepl_app_ramcloud_node_wait_started()
 {
     local node=$1
@@ -202,6 +260,13 @@ cdepl_app_ramcloud_node_wait_started()
 	return 0
 }
 
+##
+# Cleanup any still running or remaining/crashed instances on the target node
+#
+# $1 Target node id (or start node id of range if second parameter provided)
+# $2 Optional: Node id range end (including) and first parameter is interpreted
+#    as range start (including)
+##
 cdepl_app_ramcloud_node_cleanup()
 {
     local node_range_start=$1
