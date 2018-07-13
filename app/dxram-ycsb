@@ -13,18 +13,20 @@
 
 #!/bin/bash
 
+readonly __DXRAM_YCSB_BINARY="bin/dxram"
+
 readonly __DXRAM_YCSB_LOG_FILE_SUPERPEER_POSTFIX="_superpeer"
 readonly __DXRAM_YCSB_LOG_FILE_STORE_POSTFIX="_store"
 readonly __DXRAM_YCSB_LOG_FILE_BENCH_POSTFIX="_bench"
 
 readonly __DXRAM_YCSB_MAIN_CLASS="de.hhu.bsinfo.dxram.DXRAM"
-readonly __DXRAM_YCSB_CLASS_PATH="lib/slf4j-api-1.6.1.jar:lib/zookeeper-3.4.3.jar:lib/gson-2.7.jar:lib/log4j-api-2.7.jar:lib/log4j-core-2.7.jar:lib/perf-timer.jar:lib:dxram.jar"
+readonly __DXRAM_YCSB_CLASS_PATH="lib/*"
 
 readonly __DXRAM_YCSB_DEFAULT_S_PORT="22221"
 readonly __DXRAM_YCSB_DEFAULT_PS_PORT="22222"
 readonly __DXRAM_YCSB_DEFAULT_PB_PORT="22223"
 
-readonly __DXRAM_YCSB_PROCESS_IDENTIFIER="-Ddxramdeployscript"
+readonly __DXRAM_YCSB_PROCESS_IDENTIFIER="dxramdeployscript"
 readonly __DXRAM_YCSB_DEFAULT_STARTUP_CONDITION="!---ooo---!"
 readonly __DXRAM_YCSB_RUN_OR_LOAD_DONE_CONDITION="!---YCSB---!"
 
@@ -78,7 +80,7 @@ cdepl_app_dxram_ycsb_init()
 
 	__DXRAM_YCSB_PATH="$(cdepl_cluster_node_cmd 0 "readlink -f $path")"
 	__DXRAM_YCSB_CONFIG_PATH="${__DXRAM_YCSB_PATH}/config/dxram.json"
-	__DXRAM_YCSB_LOG4J_CONFIG_PATH="${__DXRAM_YCSB_PATH}/config/log4j.xml"
+	__DXRAM_YCSB_LOG4J_CONFIG_PATH="${__DXRAM_YCSB_PATH}/config/log4j2.xml"
 
 	__DXRAM_YCSB_OUT_PATH="${__DEPLOY_CUR_OUT_PATH}/dxram_ycsb"
 	__DXRAM_YCSB_OUT_CONF_PATH="${__DXRAM_YCSB_OUT_PATH}/conf"
@@ -578,7 +580,7 @@ __cdepl_app_dxram_ycsb_check_config()
 		# Don't run this on the login node (might not have java installed)
 		# Use the first actual cluster node instead
 		# sync: Ensure everything's written to disk and visible for other nodes
-		cdepl_cluster_node_cmd 0 "cd $__DXRAM_YCSB_PATH && java -Dlog4j.configurationFile=$__DXRAM_YCSB_LOG4J_CONFIG_PATH -Ddxram.config=$__DXRAM_YCSB_CONFIG_PATH -cp $__DXRAM_YCSB_CLASS_PATH $__DXRAM_YCSB_MAIN_CLASS > /dev/null 2>&1" "$__DXRAM_YCSB_REQUIRED_ENVIRONMENT"
+		cdepl_cluster_node_cmd 0 "cd $__DXRAM_YCSB_PATH && DXRAM_OPTS='-Dlog4j.configurationFile=$__DXRAM_YCSB_LOG4J_CONFIG_PATH -Ddxram.config=$__DXRAM_CONFIG_PATH' ./$__DXRAM_YCSB_BINARY > /dev/null 2>&1" "$__DXRAM_YCSB_REQUIRED_ENVIRONMENT"
 
 		# Sanity check
 		if [ "$(cdepl_cluster_node_cmd 0 "[ -f $__DXRAM_YCSB_CONFIG_PATH ] && echo \"1\"")" != "1" ]; then
@@ -593,7 +595,7 @@ __cdepl_app_dxram_ycsb_check_config()
 			util_log "[0][dxram-ycsb] Configuration file $__DXRAM_YCSB_CONFIG_PATH corrupted, deleting and creating default"
 
 			# Configuration file seems to be corrupted -> start dxram once to create new configuration
-			cdepl_cluster_node_cmd 0 "rm $__DXRAM_YCSB_CONFIG_PATH && cd $__DXRAM_YCSB_PATH && java -Dlog4j.configurationFile=$__DXRAM_YCSB_LOG4J_CONFIG_PATH -Ddxram.config=$__DXRAM_YCSB_CONFIG_PATH -cp $__DXRAM_YCSB_CLASS_PATH $__DXRAM_YCSB_MAIN_CLASS > /dev/null 2>&1" "$__DXRAM_YCSB_REQUIRED_ENVIRONMENT"
+			cdepl_cluster_node_cmd 0 "rm $__DXRAM_YCSB_CONFIG_PATH && cd $__DXRAM_YCSB_PATH && DXRAM_OPTS='-Dlog4j.configurationFile=$__DXRAM_YCSB_LOG4J_CONFIG_PATH -Ddxram.config=$__DXRAM_CONFIG_PATH' ./$__DXRAM_YCSB_BINARY > /dev/null 2>&1" "$__DXRAM_YCSB_REQUIRED_ENVIRONMENT"
 
 			# Sanity check
 			if [ "$(cdepl_cluster_node_cmd 0 "[ -f $__DXRAM_YCSB_CONFIG_PATH ] && echo \"1\"")" != "1" ]; then
@@ -803,7 +805,7 @@ __cdepl_app_dxram_ycsb_start_superpeer()
 	local root=""
 	if [ "${__DXRAM_YCSB_NODE_RUN_SUDO[$node]}" = "1" ]; then
 		util_log "[$node][dxram-ycsb][S] Running with sudo"
-		root="sudo -P"
+		root="sudo -E -P"
 	fi
 
 	if [ "${__DXRAM_YCSB_NODE_REMOTE_DEBUG_PORT[$node]}" != "" ]; then
@@ -818,9 +820,11 @@ __cdepl_app_dxram_ycsb_start_superpeer()
 		util_log "[$node][dxram-ycsb][S] On your local machine: establish a tunnel using 'ssh <target_hostname> -L ${__DXRAM_YCSB_NODE_REMOTE_PROFILE_YJP_PORT[$node]}:<target_hostname>:${__DXRAM_YCSB_NODE_REMOTE_PROFILE_YJP_PORT[$node]}' and connect with yourkit using 'Connect to remote application' with the arguments 'localhost:${__DXRAM_YCSB_NODE_REMOTE_PROFILE_YJP_PORT[$node]}'"
 	fi
 
+	vm_opts="$vm_opts -D${__DXRAM_YCSB_PROCESS_IDENTIFIER}"
+
 	# Don't use && instead of ;
-	# This will hang if the ssh with controlmaster and nohup is used
-	cdepl_cluster_node_cmd $node "cd $__DXRAM_YCSB_PATH ; $root nohup java ${__DXRAM_YCSB_PROCESS_IDENTIFIER} $vm_opts -cp $__DXRAM_YCSB_CLASS_PATH $__DXRAM_YCSB_MAIN_CLASS > $logfile 2>&1 &" "$__DXRAM_YCSB_REQUIRED_ENVIRONMENT"
+	# This will hang if ssh with controlmaster and nohup is used
+	cdepl_cluster_node_cmd $node "cd $__DXRAM_YCSB_PATH ; JAVA_OPTS='$vm_opts' $root nohup ./$__DXRAM_YCSB_BINARY > $logfile 2>&1 &" "$__DXRAM_YCSB_REQUIRED_ENVIRONMENT"
 }
 
 __cdepl_app_dxram_ycsb_start_peer()
@@ -879,7 +883,7 @@ __cdepl_app_dxram_ycsb_start_peer()
 	local root=""
 	if [ "${__DXRAM_YCSB_NODE_RUN_SUDO[$node]}" = "1" ]; then
 		util_log "[$node][dxram-ycsb][$ycsb_type] Running with sudo"
-		root="sudo -P"
+		root="sudo -E -P"
 	fi
 
 	if [ "${__DXRAM_YCSB_NODE_REMOTE_DEBUG_PORT[$node]}" != "" ]; then
@@ -894,7 +898,7 @@ __cdepl_app_dxram_ycsb_start_peer()
 		util_log "[$node][dxram-ydxb][$ycsb_type] On your local machine: establish a tunnel using 'ssh <target_hostname> -L ${__DXRAM_YCSB_NODE_REMOTE_PROFILE_YJP_PORT[$node]}:<target_hostname>:${__DXRAM_YCSB_NODE_REMOTE_PROFILE_YJP_PORT[$node]}' and connect with yourkit using 'Connect to remote application' with the arguments 'localhost:${__DXRAM_YCSB_NODE_REMOTE_PROFILE_YJP_PORT[$node]}'"
 	fi
 
-	vm_opts="$vm_opts $__DXRAM_YCSB_PROCESS_IDENTIFIER"
+	vm_opts="$vm_opts -D{$__DXRAM_YCSB_PROCESS_IDENTIFIER}"
 
 	# YCSB settings
 
@@ -967,7 +971,7 @@ __cdepl_app_dxram_ycsb_start_peer()
 	# JVM options must be specified using the JAVA_OPTS env var
 
 	# Don't use && instead of ;
-	# This will hang if the ssh with controlmaster and nohup is used
+	# This will hang if ssh with controlmaster and nohup is used
 	cdepl_cluster_node_cmd $node "cd $__DXRAM_YCSB_PATH ; $root nohup ./bin/ycsb $ycsb_type dxram -jvm-args '$vm_opts' -threads ${__DXRAM_YCSB_NODE_THREADS[$node]} -s -P workloads/workloada $ycsb_params > $logfile 2>&1 &"
 }
 
@@ -981,7 +985,7 @@ __cdepl_app_dxram_ycsb_get_instance_running_pid()
 	fi
 
 	# Consider port for multiple instances on a single machine (e.g. localhost)
-	echo "$(cdepl_cluster_node_cmd $node "pgrep -f '^java.*${__DXRAM_YCSB_PROCESS_IDENTIFIER}${port}'")"
+	echo "$(cdepl_cluster_node_cmd $node "pgrep -f '^java${port}.*-D${__DXRAM_YCSB_PROCESS_IDENTIFIER}'")"
 }
 
 __cdepl_app_dxram_ycsb_cleanup()
