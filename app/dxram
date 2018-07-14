@@ -822,7 +822,7 @@ __cdepl_app_dxram_start_peer()
 
 	# Don't use && instead of ;
 	# This will hang if ssh with controlmaster and nohup is used
-	cdepl_cluster_node_cmd $node "cd $__DXRAM_PATH ; JAVA_OPTS='$vm_opts' DXRAM_OPTS='-D${__DXRAM_PROCESS_IDENTIFIER}' $root nohup ./$__DXRAM_BINARY > $logfile 2>&1 &" "req_env"
+	cdepl_cluster_node_cmd $node "cd $__DXRAM_PATH ; JAVA_OPTS='$vm_opts' DXRAM_OPTS='-D${__DXRAM_PROCESS_IDENTIFIER}' $root nohup ./$__DXRAM_BINARY > $logfile 2>&1 &" "$__DXRAM_REQUIRED_ENVIRONMENT"
 }
 
 __cdepl_app_dxram_get_instance_running_pid()
