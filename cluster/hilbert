@@ -26,6 +26,8 @@ readonly __HILBERT_HOSTNAME="hpc.rz.uni-duesseldorf.de"
 readonly __HILBERT_QSUB="/opt/pbs/bin/qsub"
 readonly __HILBERT_QDEL="/opt/pbs/bin/qdel"
 
+readonly __PBS_ATTACH="1"
+
 __HILBERT_NODE_EXCL_FIRST_CALL=""
 
 __HILBERT_TOTAL_NODES="0"
@@ -41,6 +43,7 @@ __HILBERT_NODES_EXPLICIT=""
 __HILBERT_NODES_SINGLE_SOCKET=()
 
 __HILBERT_JOB_ID=""
+__HILBERT_JOB_ID_LONG=""
 __HILBERT_NODE_MAPPING=()
 
 declare -gA __HILBERT_DEPENDENCY_MAP
@@ -177,11 +180,27 @@ cdepl_cluster_node_cmd()
 		env="module load $hilbert_env ; "
 	fi
 
-    # Limit to single socket?
     local taskset=""
+    local inner_command=""
+    local complete_command=""
+    local ssh_wrapped=""
+
+    printf -v cmd '%q ' $cmd
+    # Limit to single socket?
     if [ "${__HILBERT_NODES_SINGLE_SOCKET[$node]}" ]; then
-        taskset="taskset -c 0-11"
+        printf -v inner_command '%q ' $env taskset -c 0-11 bash -c "\"$cmd\""
+    else
+		printf -v inner_command '%q ' $env $cmd
     fi
+
+    # Run inside pbs_attach for resource monitoring
+    if [ "$__PBS_ATTACH" == "1" ]; then
+		printf -v complete_command '%q ' pbs_attach -P -s -j $__HILBERT_JOB_ID_LONG bash -c "\"$inner_command\""
+	else
+		complete_command=$inner_command
+	fi
+
+	printf -v ssh_wrapped '%q ' ssh -q ${__HILBERT_NODE_MAPPING[$node]} bash -c "\"$complete_command\""
 
 	# -n -f for nohup
 	# Use ControlMaster to establish the TCP connection, once and keep it active
@@ -190,7 +209,7 @@ cdepl_cluster_node_cmd()
 	# Note when using nohup: You must redirect stdin/stdout and not add any
 	# command before it using &&, e.g. cd ~ && nohup ...
 	# This will hang the session with controlmaster
-	ssh -o ServerAliveInterval=60 -o ControlMaster=auto -o ControlPath=~/.ssh/cdepl_%r@%h:%p.sock -o ControlPersist=60 ${__HILBERT_USER}@${__HILBERT_HOSTNAME} -n -f "ssh -q ${__HILBERT_NODE_MAPPING[$node]} \"$env $taskset $cmd\""
+	ssh -o ServerAliveInterval=60 -o ControlMaster=auto -o ControlPath=~/.ssh/cdepl_%r@%h:%p.sock -o ControlPersist=60 ${__HILBERT_USER}@${__HILBERT_HOSTNAME} -n -f bash -c "\"$ssh_wrapped\""
 }
 
 cdepl_cluster_allows_sudo()
@@ -422,6 +441,7 @@ echo \"Job finished\"
 	# Wait for node_mappings file to appear
 
 	__HILBERT_JOB_ID=$(echo $qsub_output | cut -d '.' -f 1)
+	__HILBERT_JOB_ID_LONG=$qsub_output
 
 	util_log_debug "[hilbert] Job submitted $__HILBERT_JOB_ID ($qsub_output), waiting for job to start..."
 
