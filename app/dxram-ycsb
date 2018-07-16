@@ -120,7 +120,7 @@ cdepl_app_dxram_ycsb_init()
 ##
 # Set the node type for a DXRAM YCSB instance running on a node.
 #
-# In order to declare a node an actual DXRAM node/instance, you have yo assign
+# In order to declare a node an actual DXRAM node/instance, you have to assign
 # a role. There is no default node role applied, otherwise. The node will be
 # ignored and not considered a DXRAM node/instance.
 #
@@ -339,8 +339,6 @@ cdepl_app_dxram_ycsb_threads()
 	__DXRAM_YCSB_NODE_THREADS[$node]="$threads"
 }
 
-# specify inline workload instead of using workload config making the deploy
-# script more self containing
 ##
 # Specify an inline workload instead of using a workload config making the
 # deployment script more self containing
@@ -433,7 +431,6 @@ cdepl_app_dxram_ycsb_workload_g()
 }
 
 ##
-##
 # Start a DXRAM YCSB instance on the target node.
 #
 # $1 node_range_start Node id to start instance on (or range start)
@@ -458,11 +455,23 @@ cdepl_app_ycsb_dxram_start_node()
 			__cdepl_app_dxram_ycsb_create_node_base_config $node_range_start
 		fi
 
+		local counter=0
 		local pids=""
 
 		for node in $(seq $node_range_start $node_range_end); do
 			__cdepl_app_ycsb_dxram_start_node $node &
 			pids="$pids $!"
+		
+			counter=$((counter + 1))
+
+			# Parallel deploy in batches of 10 which is the default limit
+			# for parallel connections on ssh servers, stay slightly below 
+			# this limit (sometimes, 10 causes errors on multiplexing)
+			if [ "$counter" -ge "8" ]; then
+				wait $pids
+				pids=""
+				counter=0
+			fi
 		done
 
 		wait $pids
@@ -684,11 +693,24 @@ cdepl_app_dxram_ycsb_node_cleanup()
 	local node_range_end=$2
 
 	if [ "$node_range_end" ]; then
+		local counter=0
 		local pids=""
 
 		for node in $(seq $node_range_start $node_range_end); do
 			__cdepl_app_dxram_ycsb_cleanup $node &
 			pids="$pids $!"
+
+			counter=$((counter + 1))
+
+			# Parallel deploy in batches of 10 which is the default limit
+			# for parallel connections on ssh servers, stay slightly below 
+			# this limit (sometimes, 10 causes errors on multiplexing)
+			if [ "$counter" -ge "8" ]; then
+				wait $pids
+				sleep 1
+				pids=""
+				counter=0
+			fi
 		done
 
 		wait $pids
@@ -1072,7 +1094,7 @@ __cdepl_app_dxram_ycsb_start_peer()
 
 	# Don't use && instead of ;
 	# This will hang if ssh with controlmaster and nohup is used
-	cdepl_cluster_node_cmd $node "cd $__DXRAM_YCSB_PATH ; $root nohup ./bin/ycsb $ycsb_type dxram -jvm-args '$vm_opts' -threads ${__DXRAM_YCSB_NODE_THREADS[$node]} -s -P workloads/workloada $ycsb_params > $logfile 2>&1 &"
+	cdepl_cluster_node_cmd $node "cd $__DXRAM_YCSB_PATH ; $root nohup ./bin/ycsb $ycsb_type dxram -jvm-args '$vm_opts' -threads ${__DXRAM_YCSB_NODE_THREADS[$node]} -s -P workloads/workloada $ycsb_params > $logfile 2>&1 &" "$__DXRAM_YCSB_REQUIRED_ENVIRONMENT"
 }
 
 __cdepl_app_dxram_ycsb_get_instance_running_pid()
