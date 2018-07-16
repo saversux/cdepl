@@ -190,7 +190,7 @@ cdepl_cluster_node_cmd()
     if [ "${__HILBERT_NODES_SINGLE_SOCKET[$node]}" ]; then
         printf -v inner_command '%q ' $env taskset -c 0-11 bash -c "\"$cmd\""
     else
-		printf -v inner_command '%q ' $env $cmd
+		printf -v inner_command '%q ' $env bash -c "\"$cmd\""
     fi
 
     # Run inside pbs_attach for resource monitoring
