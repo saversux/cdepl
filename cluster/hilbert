@@ -197,7 +197,7 @@ cdepl_cluster_node_cmd()
     if [ "$__PBS_ATTACH" == "1" ]; then
 		printf -v complete_command '%q ' pbs_attach -P -s -j $__HILBERT_JOB_ID_LONG bash -c "\"$inner_command\""
 	else
-		complete_command=$inner_command
+		printf -v complete_command '%q 'bash -c "\"$inner_command\""
 	fi
 
 	printf -v ssh_wrapped '%q ' ssh -q ${__HILBERT_NODE_MAPPING[$node]} bash -c "\"$complete_command\""
