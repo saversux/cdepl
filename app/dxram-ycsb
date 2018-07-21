@@ -105,7 +105,6 @@ cdepl_app_dxram_ycsb_init()
 	fi
 
 	__cdepl_app_dxram_ycsb_check
-	__cdepl_app_dxram_ycsb_check_config
 
 	# Output path setup
 	cdepl_cluster_file_system_cmd "mkdir -p $__DXRAM_YCSB_OUT_CONF_PATH"
@@ -707,40 +706,6 @@ __cdepl_app_dxram_ycsb_check()
 	fi
 }
 
-__cdepl_app_dxram_ycsb_check_config()
-{
-	# Check if config file is available and create default config
-	if [ "$(cdepl_cluster_node_cmd 0 "[ -f $__DXRAM_YCSB_CONFIG_PATH ] && echo \"1\"")" != "1" ]; then
-		util_log "[0][dxram-ycsb] No config file available, creating default config: $__DXRAM_YCSB_CONFIG_PATH"
-
-		# Don't run this on the login node (might not have java installed)
-		# Use the first actual cluster node instead
-		# sync: Ensure everything's written to disk and visible for other nodes
-		cdepl_cluster_node_cmd 0 "cd $__DXRAM_YCSB_PATH && DXRAM_OPTS='-Dlog4j.configurationFile=$__DXRAM_YCSB_LOG4J_CONFIG_PATH -Ddxram.config=$__DXRAM_CONFIG_PATH' ./$__DXRAM_YCSB_BINARY > /dev/null 2>&1" "$__DXRAM_YCSB_REQUIRED_ENVIRONMENT"
-
-		# Sanity check
-		if [ "$(cdepl_cluster_node_cmd 0 "[ -f $__DXRAM_YCSB_CONFIG_PATH ] && echo \"1\"")" != "1" ]; then
-			util_log_error_and_exit "[0][dxram-ycsb] Creating config file $__DXRAM_YCSB_CONFIG_PATH failed"
-		fi
-	else
-		local config_content="$(cdepl_cluster_node_cmd 0 "cat "$__DXRAM_YCSB_CONFIG_PATH"")"
-		# Check if corrupted configuration file
-		local component_header=`echo $config_content | grep "m_componentConfigs"`
-		local service_header=`echo $config_content | grep "m_serviceConfigs"`
-		if [ "$component_header" = "" ] && [ "$service_header" = "" ] ; then
-			util_log "[0][dxram-ycsb] Configuration file $__DXRAM_YCSB_CONFIG_PATH corrupted, deleting and creating default"
-
-			# Configuration file seems to be corrupted -> start dxram once to create new configuration
-			cdepl_cluster_node_cmd 0 "rm $__DXRAM_YCSB_CONFIG_PATH && cd $__DXRAM_YCSB_PATH && DXRAM_OPTS='-Dlog4j.configurationFile=$__DXRAM_YCSB_LOG4J_CONFIG_PATH -Ddxram.config=$__DXRAM_CONFIG_PATH' ./$__DXRAM_YCSB_BINARY > /dev/null 2>&1" "$__DXRAM_YCSB_REQUIRED_ENVIRONMENT"
-
-			# Sanity check
-			if [ "$(cdepl_cluster_node_cmd 0 "[ -f $__DXRAM_YCSB_CONFIG_PATH ] && echo \"1\"")" != "1" ]; then
-				util_log_error_and_exit "[0][dxram-ycsb] Creating config file $__DXRAM_YCSB_CONFIG_PATH failed"
-			fi
-		fi
-	fi
-}
-
 __cdepl_app_dxram_ycsb_resolve_default_config_values()
 {
 	local node_count="$(cdepl_cluster_get_alloc_node_count)"
@@ -918,7 +883,6 @@ __cdepl_app_dxram_ycsb_start_superpeer()
 	# Required to fix JNI crashing with libIbdxnet (see JNINotes.md in ibnet repository)
 	vm_opts="-XX:+UseMembar"
 
-	vm_opts="$vm_opts -Dlog4j.configurationFile=$__DXRAM_YCSB_LOG4J_CONFIG_PATH"
 	vm_opts="$vm_opts -Ddxram.config=$node_config_path"
 	vm_opts="$vm_opts -Ddxram.m_config.m_engineConfig.m_address.m_ip=$ip"
 	vm_opts="$vm_opts -Ddxram.m_config.m_engineConfig.m_address.m_port=${__DXRAM_YCSB_NODE_PORT[$node]}"
