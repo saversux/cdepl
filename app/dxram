@@ -91,6 +91,7 @@ cdepl_app_dxram_init()
 	fi
 
 	__cdepl_app_dxram_check
+	__cdepl_app_dxram_check_config
 
 	# Output path setup
 	cdepl_cluster_file_system_cmd "mkdir -p $__DXRAM_OUT_CONF_PATH"
@@ -482,6 +483,38 @@ __cdepl_app_dxram_check()
 	fi
 }
 
+__cdepl_app_dxram_check_config()
+{
+	# Check if config file is available and create default config
+	if [ "$(cdepl_cluster_node_cmd 0 "[ -f $__DXRAM_CONFIG_PATH ] && echo \"1\"")" != "1" ]; then
+		util_log "[0][dxram] No config file available, creating default config: $__DXRAM_CONFIG_PATH"
+
+		# Don't run this on the login node (might not have java installed)
+		# Use the first actual cluster node instead
+		cdepl_cluster_node_cmd 0 "cd $__DXRAM_PATH && DXRAM_OPTS='-Ddxram.config=$__DXRAM_CONFIG_PATH' ./$__DXRAM_BINARY > /dev/null 2>&1" "$__DXRAM_REQUIRED_ENVIRONMENT"
+
+		# Sanity check
+		if [ "$(cdepl_cluster_node_cmd 0 "[ -f $__DXRAM_CONFIG_PATH ] && echo \"1\"")" != "1" ]; then
+			util_log_error_and_exit "[0][dxram] Creating config file $__DXRAM_CONFIG_PATH failed"
+		fi
+	else
+		local config_content="$(cdepl_cluster_node_cmd 0 "cat "$__DXRAM_CONFIG_PATH"")"
+		# Check if corrupted configuration file
+		local component_header=`echo $config_content | grep "m_componentConfigs"`
+		local service_header=`echo $config_content | grep "m_serviceConfigs"`
+		if [ "$component_header" = "" ] && [ "$service_header" = "" ] ; then
+			util_log "[0][dxram] Configuration file $__DXRAM_CONFIG_PATH corrupted, deleting and creating default"
+
+			# Configuration file seems to be corrupted -> start dxram once to create new configuration
+			cdepl_cluster_node_cmd 0 "rm $__DXRAM_CONFIG_PATH && cd $__DXRAM_PATH && DXRAM_OPTS='-Ddxram.config=$__DXRAM_CONFIG_PATH' ./$__DXRAM_BINARY && sync > /dev/null 2>&1" "$__DXRAM_REQUIRED_ENVIRONMENT"
+
+			# Sanity check
+			if [ "$(cdepl_cluster_node_cmd 0 "[ -f $__DXRAM_CONFIG_PATH ] && echo \"1\"")" != "1" ]; then
+				util_log_error_and_exit "[0][dxram] Creating config file $__DXRAM_CONFIG_PATH failed"
+			fi
+		fi
+	fi
+}
 
 __cdepl_app_dxram_resolve_default_config_values()
 {
