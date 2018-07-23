@@ -87,11 +87,11 @@ cdepl_script_process_cmd_args()
 	# Check benchmark args here for early abort if invalid
 	local argc=$(echo $BENCHMARK_ARGS | wc -w)
 
-	if [ "$argc" != "8" ]; then
+	if [ "$argc" != "9" ]; then
 		util_log_error "Missing benchmark arguments"
 		util_log_error "Usage: <total_nodes> <cluster_type> <cluster_user> [init args for cluster type...] -- [benchmark args...]"
-		util_log_error "Benchmark args: <network locator> <storage size mb per node> <num ramcloud storage nodes> <num ycsb benchmark nodes> <num ycsb benchmark threads> <workload: a, b, g> <record count per node> <operation count per node>"
-		util_log_error_and_exit "Example: infrc 1024 1 1 1 a 10000 1000000"
+		util_log_error "Benchmark args: <network locator> <storage size mb per node> <storage worker threads> <num ramcloud storage nodes> <num ycsb benchmark nodes> <num ycsb benchmark threads> <workload: a, b, g> <record count per node> <operation count per node>"
+		util_log_error_and_exit "Example: infrc 1024 4 1 1 1 a 10000 1000000"
 	fi
 
 	RAMCLOUD_PATH="/home/${CLUSTER_USER}/RAMCloud"
@@ -134,12 +134,13 @@ cdepl_script_deploy()
 
 	local network_locator="$(echo $BENCHMARK_ARGS | cut -d ' ' -f 1)"
 	local storage_size="$(echo $BENCHMARK_ARGS | cut -d ' ' -f 2)"
-	local storage_nodes="$(echo $BENCHMARK_ARGS | cut -d ' ' -f 3)"
-	local ycsb_nodes="$(echo $BENCHMARK_ARGS | cut -d ' ' -f 4)"
-	local ycsb_threads="$(echo $BENCHMARK_ARGS | cut -d ' ' -f 5)"
-	local workload="$(echo $BENCHMARK_ARGS | cut -d ' ' -f 6)"
-	local recordcount="$(echo $BENCHMARK_ARGS | cut -d ' ' -f 7)"
-	local operationcount="$(echo $BENCHMARK_ARGS | cut -d ' ' -f 8)"	
+	local storage_worker_threads="$(echo $BENCHMARK_ARGS | cut -d ' ' -f 3)"
+	local storage_nodes="$(echo $BENCHMARK_ARGS | cut -d ' ' -f 4)"
+	local ycsb_nodes="$(echo $BENCHMARK_ARGS | cut -d ' ' -f 5)"
+	local ycsb_threads="$(echo $BENCHMARK_ARGS | cut -d ' ' -f 6)"
+	local workload="$(echo $BENCHMARK_ARGS | cut -d ' ' -f 7)"
+	local recordcount="$(echo $BENCHMARK_ARGS | cut -d ' ' -f 8)"
+	local operationcount="$(echo $BENCHMARK_ARGS | cut -d ' ' -f 9)"	
 
 	# Initialize ramcloud deployment
 	cdepl_app_ramcloud_init $RAMCLOUD_PATH
@@ -157,6 +158,7 @@ cdepl_script_deploy()
 		cdepl_app_ramcloud_node_type $i "S"
 		cdepl_app_ramcloud_network_transport $network_locator
 		cdepl_app_ramcloud_node_memory $i $storage_size
+		cdepl_app_ramcloud_node_worker_threads $i $storage_worker_threads
 	done
 
 	# Start coordinator and wait before starting servers
