@@ -62,7 +62,7 @@ __DXRAM_YCSB_TOTAL_BENCHMARK_NODES=""
 __DXRAM_YCSB_NODE_THREADS=()
 
 # Specify workload inline
-__DXRAM_YCSB_WORKLOAD_RECORDCOUNT=""
+__DXRAM_YCSB_WORKLOAD_RECORDCOUNT_PER_NODE=""
 __DXRAM_YCSB_WORKLOAD_OPERATIONCOUNT=""
 __DXRAM_YCSB_WORKLOAD_READPROPORTION=""
 __DXRAM_YCSB_WORKLOAD_UPDATEPROPORTION=""
@@ -362,7 +362,7 @@ cdepl_app_dxram_ycsb_workload()
 	local fieldcount=$6
 	local fieldlength=$7
 
-	__DXRAM_YCSB_WORKLOAD_RECORDCOUNT="$recordcount"
+	__DXRAM_YCSB_WORKLOAD_RECORDCOUNT_PER_NODE="$recordcount"
 	__DXRAM_YCSB_WORKLOAD_OPERATIONCOUNT="$operationcount"
 	__DXRAM_YCSB_WORKLOAD_READPROPORTION="$readportion"
 	__DXRAM_YCSB_WORKLOAD_UPDATEPROPORTION="$updateportion"
@@ -1094,8 +1094,14 @@ __cdepl_app_dxram_ycsb_start_peer()
 	ycsb_params="$ycsb_params -p scanproportion=0.0"
 	ycsb_params="$ycsb_params -p updateproportion=0.0"
 
-	if [ "$__DXRAM_YCSB_WORKLOAD_RECORDCOUNT" ]; then
-		ycsb_params="$ycsb_params -p recordcount=$__DXRAM_YCSB_WORKLOAD_RECORDCOUNT"
+	if [ "$__DXRAM_YCSB_WORKLOAD_RECORDCOUNT_PER_NODE" ]; then
+		# For the storage nodes: how many records it has to load
+		# For the benchmark node: total number of records in the whole DB
+		if [ "$ycsb_type" = "load" ]; then
+			ycsb_params="$ycsb_params -p recordcount=$__DXRAM_YCSB_WORKLOAD_RECORDCOUNT_PER_NODE"
+		else
+			ycsb_params="$ycsb_params -p recordcount=$((__DXRAM_YCSB_WORKLOAD_RECORDCOUNT_PER_NODE * __DXRAM_YCSB_TOTAL_STORAGE_NODES))"
+		fi
 	fi
 
 	if [ "$__DXRAM_YCSB_WORKLOAD_OPERATIONCOUNT" ]; then

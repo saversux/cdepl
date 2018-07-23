@@ -207,13 +207,13 @@ cdepl_script_deploy()
 
 	case $workload in
 		"a")
-			cdepl_app_dxram_ycsb_workload_a $((recordcount_per_node * storage_nodes)) $operationcount
+			cdepl_app_dxram_ycsb_workload_a $recordcount_per_node $operationcount
 			;;
 		"b")
-			cdepl_app_dxram_ycsb_workload_b $((recordcount_per_node * storage_nodes)) $operationcount
+			cdepl_app_dxram_ycsb_workload_b $recordcount_per_node $operationcount
 			;;
 		"g")
-			cdepl_app_dxram_ycsb_workload_g $((recordcount_per_node * storage_nodes)) $operationcount
+			cdepl_app_dxram_ycsb_workload_g $recordcount_per_node $operationcount
 			;;
 		*)
 			util_log_error_and_exit "Invalid workload specified: $workload"
