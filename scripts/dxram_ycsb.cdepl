@@ -91,10 +91,10 @@ cdepl_script_process_cmd_args()
 	# Check benchmark args here for early abort if invalid
 	local argc=$(echo $BENCHMARK_ARGS | wc -w)
 
-	if [ "$argc" != "9" ]; then
+	if [ "$argc" != "10" ]; then
 		util_log_error "Missing benchmark arguments"
 		util_log_error "Usage: <total_nodes> <cluster_type> <cluster_user> [init args for cluster type...] -- [benchmark args...]"
-		util_log_error_and_exit "Benchmark args: <network type: eth, ib> <num dxram storage nodes> <num ycsb benchmark nodes> <storage size mb per node> <num message handler> <num ycsb benchmark threads> <workload: a, b, g> <record count per node> <operation count per node>"
+		util_log_error_and_exit "Benchmark args: <network type: eth, ib> <num dxram storage nodes> <num ycsb benchmark nodes> <storage size mb per node> <num message handler storages> <num message handlers benchmark clients> <num ycsb benchmark threads> <workload: a, b, g> <record count per node> <operation count per node>"
 	fi
 
 	DXRAM_YCSB_PATH="/home/${CLUSTER_USER}/ycsb-dxram"
@@ -136,11 +136,12 @@ cdepl_script_deploy()
 	local storage_nodes="$(echo $BENCHMARK_ARGS | cut -d ' ' -f 2)"
 	local ycsb_nodes="$(echo $BENCHMARK_ARGS | cut -d ' ' -f 3)"
 	local storage_size="$(echo $BENCHMARK_ARGS | cut -d ' ' -f 4)"
-	local num_message_handler="$(echo $BENCHMARK_ARGS | cut -d ' ' -f 5)"
-	local ycsb_threads="$(echo $BENCHMARK_ARGS | cut -d ' ' -f 6)"
-	local workload="$(echo $BENCHMARK_ARGS | cut -d ' ' -f 7)"
-	local recordcount="$(echo $BENCHMARK_ARGS | cut -d ' ' -f 8)"
-	local operationcount="$(echo $BENCHMARK_ARGS | cut -d ' ' -f 9)"
+	local num_message_handler_storages="$(echo $BENCHMARK_ARGS | cut -d ' ' -f 5)"
+	local num_message_handler_benchmark="$(echo $BENCHMARK_ARGS | cut -d ' ' -f 6)"
+	local ycsb_threads="$(echo $BENCHMARK_ARGS | cut -d ' ' -f 7)"
+	local workload="$(echo $BENCHMARK_ARGS | cut -d ' ' -f 8)"
+	local recordcount="$(echo $BENCHMARK_ARGS | cut -d ' ' -f 9)"
+	local operationcount="$(echo $BENCHMARK_ARGS | cut -d ' ' -f 10)"
 
 	if [ "$((1 + storage_nodes + ycsb_nodes))" -gt "$TOTAL_NODES" ]; then
 		util_log_error_and_exit "Not enough nodes for 1 superpeer, $storage_nodes storage nodes and $ycsb_nodes ycsb benchmark nodes: total $TOTAL_NODES"
@@ -185,7 +186,7 @@ cdepl_script_deploy()
 		cdepl_app_dxram_ycsb_node_network $i $network_type
 		cdepl_app_dxram_ycsb_node_type $i "PS"
 		cdepl_app_dxram_ycsb_peer_kvss $i $storage_size
-		cdepl_app_dxram_ycsb_node_message_handler $i $num_message_handler
+		cdepl_app_dxram_ycsb_node_message_handler $i $num_message_handler_storages
 
 		cdepl_app_dxram_ycsb_insertstart $i $(($recordcount * $counter))
 		counter=$((counter + 1))
@@ -196,7 +197,7 @@ cdepl_script_deploy()
 		cdepl_app_dxram_ycsb_run_as_sudo $i
 		cdepl_app_dxram_ycsb_node_network $i $network_type
 		cdepl_app_dxram_ycsb_node_type $i "PB"
-		cdepl_app_dxram_ycsb_node_message_handler $i $num_message_handler
+		cdepl_app_dxram_ycsb_node_message_handler $i $num_message_handler_benchmark
 		cdepl_app_dxram_ycsb_threads $i $ycsb_threads
 	done
 
