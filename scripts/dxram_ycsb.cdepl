@@ -140,7 +140,7 @@ cdepl_script_deploy()
 	local num_message_handler_benchmark="$(echo $BENCHMARK_ARGS | cut -d ' ' -f 6)"
 	local ycsb_threads="$(echo $BENCHMARK_ARGS | cut -d ' ' -f 7)"
 	local workload="$(echo $BENCHMARK_ARGS | cut -d ' ' -f 8)"
-	local recordcount="$(echo $BENCHMARK_ARGS | cut -d ' ' -f 9)"
+	local recordcount_per_node="$(echo $BENCHMARK_ARGS | cut -d ' ' -f 9)"
 	local operationcount="$(echo $BENCHMARK_ARGS | cut -d ' ' -f 10)"
 
 	if [ "$((1 + storage_nodes + ycsb_nodes))" -gt "$TOTAL_NODES" ]; then
@@ -188,7 +188,7 @@ cdepl_script_deploy()
 		cdepl_app_dxram_ycsb_peer_kvss $i $storage_size
 		cdepl_app_dxram_ycsb_node_message_handler $i $num_message_handler_storages
 
-		cdepl_app_dxram_ycsb_insertstart $i $(($recordcount * $counter))
+		cdepl_app_dxram_ycsb_insertstart $i $((recordcount_per_node * counter))
 		counter=$((counter + 1))
 	done
 
@@ -207,13 +207,13 @@ cdepl_script_deploy()
 
 	case $workload in
 		"a")
-			cdepl_app_dxram_ycsb_workload_a $recordcount $operationcount
+			cdepl_app_dxram_ycsb_workload_a $((recordcount_per_node * storage_nodes)) $operationcount
 			;;
 		"b")
-			cdepl_app_dxram_ycsb_workload_b $recordcount $operationcount
+			cdepl_app_dxram_ycsb_workload_b $((recordcount_per_node * storage_nodes)) $operationcount
 			;;
 		"g")
-			cdepl_app_dxram_ycsb_workload_g $recordcount $operationcount
+			cdepl_app_dxram_ycsb_workload_g $((recordcount_per_node * storage_nodes)) $operationcount
 			;;
 		*)
 			util_log_error_and_exit "Invalid workload specified: $workload"
