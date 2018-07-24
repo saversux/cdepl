@@ -831,7 +831,7 @@ __cdepl_app_dxram_get_instance_running_pid()
 	fi
 
 	# Consider port for multiple instances on a single machine (e.g. localhost)
-	echo "$(cdepl_cluster_node_cmd $node "pgrep -f '^java.*${__DXRAM_PROCESS_IDENTIFIER}${port}'")"
+	echo "$(cdepl_cluster_node_cmd $node "pgrep -f 'java.*${__DXRAM_PROCESS_IDENTIFIER}${port}'")"
 }
 
 __cdepl_app_dxram_cleanup()
