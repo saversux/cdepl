@@ -227,8 +227,20 @@ cdepl_script_deploy()
 	cdepl_app_ycsb_dxram_start_node 1 $storage_nodes
 
 	for i in $(seq 1 $storage_nodes); do
-		cdepl_app_dxram_ycsb_storage_finished_loading $i
-	done
+        cdepl_app_dxram_ycsb_storage_finished_loading $i &
+        pids="$pids $!"
+
+        counter=$((counter + 1))
+
+		# Parallel deploy in batches of 10 which is the default limit
+		# for parallel connections on ssh servers, stay slightly below
+		# this limit (sometimes, 10 causes errors on multiplexing)
+		if [ "$counter" -ge "8" ] || [ "$i" = "$storage_nodes" ]; then
+			wait $pids
+			pids=""
+			counter=0
+		fi
+    done 
 
 	# Start benchmark and wait for completion
 	cdepl_app_ycsb_dxram_start_node $benchmark_range_start $benchmark_range_end
