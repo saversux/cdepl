@@ -338,6 +338,11 @@ __cdepl_app_ramcloud_start_coordinator()
     # Coordinator locator
     args="-C ${__RAMCLOUD_NETWORK_TRANSPORT}:host=$hostname,port=${__RAMCLOUD_NETWORK_PORT_COORDINATOR}"
 
+# Number of worker threads for dispatching incoming network data
+    if [ "${__RAMCLOUD_NODE_WORKER_THREADS[$node]}" ]; then
+		args="${args} --maxCores ${__RAMCLOUD_NODE_WORKER_THREADS[$node]}"
+	fi
+
     # Don't use && instead of ;
 	# This will hang if the ssh with controlmaster and nohup is used
 	cdepl_cluster_node_cmd $node "cd $RAMCLOUD_PATH ; $root nohup $__RAMCLOUD_COORDINATOR_REL_PATH $args > $logfile 2>&1 &" "$__RAMCLOUD_REQUIRED_ENVIRONMENT"
