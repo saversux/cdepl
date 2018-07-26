@@ -153,6 +153,7 @@ cdepl_script_deploy()
 
 	# Apply node settings before starting any nodes
 	cdepl_app_ramcloud_node_type 0 "C"
+	cdepl_app_ramcloud_node_worker_threads 0 $storage_worker_threads
 
 	for i in $(seq 1 $storage_nodes); do
 		cdepl_app_ramcloud_node_type $i "S"
@@ -204,6 +205,7 @@ cdepl_script_deploy()
 		cdepl_app_ramcloud_ycsb_run_as_sudo $i
 		cdepl_app_ramcloud_ycsb_network_transport $network_locator
 		cdepl_app_ramcloud_ycsb_node_type $i "L"
+		cdepl_app_ramcloud_ycsb_threads $i $ycsb_threads
 
 		cdepl_app_ramcloud_ycsb_insertstart $i $(($recordcount * $counter))
 		counter=$((counter + 1))
@@ -221,6 +223,7 @@ cdepl_script_deploy()
 		cdepl_app_ramcloud_ycsb_run_as_sudo $i
 		cdepl_app_ramcloud_ycsb_network_transport $network_locator
 		cdepl_app_ramcloud_ycsb_node_type $i "B"
+                cdepl_app_ramcloud_ycsb_threads $i $ycsb_threads
 	done
 
 	cdepl_app_ramcloud_ycsb_start_node $node_range_start $node_range_end
