@@ -177,11 +177,23 @@ cdepl_app_ramcloud_start_node()
 	local node_range_end=$2
 
 	if [ "$node_range_end" ]; then
+		local counter=0
 		local pids=""
 
 		for node in $(seq $node_range_start $node_range_end); do
 			__cdepl_app_ramcloud_start_node $node &
 			pids="$pids $!"
+		
+			counter=$((counter + 1))
+
+			# Parallel deploy in batches of 10 which is the default limit
+			# for parallel connections on ssh servers, stay slightly below 
+			# this limit (sometimes, 10 causes errors on multiplexing)
+			if [ "$counter" -ge "8" ]; then
+				wait $pids
+				pids=""
+				counter=0
+			fi
 		done
 
 		wait $pids
