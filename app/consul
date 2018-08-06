@@ -1,0 +1,158 @@
+#
+# Copyright (C) 2018 Heinrich-Heine-Universitaet Duesseldorf, Institute of Computer Science, Department Operating Systems
+#
+# This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>
+#
+
+#!/bin/bash
+
+##
+# App module for Consul
+##
+
+__CONSUL_PATH=""
+__CONSUL_OUT_PATH=""
+
+readonly __CONSUL_LOG_FILE_POSTFIX="_server"
+readonly __CONSUL_LOG_FILE_CLIENT_POSTFIX="_client"
+readonly __CONSUL_DATA_DIR="/tmp/consul"
+
+cdepl_app_consul_init()
+{
+	local path=$1
+
+	__CONSUL_PATH="$(cdepl_cluster_node_cmd 0 "readlink -f $path")"
+	__CONSUL_OUT_PATH="${__DEPLOY_CUR_OUT_PATH}/consul"
+
+	if [ ! "$__CONSUL_PATH" ] || [ "$(cdepl_cluster_file_system_cmd "[ -d $__CONSUL_PATH ] && echo \"1\"")" != "1" ]; then
+		util_log_error_and_exit "[consul]: Path does not exist ($path), resolved path: $__CONSUL_PATH"
+	fi
+
+	util_log "[consul] Initialized: $__CONSUL_PATH"
+	util_log "[consul] Output: $__CONSUL_OUT_PATH"
+}
+
+##
+# Start a consul (server) instance on the target node.
+#
+# $1 node Target node id
+##
+cdepl_app_consul_start()
+{
+	local node=$1
+
+	local logfile=${__CONSUL_OUT_PATH}/node${node}${__CONSUL_LOG_FILE_POSTFIX}
+
+	util_log "[$node][consul] Starting, logfile: $logfile"
+
+	cdepl_cluster_node_cmd $node "mkdir -p $__CONSUL_OUT_PATH"
+    
+	cdepl_cluster_node_cmd $node "nohup ${__CONSUL_PATH}/consul agent -data-dir=${__CONSUL_DATA_DIR} >> $logfile 2>&1 &"
+
+	if [ "$?" != "0" ]; then
+		util_log_error_and_exit "[$node][consul] Starting failed, also check logfile $logfile"
+	fi
+}
+
+##
+# For for a started consul (server) instance to be started
+#
+# $1 node Target node id with started consul (server) instance
+##
+cdepl_app_consul_wait_started()
+{
+	local node=$1
+
+	local logfile=${__CONSUL_OUT_PATH}/node${node}${__CONSUL_LOG_FILE_POSTFIX}
+	local logfile_client=${__CONSUL_OUT_PATH}/node${node}${__CONSUL_LOG_FILE_CLIENT_POSTFIX}
+
+	util_log "[$node][consul] Waiting for startup"
+
+	while true; do
+		echo -n "."
+
+		local success_started=$(cdepl_cluster_node_cmd $node "cat "$logfile" 2> /dev/null | grep 'Starting Consul agent'")
+		local success_running=$(cdepl_cluster_node_cmd $node "cat "$logfile" 2> /dev/null | grep 'Consul agent running!'")
+		local fail_file=$(cdepl_cluster_node_cmd $node "cat "$logfile" 2> /dev/null | grep 'No such file or directory'")
+		local fail_pid=$(cdepl_cluster_node_cmd $node "cat "$logfile" 2> /dev/null | grep 'FAILED TO WRITE PID'")
+		local fail_started=$(cdepl_cluster_node_cmd $node "cat "$logfile" 2> /dev/null | grep 'SERVER DID NOT START'")
+
+		if [ "$success_started" != "" ] || [ "$success_running" != "" ]; then
+			local pid=$(cdepl_cluster_node_cmd $node "pgrep -f 'consul'")
+
+			echo ""
+
+			if [ "$pid" = "" ]; then
+				util_log_error_and_exit "[$node][consul] Could not find started process"
+			fi
+
+			util_log "[$node][consul] Started (pid: $pid)"
+
+			break
+		elif [ "$fail_file" != "" -o "$fail_pid" != "" -o "$fail_started" != "" ] ; then
+			echo ""
+			util_log_error_and_exit "[$node][consul] Could not be started. See log file $logfile"
+		fi
+
+		sleep 1.0
+	done
+}
+
+##
+# Cleanup any still running or remaining/crashed instances on the target node
+#
+# $1 Target node id (or start node id of range if second parameter provided)
+# $2 Optional: Node id range end (including) and first parameter is interpreted
+#    as range start (including)
+##
+cdepl_app_consul_cleanup()
+{
+	local node_range_start=$1
+	local node_range_end=$2
+
+	if [ "$node_range_end" ]; then
+		local pids=""
+
+		for node in $(seq $node_range_start $node_range_end); do
+			__cdepl_app_consul_cleanup $node &
+			pids="$pids $!"
+		done
+
+		wait $pids
+	else
+		__cdepl_app_consul_cleanup $node_range_start
+	fi
+}
+
+__cdepl_app_consul_get_instance_running_pid()
+{
+	local node=$1
+
+	echo "$(cdepl_cluster_node_cmd $node "pgrep -f 'consul'")"
+}
+
+__cdepl_app_consul_cleanup()
+{
+	local node=$1
+
+	util_log "[$node][consul] Cleanup..."
+
+	local pid=$(cdepl_cluster_node_cmd $node "pgrep -f 'consul'")
+
+	if [ "$pid" != "" ]; then
+		cdepl_cluster_node_cmd $node "kill -9 $pid > /dev/null 2>&1"
+
+		if [ "$?" != "0" ]; then
+			util_log_warn "[$node][consul] Killing $pid failed, consul might stay alive"
+		else
+			util_log "[$node][consul] Killed (pid: $pid)"
+		fi
+	fi
+}

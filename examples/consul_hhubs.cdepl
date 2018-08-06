@@ -1,0 +1,77 @@
+#
+# Copyright (C) 2018 Heinrich-Heine-Universitaet Duesseldorf, Institute of Computer Science, Department Operating Systems
+#
+# This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>
+#
+
+#!/bin/bash
+
+#
+# Example for (basic) consul deployment
+#
+
+TOTAL_NODES=1
+
+# Cluster type and user selected
+CLUSTER_TYPE="hhubs"
+CLUSTER_USER="user"
+
+# Parameters for consul
+CONSUL_PATH="/home/${CLUSTER_USER}/consul"
+
+cdepl_script_process_cmd_args()
+{
+	local stub=""
+}
+
+cdepl_script_cluster_node_setup()
+{
+	# Set the log level to output debug info
+	util_log_set_level "$UTIL_LOG_LEVEL_DEBUG"
+
+	# Init the cluster environment to deploy to
+	cdepl_cluster_init $CLUSTER_TYPE $CLUSTER_USER
+
+	# Load application modules of apps you want to deploy
+	cdepl_cluster_app_load "consul"
+
+	# Alloc total number of nodes for this deployment
+	cdepl_cluster_node_alloc $TOTAL_NODES
+
+	# Set our output path for log files and configurations 
+	# for the applications deployed
+	cdepl_deploy_setup_out_path $CLUSTER_USER
+}
+
+cdepl_script_deploy()
+{
+	# Initilize consul deployment
+	cdepl_app_consul_init $CONSUL_PATH
+
+	# Ensure that no (old) consul instance is running on any node
+	for i in `seq 0 $((TOTAL_NODES - 1))`; do
+		cdepl_app_consul_cleanup $i
+	done
+
+	# Start consul instances and wait until started
+	for i in `seq 0 $((TOTAL_NODES - 1))`; do
+		cdepl_app_consul_start $i
+		cdepl_app_consul_wait_started $i
+	done
+
+	# Wait a moment before cleaning up
+	sleep 5
+}
+
+cdepl_script_cleanup()
+{	
+	# Kill consul
+	cdepl_app_consul_cleanup 0 $((TOTAL_NODES - 1))
+}
