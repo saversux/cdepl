@@ -19,10 +19,13 @@
 
 __CONSUL_PATH=""
 __CONSUL_OUT_PATH=""
+__CONSUL_GUI_ENABLED=""
+__CONSUL_BOOTSTRAP_NODE=""
 
 readonly __CONSUL_LOG_FILE_POSTFIX="_server"
 readonly __CONSUL_LOG_FILE_CLIENT_POSTFIX="_client"
 readonly __CONSUL_DATA_DIR="/tmp/consul"
+readonly __CONSUL_GUI_ENABLED_DEFAULT="false"
 
 cdepl_app_consul_init()
 {
@@ -48,14 +51,28 @@ cdepl_app_consul_start()
 {
 	local node=$1
 
+    local param_gui=""
+
 	local logfile=${__CONSUL_OUT_PATH}/node${node}${__CONSUL_LOG_FILE_POSTFIX}
+
+    __cdepl_app_consul_resolve_default_config_values
+
+    if [ "${__CONSUL_BOOTSTRAP_NODE}" = "" ]; then
+        util_log_error_and_exit "[$node][consul] No Consul bootstrap node specified"
+    fi
 
 	util_log "[$node][consul] Starting, logfile: $logfile"
 
 	cdepl_cluster_node_cmd $node "mkdir -p $__CONSUL_OUT_PATH"
-    
-	cdepl_cluster_node_cmd $node "nohup ${__CONSUL_PATH}/consul agent -data-dir=${__CONSUL_DATA_DIR} >> $logfile 2>&1 &"
 
+    if [ "${__CONSUL_BOOTSTRAP_NODE}" = "$node" ]; then
+        cdepl_cluster_node_cmd $node "nohup ${__CONSUL_PATH}/consul agent -server -bootstrap -data-dir=${__CONSUL_DATA_DIR} >> $logfile 2>&1 &"
+    else
+        local bootstrap_ip="$(cdepl_cluster_resolve_node_to_ip ${__CONSUL_BOOTSTRAP_NODE})"
+        util_log $__CONSUL_BOOTSTRAP_NODE
+        cdepl_cluster_node_cmd $node "nohup ${__CONSUL_PATH}/consul agent -server -join $bootstrap_ip -data-dir=${__CONSUL_DATA_DIR} >> $logfile 2>&1 &"
+    fi
+    
 	if [ "$?" != "0" ]; then
 		util_log_error_and_exit "[$node][consul] Starting failed, also check logfile $logfile"
 	fi
@@ -131,6 +148,18 @@ cdepl_app_consul_cleanup()
 	fi
 }
 
+##
+# Sets the consul bootstrap node.
+#
+# $1 node Target node id
+##
+cdepl_app_consul_set_bootstrap_node()
+{
+	local node=$1
+
+    __CONSUL_BOOTSTRAP_NODE="$node"
+}
+
 __cdepl_app_consul_get_instance_running_pid()
 {
 	local node=$1
@@ -155,4 +184,11 @@ __cdepl_app_consul_cleanup()
 			util_log "[$node][consul] Killed (pid: $pid)"
 		fi
 	fi
+}
+
+__cdepl_app_consul_resolve_default_config_values()
+{
+    if [ "${__CONSUL_GUI_ENABLED}" = "" ]; then
+        __CONSUL_GUI_ENABLED="$__CONSUL_GUI_ENABLED_DEFAULT"
+    fi
 }

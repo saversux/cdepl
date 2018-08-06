@@ -17,7 +17,7 @@
 # Example for (basic) consul deployment
 #
 
-TOTAL_NODES=1
+TOTAL_NODES=2
 
 # Cluster type and user selected
 CLUSTER_TYPE="hhubs"
@@ -60,14 +60,17 @@ cdepl_script_deploy()
 		cdepl_app_consul_cleanup $i
 	done
 
+	cdepl_app_consul_set_bootstrap_node 0
+
 	# Start consul instances and wait until started
 	for i in `seq 0 $((TOTAL_NODES - 1))`; do
 		cdepl_app_consul_start $i
 		cdepl_app_consul_wait_started $i
 	done
 
-	# Wait a moment before cleaning up
-	sleep 5
+	util_log_debug "[hhubs] All Consul instances are running. Press <Enter> to kill them"
+
+	read
 }
 
 cdepl_script_cleanup()
