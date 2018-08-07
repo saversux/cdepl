@@ -58,6 +58,7 @@ __DXRAM_NODE_REMOTE_PROFILE_YJP_AGENT_LIB=()
 __DXRAM_NODE_PEER_KVSS=()
 __DXRAM_NODE_PEER_BACKUP_SRC=()
 __DXRAM_NODE_PEER_BACKUP_DST=()
+__DXRAM_NODE_MS_ROLE=()
 
 ##
 # Initialize and setup the DXRAM environment. This must be called before any
@@ -296,6 +297,18 @@ cdepl_app_dxram_peer_backup_src()
 	fi
 
 	__DXRAM_NODE_PEER_BACKUP_SRC[$node]="$value"
+}
+
+cdepl_app_dxram_master_slave_role()
+{
+	local node=$1
+	local value=$2
+
+	if [ "$node" -ge "$(cdepl_cluster_get_alloc_node_count)" ]; then
+		util_log_error_and_exit "[$node][dxram] Invalid node id $node > $(cdepl_cluster_get_alloc_node_count)"
+	fi
+
+	__DXRAM_NODE_MS_ROLE[$node]="$value"
 }
 
 ##
@@ -789,6 +802,10 @@ __cdepl_app_dxram_start_peer()
 
 	if [ "${__DXRAM_NODE_MSG_HANDLER[$node]}" ]; then
 		vm_opts="$vm_opts -Ddxram.m_config.m_componentConfigs[NetworkComponentConfig].m_core.m_numMessageHandlerThreads=${__DXRAM_NODE_MSG_HANDLER[$node]}"
+	fi
+
+	if [ "${__DXRAM_NODE_MS_ROLE[$node]}" ]; then
+		vm_opts="$vm_opts -Ddxram.m_config.m_serviceConfigs[MasterSlaveComputeServiceConfig].m_role=${__DXRAM_NODE_MS_ROLE[$node]}"
 	fi
 
 	if [ "${__DXRAM_NODE_PEER_KVSS[$node]}" ]; then
