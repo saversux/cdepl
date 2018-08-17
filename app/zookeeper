@@ -22,6 +22,7 @@ __ZOOKEEPER_OUT_PATH=""
 
 readonly __ZOOKEEPER_LOG_FILE_POSTFIX="_server"
 readonly __ZOOKEEPER_LOG_FILE_CLIENT_POSTFIX="_client"
+readonly __ZOOKEEPER_CONF_FILE="conf/zoo.cfg"
 
 readonly __ZOOKEEPER_REQUIRED_ENVIRONMENT="java/1.8"
 
@@ -35,6 +36,11 @@ cdepl_app_zookeeper_init()
 	if [ ! "$__ZOOKEEPER_PATH" ] || [ "$(cdepl_cluster_file_system_cmd "[ -d $__ZOOKEEPER_PATH ] && echo \"1\"")" != "1" ]; then
 		util_log_error_and_exit "[zookeeper]: Path does not exist ($path), resolved path: $__ZOOKEEPER_PATH"
 	fi
+
+	sed -i 's/^\(dataDir=\).*$/\1\/tmp\/zookeeper/' $__ZOOKEEPER_PATH/$__ZOOKEEPER_CONF_FILE
+
+	# Delete Zookeeper's data directory
+	rm -rf /tmp/zookeeper
 
 	util_log "[zookeeper] Initialized: $__ZOOKEEPER_PATH"
 	util_log "[zookeeper] Output: $__ZOOKEEPER_OUT_PATH"
@@ -157,7 +163,7 @@ __cdepl_app_zookeeper_get_instance_running_pid()
 {
 	local node=$1
 
-	echo "$(cdepl_cluster_node_cmd $node "pgrep -f '^java -Dzookeeper.log.dir'")"
+	echo "$(cdepl_cluster_node_cmd $node "pgrep -f 'java -Dzookeeper.log.dir'")"
 }
 
 __cdepl_app_zookeeper_cleanup()
@@ -166,7 +172,7 @@ __cdepl_app_zookeeper_cleanup()
 
 	util_log "[$node][zookeeper] Cleanup..."
 
-	local pid=$(cdepl_cluster_node_cmd $node "pgrep -f '^java -Dzookeeper.log.dir'")
+	local pid=$(cdepl_cluster_node_cmd $node "pgrep -f 'java -Dzookeeper.log.dir'")
 
 	if [ "$pid" != "" ]; then
 		cdepl_cluster_node_cmd $node "kill -9 $pid > /dev/null 2>&1"
