@@ -1,0 +1,122 @@
+#
+# Copyright (C) 2018 Heinrich-Heine-Universitaet Duesseldorf, Institute of Computer Science, Department Operating Systems
+#
+# This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>
+#
+
+#!/bin/bash
+
+#
+# Example for (basic) dxram deployment
+#
+
+TOTAL_NODES=2
+
+# Cluster type and user selected
+CLUSTER_TYPE="hhubs"
+CLUSTER_USER="user"
+
+# Parameters for consul
+CONSUL_PATH="/home/${CLUSTER_USER}/consul"
+
+# DXRAM parameters
+DX_PATH="/home/${CLUSTER_USER}/dxram"
+
+DX_PEER_PORT_START="22222"
+
+cdepl_script_process_cmd_args()
+{
+	local stub=""
+}
+
+cdepl_script_cluster_node_setup()
+{
+	# Set the log level to output debug info
+	util_log_set_level "$UTIL_LOG_LEVEL_DEBUG"
+
+	# Init the cluster environment to deploy to
+	cdepl_cluster_init $CLUSTER_TYPE $CLUSTER_USER
+
+	# Load application modules of apps you want to deploy
+	cdepl_cluster_app_load "consul"
+	cdepl_cluster_app_load "dxram"
+
+	# Alloc total number of nodes for this deployment
+	cdepl_cluster_node_alloc $TOTAL_NODES
+
+	# Set our output path for log files and configurations 
+	# for the applications deployed
+	cdepl_deploy_setup_out_path $CLUSTER_USER
+}
+
+cdepl_script_deploy()
+{
+	# Initilize consul deployment
+	cdepl_app_consul_init $CONSUL_PATH
+
+	# Ensure that no (old) consul instance is running on any node
+	for i in `seq 0 $((TOTAL_NODES - 1))`; do
+		cdepl_app_consul_cleanup $i
+	done
+
+	cdepl_app_consul_set_bootstrap_node 0
+
+	# Start consul instances and wait until started
+	for i in `seq 0 $((TOTAL_NODES - 1))`; do
+		cdepl_app_consul_start $i
+		cdepl_app_consul_wait_started $i
+	done
+
+	# # Initialize dxram deployment
+	# cdepl_app_dxram_init $DX_PATH $ZK_NODE $ZK_PORT
+	
+	# # Kill any still running instances from previous deployments
+	# cdepl_app_dxram_node_cleanup 0 $((TOTAL_NODES - 1))
+
+	# # Apply node settings before starting any nodes
+	# cdepl_app_dxram_node_type 0 "S"
+
+	# for i in `seq 1 $((TOTAL_NODES - 1))`; do
+	# 	# Disable sending backups on the selected peers
+	# 	cdepl_app_dxram_peer_backup_src $i false
+	# 	# Disable receiving backups on the selected peers
+	# 	cdepl_app_dxram_peer_backup_dst $i false
+	# 	cdepl_app_dxram_node_type $i "P"
+	# 	cdepl_app_dxram_peer_kvss $i 4096
+	# 	# When running localhost, we have to assign different ports for the peers
+	# 	cdepl_app_dxram_node_port $i $DX_PEER_PORT_START
+	# 	DX_PEER_PORT_START=$((DX_PEER_PORT_START + 1))
+	# done
+
+	# # Start superpeer and wait before starting peers
+	# cdepl_app_dxram_start_node 0
+	# cdepl_app_dxram_node_wait_started 0
+
+	# # Start all peers
+	# cdepl_app_dxram_start_node 1 $((TOTAL_NODES - 1))
+
+	# # Wait for all peers to be started
+	# for i in `seq 1 $((TOTAL_NODES - 1))`; do
+	# 	cdepl_app_dxram_node_wait_started $i
+	# done
+
+	util_log_debug "[hhubs] All instances are running. Press <Enter> to kill them"
+
+	read
+}
+
+cdepl_script_cleanup()
+{
+	# Kill all dxram instances
+	cdepl_app_dxram_node_cleanup 0 $((TOTAL_NODES - 1))
+	
+	# Kill zookeeper
+	cdepl_app_zookeeper_cleanup 0
+}
