@@ -1,3 +1,4 @@
+#!/bin/bash
 #
 # Copyright (C) 2018 Heinrich-Heine-Universitaet Duesseldorf, Institute of Computer Science, Department Operating Systems
 #
@@ -10,8 +11,6 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>
 #
-
-#!/bin/bash
 
 __CLUSTER_CLEANUP_ON_ERROR="1"
 __CLUSTER_CLEANUP_ON_SIGINT="1"
@@ -36,13 +35,13 @@ cdepl_cluster_init()
 	local available=0
 
 	# Check if scripts for cluster are available
-	for f in ${CDEPL_SCRIPT_DIR}/cluster/*; do
+	for f in "${CDEPL_SCRIPT_DIR}/cluster/"*; do
 		if [ "$f" = "$cluster_name" ]; then
 			available=1
 		fi
 	done
 
-	if [ ! available ]; then
+	if [ ! $available ]; then
 		util_error_and_exit "[cluster] Could not find cluster script for $cluster_name"
 	fi
 
@@ -50,9 +49,9 @@ cdepl_cluster_init()
 	util_log_debug "[cluster] Cluster user: $cluster_user"
 
 	# Include
-	source ${CDEPL_SCRIPT_DIR}/cluster/${cluster_name}
+	source "${CDEPL_SCRIPT_DIR}/cluster/${cluster_name}"
 
-	__cdepl_cluster_check_cluster_api $cluster_name
+	__cdepl_cluster_check_cluster_api "$cluster_name"
 
 	# Call "constructor"
 	_cdepl_cluster_on_init "$cluster_user" "${@:3}"
@@ -95,49 +94,49 @@ cdepl_cluster_app_load()
 	local available=0
 
 	# Check if scripts for cluster are available
-	for f in ${CDEPL_SCRIPT_DIR}/app/*; do
+	for f in "${CDEPL_SCRIPT_DIR}/app/"*; do
 		if [ "$f" = "$cluster_app" ]; then
 			available=1
 		fi
 	done
 
-	if [ ! available ]; then
+	if [ ! $available ]; then
 		util_error_and_exit "[cluster] Could not find application script for $cluster_app"
 	fi
 
 	util_log_debug "[cluster] Application loaded: $cluster_app"
 
 	# Include
-	source ${CDEPL_SCRIPT_DIR}/app/${cluster_app}
+	source "${CDEPL_SCRIPT_DIR}/app/${cluster_app}"
 }
 
 __cdepl_cluster_check_cluster_api()
 {
 	local cluster_type=$1
 
-	__cdepl_cluster_assert_function cdepl_cluster_node_alloc $cluster_type
-	__cdepl_cluster_assert_function cdepl_cluster_get_alloc_node_count $cluster_type
-	__cdepl_cluster_assert_function cdepl_cluster_node_excl $cluster_type
-	__cdepl_cluster_assert_function cdepl_cluster_node_cpu_limit_single_socket $cluster_type
-	__cdepl_cluster_assert_function cdepl_cluster_node_cpus $cluster_type
-	__cdepl_cluster_assert_function cdepl_cluster_node_mem $cluster_type
-	__cdepl_cluster_assert_function cdepl_cluster_node_network $cluster_type
-	__cdepl_cluster_assert_function cdepl_cluster_resolve_hostname_to_ip $cluster_type
-	__cdepl_cluster_assert_function cdepl_cluster_resolve_node_to_ip $cluster_type
-	__cdepl_cluster_assert_function cdepl_cluster_node_resolve_node_to_hostname $cluster_type
-	__cdepl_cluster_assert_function cdepl_cluster_node_cmd $cluster_type
-	__cdepl_cluster_assert_function cdepl_cluster_gather_log_files $cluster_type
-	__cdepl_cluster_assert_function cdepl_cluster_upload_to_remote $cluster_type
-	__cdepl_cluster_assert_function cdepl_cluster_download_from_remote $cluster_type
-	__cdepl_cluster_assert_function cdepl_cluster_file_system_cmd $cluster_type
-	__cdepl_cluster_assert_function cdepl_cluster_allows_sudo $cluster_type
+	__cdepl_cluster_assert_function cdepl_cluster_node_alloc "$cluster_type"
+	__cdepl_cluster_assert_function cdepl_cluster_get_alloc_node_count "$cluster_type"
+	__cdepl_cluster_assert_function cdepl_cluster_node_excl "$cluster_type"
+	__cdepl_cluster_assert_function cdepl_cluster_node_cpu_limit_single_socket "$cluster_type"
+	__cdepl_cluster_assert_function cdepl_cluster_node_cpus "$cluster_type"
+	__cdepl_cluster_assert_function cdepl_cluster_node_mem "$cluster_type"
+	__cdepl_cluster_assert_function cdepl_cluster_node_network "$cluster_type"
+	__cdepl_cluster_assert_function cdepl_cluster_resolve_hostname_to_ip "$cluster_type"
+	__cdepl_cluster_assert_function cdepl_cluster_resolve_node_to_ip "$cluster_type"
+	__cdepl_cluster_assert_function cdepl_cluster_node_resolve_node_to_hostname "$cluster_type"
+	__cdepl_cluster_assert_function cdepl_cluster_node_cmd "$cluster_type"
+	__cdepl_cluster_assert_function cdepl_cluster_gather_log_files "$cluster_type"
+	__cdepl_cluster_assert_function cdepl_cluster_upload_to_remote "$cluster_type"
+	__cdepl_cluster_assert_function cdepl_cluster_download_from_remote "$cluster_type"
+	__cdepl_cluster_assert_function cdepl_cluster_file_system_cmd "$cluster_type"
+	__cdepl_cluster_assert_function cdepl_cluster_allows_sudo "$cluster_type"
 
-	__cdepl_cluster_assert_function _cdepl_cluster_on_init $cluster_type
-	__cdepl_cluster_assert_function _cdepl_cluster_on_node_setup_finish $cluster_type
-	__cdepl_cluster_assert_function _cdepl_cluster_before_deploy $cluster_type
-	__cdepl_cluster_assert_function _cdepl_cluster_after_deploy $cluster_type
-	__cdepl_cluster_assert_function _cdepl_cluster_before_cleanup $cluster_type
-	__cdepl_cluster_assert_function _cdepl_cluster_after_cleanup $cluster_type
+	__cdepl_cluster_assert_function _cdepl_cluster_on_init "$cluster_type"
+	__cdepl_cluster_assert_function _cdepl_cluster_on_node_setup_finish "$cluster_type"
+	__cdepl_cluster_assert_function _cdepl_cluster_before_deploy "$cluster_type"
+	__cdepl_cluster_assert_function _cdepl_cluster_after_deploy "$cluster_type"
+	__cdepl_cluster_assert_function _cdepl_cluster_before_cleanup "$cluster_type"
+	__cdepl_cluster_assert_function _cdepl_cluster_after_cleanup "$cluster_type"
 }
 
 __cdepl_cluster_assert_function()
@@ -145,7 +144,8 @@ __cdepl_cluster_assert_function()
 	local func=$1
 	local cluster_type=$2
 
-	local type="$(type -t $func)"
+	local type
+	type="$(type -t "$func")"
 
 	if [ ! "$type" ]; then
 		util_log_error_and_exit "[cluster] Missing function $func in cluster type $cluster_type"

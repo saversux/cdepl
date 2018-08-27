@@ -1,3 +1,4 @@
+#!/bin/bash
 #
 # Copyright (C) 2018 Heinrich-Heine-Universitaet Duesseldorf, Institute of Computer Science, Department Operating Systems
 #
@@ -10,8 +11,6 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>
 #
-
-#!/bin/bash
 
 __DEPLOY_OUT_PATH=""
 __DEPLOY_CUR_OUT_PATH=""
@@ -33,13 +32,15 @@ cdepl_deploy_setup_out_path()
 	local output_dir=$2
 
 	# Use the deploy script name for the out folder
-	local filename=$(basename "${BASH_SOURCE[1]}")
-	local extension="${filename##*.}"
+	local filename
+	filename=$(basename "${BASH_SOURCE[1]}")
+	local extension
+	extension="${filename##*.}"
 	filename="${filename%.*}"
 
 	# Have default output dir if user does not want a specific location
 	if [ ! "$output_dir" ]; then
-		__DEPLOY_OUT_PATH="$(cdepl_cluster_get_base_path_deploy_out $user)/cdepl_out"
+		__DEPLOY_OUT_PATH="$(cdepl_cluster_get_base_path_deploy_out "$user")/cdepl_out"
 	else 
 		__DEPLOY_OUT_PATH="$output_dir"
 	fi
@@ -96,7 +97,7 @@ cdepl_deploy_archive_out_path()
 
 	util_log "[deploy] Archiving $__DEPLOY_CUR_OUT_PATH to $archive"
 
-	cdepl_cluster_gather_log_files $__DEPLOY_OUT_PATH $__DEPLOY_CUR_OUT_PATH
+	cdepl_cluster_gather_log_files "$__DEPLOY_OUT_PATH" "$__DEPLOY_CUR_OUT_PATH"
 
 	cdepl_cluster_node_cmd 0 "cd $__DEPLOY_CUR_OUT_PATH && tar -czvf $archive * > /dev/null 2>&1"
 }

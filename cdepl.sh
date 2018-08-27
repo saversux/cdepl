@@ -1,3 +1,4 @@
+#!/bin/bash
 #
 # Copyright (C) 2018 Heinrich-Heine-Universitaet Duesseldorf, Institute of Computer Science, Department Operating Systems
 #
@@ -11,8 +12,6 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>
 #
 
-#!/bin/bash
-
 readonly CDEPL_VERSION="0.0.1"
 if [ "$(command -v git)" ]; then
 	readonly CDEPL_GITREV="$(git log -1 --format=%h --date=short HEAD)"
@@ -24,9 +23,9 @@ readonly WORKING_DIR=$(pwd)
 readonly CDEPL_SCRIPT_DIR="$( cd "$(dirname "${BASH_SOURCE[0]}")" && pwd )"
 
 # Includes
-source ${CDEPL_SCRIPT_DIR}/util.sh
-source ${CDEPL_SCRIPT_DIR}/deploy.sh
-source ${CDEPL_SCRIPT_DIR}/cluster.sh
+source "${CDEPL_SCRIPT_DIR}/util.sh"
+source "${CDEPL_SCRIPT_DIR}/deploy.sh"
+source "${CDEPL_SCRIPT_DIR}/cluster.sh"
 
 ##############################
 # "Private"/helper functions #
@@ -72,7 +71,8 @@ __cdepl_script_assert_function()
 	local func=$1
 	local script=$2
 
-	local type="$(type -t $func)"
+	local type
+	type="$(type -t "$func")"
 
 	if [ ! "$type" ]; then
 		util_log_error_and_exit "[cdepl] Missing function $func in script $script"
@@ -88,20 +88,20 @@ __cdepl_script_assert_function()
 ##
 __cdepl_check_required_programs()
 {	
-	if [ ! hash cat 2>/dev/null ]; then
-		util_error_and_exit "Please install coreutils. Used for cat, cut, mkdir, readlink, rm and sleep."
+	if ! [ -x "$(command -v cat)" ]; then
+		util_log_error_and_exit "Please install coreutils. Used for cat, cut, mkdir, readlink, rm and sleep."
 	fi
 
-	if [ ! hash grep 2>/dev/null ]; then
-		util_error_and_exit "Please install grep."
+	if ! [ -x "$(command -v grep)" ]; then
+		util_log_error_and_exit "Please install grep."
 	fi
 
-	if [ ! hash sed 2>/dev/null ]; then
-		util_error_and_exit "Please install sed."
+	if ! [ -x "$(command -v sed)" ]; then
+		util_log_error_and_exit "Please install sed."
 	fi
 
-	if [ ! hash ssh 2>/dev/null ]; then
-		util_error_and_exit "Please install openssh-client. Used for scp and ssh."
+	if ! [ -x "$(command -v ssh)" ]; then
+		util_log_error_and_exit "Please install openssh-client. Used for scp and ssh."
 	fi
 }
 
@@ -136,7 +136,7 @@ util_log "$(date '+%Y-%m-%d %H:%M:%S:%3N')"
 util_log "========================================="
 
 # Include deploy script
-source $1
+source "$1"
 
 # Check if script implements all required functions
 __cdepl_script_assert_function cdepl_script_process_cmd_args

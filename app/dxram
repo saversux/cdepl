@@ -1,3 +1,4 @@
+#!/bin/bash
 #
 # Copyright (C) 2018 Heinrich-Heine-Universitaet Duesseldorf, Institute of Computer Science, Department Operating Systems
 #
@@ -10,8 +11,6 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>
 #
-
-#!/bin/bash
 
 ##
 # App module for DXRAM
@@ -253,7 +252,7 @@ cdepl_app_dxram_remote_profile_yjp()
 	fi
 
 	# Check if the agent lib is available
-	if [ "$(cdepl_cluster_node_cmd $node "[ -f $agent_lib ] && echo \"1\"")" != "1" ]; then
+	if [ "$(cdepl_cluster_node_cmd "$node" "[ -f $agent_lib ] && echo \"1\"")" != "1" ]; then
 		util_log_error_and_exit "[$node][dxram] Could not find libyjpagent.so in $agent_lib"
 	fi
 
@@ -364,19 +363,19 @@ cdepl_app_dxram_start_node()
 		# If the initial cache isn't filled, create cache for first node
 		# then run everything else in parallel
 		if [ ! "$__DXRAM_CACHED_NODES_CONFIG" ]; then
-			__cdepl_app_dxram_create_node_base_config $node_range_start
+			__cdepl_app_dxram_create_node_base_config "$node_range_start"
 		fi
 
 		local pids=""
 
-		for node in $(seq $node_range_start $node_range_end); do
-			__cdepl_app_dxram_start_node $node &
+		for node in $(seq "$node_range_start" "$node_range_end"); do
+			__cdepl_app_dxram_start_node "$node" &
 			pids="$pids $!"
 		done
 
 		wait $pids
 	else
-		__cdepl_app_dxram_start_node $node_range_start
+		__cdepl_app_dxram_start_node "$node_range_start"
 	fi
 }
 
@@ -426,15 +425,15 @@ cdepl_app_dxram_node_wait_started()
 	while true; do
 		echo -n "."
 
-		local success=$(cdepl_cluster_node_cmd $node "cat $logfile 2> /dev/null | sed 's,\x1B\[[0-9;]*[a-zA-Z],,g' | grep '$condition'")
-		local fail_init=$(cdepl_cluster_node_cmd $node "cat $logfile 2> /dev/null | sed 's,\x1B\[[0-9;]*[a-zA-Z],,g' | grep '^Initializing DXRAM failed.$'")
+		local success=$(cdepl_cluster_node_cmd "$node" "cat $logfile 2> /dev/null | sed 's,\x1B\[[0-9;]*[a-zA-Z],,g' | grep '$condition'")
+		local fail_init=$(cdepl_cluster_node_cmd "$node" "cat $logfile 2> /dev/null | sed 's,\x1B\[[0-9;]*[a-zA-Z],,g' | grep '^Initializing DXRAM failed.$'")
 		# Abort execution after an exception was thrown (every exception but NetworkResponseCancelledException)
-		local fail_error=$(cdepl_cluster_node_cmd $node "cat $logfile 2> /dev/null | sed 's,\x1B\[[0-9;]*[a-zA-Z],,g' | grep -i 'exception' | grep -v 'NetworkResponseCancelledException'")
+		local fail_error=$(cdepl_cluster_node_cmd "$node" "cat $logfile 2> /dev/null | sed 's,\x1B\[[0-9;]*[a-zA-Z],,g' | grep -i 'exception' | grep -v 'NetworkResponseCancelledException'")
 		# "A fatal error" -> JVM segfaults
-		local fail_error2=$(cdepl_cluster_node_cmd $node "cat $logfile 2> /dev/null | sed 's,\x1B\[[0-9;]*[a-zA-Z],,g' | grep -i -e '\[ERROR\]' -e '\# A fatal error'")
+		local fail_error2=$(cdepl_cluster_node_cmd "$node" "cat $logfile 2> /dev/null | sed 's,\x1B\[[0-9;]*[a-zA-Z],,g' | grep -i -e '\[ERROR\]' -e '\# A fatal error'")
 
 		if [ "$success" ]; then
-			local pid=$(__cdepl_app_dxram_get_instance_running_pid $node ${DXRAM_YCSB_NODE_PORT[$node]})
+			local pid=$(__cdepl_app_dxram_get_instance_running_pid "$node" "${DXRAM_YCSB_NODE_PORT[$node]}")
 
 			echo ""
 
@@ -476,14 +475,14 @@ cdepl_app_dxram_node_cleanup()
 	if [ "$node_range_end" ]; then
 		local pids=""
 
-		for node in $(seq $node_range_start $node_range_end); do
-			__cdepl_app_dxram_cleanup $node &
+		for node in $(seq "$node_range_start" "$node_range_end"); do
+			__cdepl_app_dxram_cleanup "$node" &
 			pids="$pids $!"
 		done
 
 		wait $pids
 	else
-		__cdepl_app_dxram_cleanup $node_range_start
+		__cdepl_app_dxram_cleanup "$node_range_start"
 	fi
 }
 
@@ -511,10 +510,10 @@ __cdepl_app_dxram_check_config()
 			util_log_error_and_exit "[0][dxram] Creating config file $__DXRAM_CONFIG_PATH failed"
 		fi
 	else
-		local config_content="$(cdepl_cluster_node_cmd 0 "cat "$__DXRAM_CONFIG_PATH"")"
+		local config_content="$(cdepl_cluster_node_cmd 0 "cat '$__DXRAM_CONFIG_PATH'")"
 		# Check if corrupted configuration file
-		local component_header=`echo $config_content | grep "m_componentConfigs"`
-		local service_header=`echo $config_content | grep "m_serviceConfigs"`
+		local component_header=$(echo "$config_content" | grep "m_componentConfigs")
+		local service_header=$(echo "$config_content" | grep "m_serviceConfigs")
 		if [ "$component_header" = "" ] && [ "$service_header" = "" ] ; then
 			util_log "[0][dxram] Configuration file $__DXRAM_CONFIG_PATH corrupted, deleting and creating default"
 
@@ -533,7 +532,7 @@ __cdepl_app_dxram_resolve_default_config_values()
 {
 	local node_count="$(cdepl_cluster_get_alloc_node_count)"
 
-	for i in `seq 0 $((node_count - 1))`; do
+	for i in $(seq 0 $((node_count - 1))); do
 		# Only for explicitly set node types = DXRAM instance
 		if [ "${__DXRAM_NODE_TYPE[$i]}" = "S" ] && [ "${__DXRAM_NODE_PORT[$i]}" = "" ]; then
 			__DXRAM_NODE_PORT[$i]="$__DXRAM_DEFAULT_S_PORT"
@@ -580,11 +579,11 @@ __cdepl_app_dxram_create_node_base_config()
 
 	# Create base node config once and cache it
 	if [ ! "$__DXRAM_CACHED_NODES_CONFIG" ]; then
-		local zookeeper_ip="$(cdepl_cluster_resolve_node_to_ip $__DXRAM_ZOOKEEPER_NODE)"
-		cdepl_cluster_download_from_remote $__DXRAM_CONFIG_PATH $tmp_file
-		local node_config=$(cat $tmp_file)
+		local zookeeper_ip="$(cdepl_cluster_resolve_node_to_ip "$__DXRAM_ZOOKEEPER_NODE")"
+		cdepl_cluster_download_from_remote "$__DXRAM_CONFIG_PATH" "$tmp_file"
+		local node_config=$(cat "$tmp_file")
 
-		if [ zookeeper_ip = "" ]; then
+		if [ "$zookeeper_ip" = "" ]; then
 			util_log_error_and_exit "[$node][dxram] Could not resolve zookeeper ip for node $__DXRAM_ZOOKEEPER_NODE"
 		fi
 
@@ -623,14 +622,14 @@ __cdepl_app_dxram_create_node_base_config()
 		local first_iterartion=true
 
 		# Create "List" of node configs for configuration file
-		for i in `seq 0 $(($(cdepl_cluster_get_alloc_node_count) - 1))`; do
+		for i in $(seq 0 $(($(cdepl_cluster_get_alloc_node_count) - 1))); do
 			local ip=""
 			local port=""
 			local role=""
 
 			ip="$(cdepl_cluster_resolve_node_to_ip "$i")"
 
-			if [ ! "ip" ]; then
+			if [ ! "$ip" ]; then
 				util_log_error_and_exit "[$node][dxram] Could not resolve node to ip"
 			fi
 
@@ -644,7 +643,7 @@ __cdepl_app_dxram_create_node_base_config()
 			fi
 
 			if [ "${__DXRAM_NODE_TYPE[$i]}" ]; then
-				local node_string=`echo "$default_node" | sed "s/IP_TEMPLATE/$ip/" | sed "s/PORT_TEMPLATE/$port/" | sed "s/ROLE_TEMPLATE/$role/"`
+				local node_string=$(echo "$default_node" | sed "s/IP_TEMPLATE/$ip/" | sed "s/PORT_TEMPLATE/$port/" | sed "s/ROLE_TEMPLATE/$role/")
 
 				# Separate items of list with ,
 				if [ "$first_iterartion" == true ]; then
@@ -671,10 +670,10 @@ __cdepl_app_dxram_create_node_base_config()
 		local new_config="$__DXRAM_CACHED_NODES_CONFIG"
 	fi
 
-	echo "$new_config" > $tmp_file
+	echo "$new_config" > "$tmp_file"
 
 	# Write back new config
-	cdepl_cluster_upload_to_remote $tmp_file $node_config_path
+	cdepl_cluster_upload_to_remote "$tmp_file" "$node_config_path"
 }
 
 __cdepl_app_dxram_start_node()
@@ -693,12 +692,12 @@ __cdepl_app_dxram_start_node()
 		logfile=${__DXRAM_OUT_LOG_PATH}/node${node}${__DXRAM_LOG_FILE_PEER_POSTFIX}
 	fi
 
-	__cdepl_app_dxram_create_node_base_config $node
+	__cdepl_app_dxram_create_node_base_config "$node"
 
 	if [ "${__DXRAM_NODE_TYPE[$node]}" = "S" ]; then
-		__cdepl_app_dxram_start_superpeer $node $logfile
+		__cdepl_app_dxram_start_superpeer "$node" "$logfile"
 	elif [ "${__DXRAM_NODE_TYPE[$node]}" = "P" ]; then
-		__cdepl_app_dxram_start_peer $node $logfile
+		__cdepl_app_dxram_start_peer "$node" "$logfile"
 	fi
 }
 
@@ -711,10 +710,12 @@ __cdepl_app_dxram_start_superpeer()
 
 	util_log "[$node][dxram][S] Starting superpeer, logfile: $logfile config: $node_config_path"
 
-	local ip="$(cdepl_cluster_resolve_hostname_to_ip "$(cdepl_cluster_node_resolve_node_to_hostname $node)")"
+	local name_to_id="$(cdepl_cluster_node_resolve_node_to_hostname "$node")"
+
+	local ip="$(cdepl_cluster_resolve_hostname_to_ip "$name_to_id")"
 
 	if [ ! "$ip" ]; then
-		util_log_error_and_exit "[$node][dxram][S] Could not resolve hostname '$(cdepl_cluster_node_resolve_node_to_hostname $node)' to ip"
+		util_log_error_and_exit "[$node][dxram][S] Could not resolve hostname '$name_to_id' to ip"
 	fi
 
 	local vm_opts=""
@@ -761,7 +762,7 @@ __cdepl_app_dxram_start_superpeer()
 
 	# Don't use && instead of ;
 	# This will hang if ssh with controlmaster and nohup is used
-	cdepl_cluster_node_cmd $node "cd $__DXRAM_PATH ; JAVA_OPTS='$vm_opts' DXRAM_OPTS='-D${__DXRAM_PROCESS_IDENTIFIER}' $root nohup ./$__DXRAM_BINARY > $logfile 2>&1 &" "$__DXRAM_REQUIRED_ENVIRONMENT"
+	cdepl_cluster_node_cmd "$node" "cd $__DXRAM_PATH ; JAVA_OPTS='$vm_opts' DXRAM_OPTS='-D${__DXRAM_PROCESS_IDENTIFIER}' $root nohup ./$__DXRAM_BINARY > $logfile 2>&1 &" "$__DXRAM_REQUIRED_ENVIRONMENT"
 }
 
 __cdepl_app_dxram_start_peer()
@@ -773,10 +774,12 @@ __cdepl_app_dxram_start_peer()
 
 	util_log "[$node][dxram][P] Starting peer, logfile: $logfile config: $node_config_path"
 
-	local ip="$(cdepl_cluster_resolve_hostname_to_ip "$(cdepl_cluster_node_resolve_node_to_hostname $node)")"
+	local name_to_id="$(cdepl_cluster_node_resolve_node_to_hostname "$node")"
+
+	local ip="$(cdepl_cluster_resolve_hostname_to_ip "$name_to_id")"
 
 	if [ ! "$ip" ]; then
-		util_log_error_and_exit "[$node][dxram][P] Could not resolve hostname '$(cdepl_cluster_node_resolve_node_to_hostname $node)' to ip"
+		util_log_error_and_exit "[$node][dxram][P] Could not resolve hostname '$name_to_id' to ip"
 	fi
 
 	local vm_opts=""
@@ -835,7 +838,7 @@ __cdepl_app_dxram_start_peer()
 
 	# Don't use && instead of ;
 	# This will hang if ssh with controlmaster and nohup is used
-	cdepl_cluster_node_cmd $node "cd $__DXRAM_PATH ; JAVA_OPTS='$vm_opts' DXRAM_OPTS='-D${__DXRAM_PROCESS_IDENTIFIER}' $root nohup ./$__DXRAM_BINARY > $logfile 2>&1 &" "$__DXRAM_REQUIRED_ENVIRONMENT"
+	cdepl_cluster_node_cmd "$node" "cd $__DXRAM_PATH ; JAVA_OPTS='$vm_opts' DXRAM_OPTS='-D${__DXRAM_PROCESS_IDENTIFIER}' $root nohup ./$__DXRAM_BINARY > $logfile 2>&1 &" "$__DXRAM_REQUIRED_ENVIRONMENT"
 }
 
 __cdepl_app_dxram_get_instance_running_pid()
@@ -848,7 +851,7 @@ __cdepl_app_dxram_get_instance_running_pid()
 	fi
 
 	# Consider port for multiple instances on a single machine (e.g. localhost)
-	echo "$(cdepl_cluster_node_cmd $node "pgrep -f 'java.*${__DXRAM_PROCESS_IDENTIFIER}${port}'")"
+	cdepl_cluster_node_cmd "$node" "pgrep -f 'java.*${__DXRAM_PROCESS_IDENTIFIER}${port}'"
 }
 
 __cdepl_app_dxram_cleanup()
@@ -857,19 +860,19 @@ __cdepl_app_dxram_cleanup()
 
 	util_log "[$node][dxram] Cleanup..."
 
-	local pid=$(__cdepl_app_dxram_get_instance_running_pid $node)
+	local pid=$(__cdepl_app_dxram_get_instance_running_pid "$node")
 
 	if [ "$pid" ]; then
 		# If we or someone else left some garbage processes on the node multiple
 		# pids are returned
 		for i in $pid; do
-			local kill_out=$(cdepl_cluster_node_cmd $node "kill -9 $i 2>&1")
+			local kill_out=$(cdepl_cluster_node_cmd "$node" "kill -9 $i 2>&1")
 
 			if [ "$?" = "0" ] && [ ! "$kill_out" ]; then
 				util_log "[$node][dxram] Killed (pid: $i)"
 			elif [ "$kill_out" ]; then
 				# Probably operation not permitted, try root
-				cdepl_cluster_node_cmd $node "sudo -P kill -9 $i > /dev/null 2>&1"
+				cdepl_cluster_node_cmd "$node" "sudo -P kill -9 $i > /dev/null 2>&1"
 
 				if [ "$?" = "0" ]; then
 					util_log "[$node][dxram] Killed (root) (pid: $i)"

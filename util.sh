@@ -1,3 +1,4 @@
+#!/bin/bash
 #
 # Copyright (C) 2018 Heinrich-Heine-Universitaet Duesseldorf, Institute of Computer Science, Department Operating Systems
 #
@@ -10,8 +11,6 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>
 #
-
-#!/bin/bash
 
 readonly UTIL_LOG_LEVEL_DEBUG="4"
 readonly UTIL_LOG_LEVEL_INFO="3"
@@ -48,8 +47,12 @@ util_log_error_and_exit()
 {
 	local msg=$1
 
-	>&2 printf "\e[1;31m${msg}\e[m\nCall trace:\n$(util_print_calltrace)\n"
-
+	>&2 printf "\\e[1;31m%s\\e[m\\n" "$msg"
+	local trace
+	trace="$(util_print_calltrace)"
+	if [ -n "${trace}" ]; then
+		>&2 printf "Call trace:\\n%s\\n" "$(util_print_calltrace)"
+	fi
 	exit -1
 }
 
@@ -63,7 +66,7 @@ util_log_error()
 	local msg=$1
 
 	if [ "$__UTIL_LOG_LEVEL" -ge "1" ]; then
-		>&2 printf "\e[1;31m${msg}\e[m\n"
+		>&2 printf "\e[1;31m%s\e[m\n" "$msg"
 	fi
 }
 
@@ -77,7 +80,7 @@ util_log_warn()
 	local msg=$1
 
 	if [ "$__UTIL_LOG_LEVEL" -ge "2" ]; then
-		>&2 printf "\e[1;33m${msg}\e[m\n"
+		>&2 printf "\e[1;33m%s\e[m\n" "$msg"
 	fi
 }
 
@@ -91,7 +94,7 @@ util_log()
 	local msg=$1
 
 	if [ "$__UTIL_LOG_LEVEL" -ge "3" ]; then
-		>&2 printf "\e[1;34m${msg}\e[m\n"
+		>&2 printf "\e[1;34m%s\e[m\n" "$msg"
 	fi
 }
 
@@ -103,10 +106,10 @@ util_log()
 util_log_debug()
 {
 	local msg=$1
-	local args=${@:2}
+	local args=${*:2}
 
 	if [ "$__UTIL_LOG_LEVEL" -ge "4" ]; then
-		>&2 printf "\e[1;32m${msg}\e[m\n" $args
+		>&2 printf "\e[1;32m%s%s\e[m\n" "$msg" "$args"
 	fi
 }
 
@@ -131,15 +134,20 @@ util_print_calltrace()
 
 _util_check_bash_version()
 {
-	if [ "$(echo $SHELL | grep "bash")" = "" ] ; then
-		util_error_and_exit "Current shell not supported by deploy script, bash only"
+	if ! [[ "$(realpath /proc/$$/exe)" = *"bash"* ]] ; then
+		util_log_error_and_exit "Current shell not supported by deploy script, bash only"
 	fi
 
+	if [ -z "${BASH_VERSION}" ]; then
+		util_log_error_and_exit "Can't detect bash version, check \$BASH_VERSION"
+	fi
+
+
 	# Some features like "declare -A" require version 4
-	if [ $(echo ${BASH_VERSION%%[^0-9]*}) -lt 4 ]; then
-		read versionCheck <<< $(echo ${BASH_VERSION%%[^0-9]* } | awk -F '.' '{split($3, a, "("); print a[1]; print ($1 >= 3 && $2 > 2) ? "YES" : ($2 == 2 && a[1] >= 57) ? "YES" : "NO" }')
+	if [ "${BASH_VERSION%%[^0-9]*}" -lt 4 ]; then
+		versionCheck=$(echo "${BASH_VERSION%%[^0-9]* }" | awk -F '.' '{split($3, a, "("); print a[1]; print ($1 >= 3 && $2 > 2) ? "YES" : ($2 == 2 && a[1] >= 57) ? "YES" : "NO" }')
 		if [ "$versionCheck" == "NO" ]; then
-			util_error_and_exit "Bash version >= 3.2.57 required (Recommended is version 4)"
+			util_log_error_and_exit "Bash version >= 3.2.57 required (Recommended is version 4)"
 		fi
 	fi
 }

@@ -484,7 +484,7 @@ echo \"Job finished\"
 
 	echo ""
 
-	util_log_debug "[hilbert] Job started, node allocations:\n${node_mappings}"
+	util_log_debug "[hilbert] Job started, node allocations:\\n${node_mappings}"
 }
 
 _cdepl_cluster_before_deploy()

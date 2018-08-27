@@ -1,3 +1,4 @@
+#!/bin/bash
 #
 # Copyright (C) 2018 Heinrich-Heine-Universitaet Duesseldorf, Institute of Computer Science, Department Operating Systems
 #
@@ -10,8 +11,6 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>
 #
-
-#!/bin/bash
 
 ##
 # App module for zookeeper
@@ -61,10 +60,10 @@ cdepl_app_zookeeper_start()
 
 	util_log "[$node][zookeeper] Starting, logfile: $logfile"
 
-	cdepl_cluster_node_cmd $node "mkdir -p $__ZOOKEEPER_OUT_PATH"
+	cdepl_cluster_node_cmd "$node" "mkdir -p $__ZOOKEEPER_OUT_PATH"
 	# Go to zookeeper out dir before execution to get all output, zookeeper
 	# data dir if relative path and zookeeper.out folder in the same dir
-	cdepl_cluster_node_cmd $node "sed -i -e \"s/clientPort=[0-9]*/clientPort=$port/g\" \"${__ZOOKEEPER_PATH}/conf/zoo.cfg\" && cd ${__ZOOKEEPER_OUT_PATH} && ${__ZOOKEEPER_PATH}/bin/zkServer.sh start ${__ZOOKEEPER_PATH}/conf/zoo.cfg >> $logfile 2>&1" "$__ZOOKEEPER_REQUIRED_ENVIRONMENT"
+	cdepl_cluster_node_cmd "$node" "sed -i -e \"s/clientPort=[0-9]*/clientPort=$port/g\" \"${__ZOOKEEPER_PATH}/conf/zoo.cfg\" && cd ${__ZOOKEEPER_OUT_PATH} && ${__ZOOKEEPER_PATH}/bin/zkServer.sh start ${__ZOOKEEPER_PATH}/conf/zoo.cfg >> $logfile 2>&1" "$__ZOOKEEPER_REQUIRED_ENVIRONMENT"
 
 	if [ "$?" != "0" ]; then
 		util_log_error_and_exit "[$node][zookeeper] Starting failed, also check logfile $logfile"
@@ -86,7 +85,7 @@ cdepl_app_zookeeper_remove()
 
 	util_log "[$node][zookeeper] Remove path $path"
 
-	cdepl_cluster_node_cmd $node "cd ${__ZOOKEEPER_OUT_PATH} && echo \"rmr ${path}\" | zkCli.sh >> $logfile 2>&1" "$__ZOOKEEPER_REQUIRED_ENVIRONMENT"
+	cdepl_cluster_node_cmd "$node" "cd ${__ZOOKEEPER_OUT_PATH} && echo \"rmr ${path}\" | zkCli.sh >> $logfile 2>&1" "$__ZOOKEEPER_REQUIRED_ENVIRONMENT"
 }
 
 ##
@@ -99,21 +98,22 @@ cdepl_app_zookeeper_wait_started()
 	local node=$1
 
 	local logfile=${__ZOOKEEPER_OUT_PATH}/node${node}${__ZOOKEEPER_LOG_FILE_POSTFIX}
-	local logfile_client=${__ZOOKEEPER_OUT_PATH}/node${node}${__ZOOKEEPER_LOG_FILE_CLIENT_POSTFIX}
+	#local logfile_client=${__ZOOKEEPER_OUT_PATH}/node${node}${__ZOOKEEPER_LOG_FILE_CLIENT_POSTFIX}
 
 	util_log "[$node][zookeeper] Waiting for startup"
-
+	local pid
 	while true; do
 		echo -n "."
 
-		local success_started=$(cdepl_cluster_node_cmd $node "cat "$logfile" 2> /dev/null | grep 'STARTED'")
-		local success_running=$(cdepl_cluster_node_cmd $node "cat "$logfile" 2> /dev/null | grep 'already running'")
-		local fail_file=$(cdepl_cluster_node_cmd $node "cat "$logfile" 2> /dev/null | grep 'No such file or directory'")
-		local fail_pid=$(cdepl_cluster_node_cmd $node "cat "$logfile" 2> /dev/null | grep 'FAILED TO WRITE PID'")
-		local fail_started=$(cdepl_cluster_node_cmd $node "cat "$logfile" 2> /dev/null | grep 'SERVER DID NOT START'")
+		local success_started=$(cdepl_cluster_node_cmd "$node" "cat '$logfile' 2> /dev/null | grep 'STARTED'")
+		local success_running=$(cdepl_cluster_node_cmd "$node" "cat '$logfile' 2> /dev/null | grep 'already running'")
+		local fail_file=$(cdepl_cluster_node_cmd "$node" "cat '$logfile' 2> /dev/null | grep 'No such file or directory'")
+		local fail_pid=$(cdepl_cluster_node_cmd "$node" "cat '$logfile' 2> /dev/null | grep 'FAILED TO WRITE PID'")
+		local fail_started=$(cdepl_cluster_node_cmd "$node" "cat '$logfile' 2> /dev/null | grep 'SERVER DID NOT START'")
 
 		if [ "$success_started" != "" ] || [ "$success_running" != "" ]; then
-			local pid=$(cdepl_cluster_node_cmd $node "pgrep -f 'java -Dzookeeper.log.dir'")
+
+			local pid=$(cdepl_cluster_node_cmd "$node" "pgrep -f '^java -Dzookeeper.log.dir'")
 
 			echo ""
 
@@ -124,7 +124,7 @@ cdepl_app_zookeeper_wait_started()
 			util_log "[$node][zookeeper] Started (pid: $pid)"
 
 			break
-		elif [ "$fail_file" != "" -o "$fail_pid" != "" -o "$fail_started" != "" ] ; then
+		elif [ "$fail_file" != "" ] || [ "$fail_pid" != "" ] || [ "$fail_started" != "" ] ; then
 			echo ""
 			util_log_error_and_exit "[$node][zookeeper] Could not be started. See log file $logfile"
 		fi
@@ -148,14 +148,14 @@ cdepl_app_zookeeper_cleanup()
 	if [ "$node_range_end" ]; then
 		local pids=""
 
-		for node in $(seq $node_range_start $node_range_end); do
-			__cdepl_app_zookeeper_cleanup $node &
+		for node in $(seq "$node_range_start" "$node_range_end"); do
+			__cdepl_app_zookeeper_cleanup "$node" &
 			pids="$pids $!"
 		done
 
 		wait $pids
 	else
-		__cdepl_app_zookeeper_cleanup $node_range_start
+		__cdepl_app_zookeeper_cleanup "$node_range_start"
 	fi
 }
 
@@ -163,7 +163,7 @@ __cdepl_app_zookeeper_get_instance_running_pid()
 {
 	local node=$1
 
-	echo "$(cdepl_cluster_node_cmd $node "pgrep -f 'java -Dzookeeper.log.dir'")"
+	cdepl_cluster_node_cmd "$node" "pgrep -f 'java -Dzookeeper.log.dir'"
 }
 
 __cdepl_app_zookeeper_cleanup()
@@ -172,10 +172,10 @@ __cdepl_app_zookeeper_cleanup()
 
 	util_log "[$node][zookeeper] Cleanup..."
 
-	local pid=$(cdepl_cluster_node_cmd $node "pgrep -f 'java -Dzookeeper.log.dir'")
+	local pid=$(cdepl_cluster_node_cmd "$node" "pgrep -f 'java -Dzookeeper.log.dir'")
 
 	if [ "$pid" != "" ]; then
-		cdepl_cluster_node_cmd $node "kill -9 $pid > /dev/null 2>&1"
+		cdepl_cluster_node_cmd "$node" "kill -9 $pid > /dev/null 2>&1"
 
 		if [ "$?" != "0" ]; then
 			util_log_warn "[$node][zookeeper] Killing $pid failed, zookeeper might stay alive"
