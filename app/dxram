@@ -41,8 +41,6 @@ __DXRAM_OUT_PATH=""
 __DXRAM_OUT_CONF_PATH=""
 __DXRAM_OUT_LOG_PATH=""
 
-__DXRAM_CACHED_NODES_CONFIG=""
-
 __DXRAM_ZOOKEEPER_NODE=""
 __DXRAM_ZOOKEEPER_PORT=""
 
@@ -90,6 +88,7 @@ cdepl_app_dxram_init()
 		util_log_error_and_exit "[dxram]: Path does not exist ($path), resolved path: $__DXRAM_PATH"
 	fi
 
+	__cdepl_app_dxram_resolve_default_config_values
 	__cdepl_app_dxram_check
 	__cdepl_app_dxram_check_config
 
@@ -353,19 +352,7 @@ cdepl_app_dxram_start_node()
 	local node_range_start=$1
 	local node_range_end=$2
 
-	# We have to resolve these values once, only.
-	# Same as creating the cached nodes config to speed things up
-	if [ ! "$__DXRAM_CACHED_NODES_CONFIG" ]; then
-		__cdepl_app_dxram_resolve_default_config_values
-	fi
-
 	if [ "$node_range_end" ]; then
-		# If the initial cache isn't filled, create cache for first node
-		# then run everything else in parallel
-		if [ ! "$__DXRAM_CACHED_NODES_CONFIG" ]; then
-			__cdepl_app_dxram_create_node_base_config "$node_range_start"
-		fi
-
 		local pids=""
 
 		for node in $(seq "$node_range_start" "$node_range_end"); do
@@ -570,110 +557,12 @@ __cdepl_app_dxram_resolve_default_config_values()
 	done
 }
 
-__cdepl_app_dxram_create_node_base_config()
+__cdepl_app_dxram_create_node_base_config() 
 {
 	local node=$1
-
 	local node_config_path="${__DXRAM_OUT_CONF_PATH}/node_${node}.conf"
-	local tmp_file="$(cdepl_deploy_get_local_tmp_path)/tmp_dxram_${node}.conf"
-
-	# Create base node config once and cache it
-	if [ ! "$__DXRAM_CACHED_NODES_CONFIG" ]; then
-		local zookeeper_ip="$(cdepl_cluster_resolve_node_to_ip "$__DXRAM_ZOOKEEPER_NODE")"
-		cdepl_cluster_download_from_remote "$__DXRAM_CONFIG_PATH" "$tmp_file"
-		local node_config=$(cat "$tmp_file")
-
-		if [ "$zookeeper_ip" = "" ]; then
-			util_log_error_and_exit "[$node][dxram] Could not resolve zookeeper ip for node $__DXRAM_ZOOKEEPER_NODE"
-		fi
-
-		# Insert zookeeper config values
-		# Create replacement string for zookeeper configuration
-		local zookeeper_config_string="
-			\"m_path\": \"/dxram\",
-			\"m_connection\": {
-				\"m_ip\": \"$zookeeper_ip\",
-				\"m_port\": $__DXRAM_ZOOKEEPER_PORT
-			},"
-
-		# Replace zookeeper configuration
-		local current_node_config="$(echo "$node_config" | sed '/ZookeeperBootComponentConfig/q')"
-		current_node_config="${current_node_config}${zookeeper_config_string}"
-		local end="$(echo "$node_config" | sed -ne '/ZookeeperBootComponentConfig/{s///; :a' -e 'n;p;ba' -e '}')"
-		end="$(echo "$end" | sed -ne '/},/{s///; :a' -e 'n;p;ba' -e '}')"
-		current_node_config="$(echo -e "${current_node_config}\n${end}")"
-
-		node_config="$current_node_config"
-
-		# Insert node config mappings
-		# Create replacement string for nodes configuration:
-		local default_node="{
-			\"m_address\": {
-				\"m_ip\": \"IP_TEMPLATE\",
-				\"m_port\": PORT_TEMPLATE
-			},
-			\"m_role\": \"ROLE_TEMPLATE\",
-			\"m_rack\": 0,
-			\"m_switch\": 0,
-			\"m_readFromFile\": 1
-		}"
-
-		local node_config_string=""
-		local first_iterartion=true
-
-		# Create "List" of node configs for configuration file
-		for i in $(seq 0 $(($(cdepl_cluster_get_alloc_node_count) - 1))); do
-			local ip=""
-			local port=""
-			local role=""
-
-			ip="$(cdepl_cluster_resolve_node_to_ip "$i")"
-
-			if [ ! "$ip" ]; then
-				util_log_error_and_exit "[$node][dxram] Could not resolve node to ip"
-			fi
-
-			port="${__DXRAM_NODE_PORT[$i]}"
-
-			# Only for explicitly set node types = DXRAM instance
-			if [ "${__DXRAM_NODE_TYPE[$i]}" = "S" ]; then
-				role="SUPERPEER"
-			elif [ "${__DXRAM_NODE_TYPE[$i]}" = "P" ]; then
-				role="PEER"
-			fi
-
-			if [ "${__DXRAM_NODE_TYPE[$i]}" ]; then
-				local node_string=$(echo "$default_node" | sed "s/IP_TEMPLATE/$ip/" | sed "s/PORT_TEMPLATE/$port/" | sed "s/ROLE_TEMPLATE/$role/")
-
-				# Separate items of list with ,
-				if [ "$first_iterartion" == true ]; then
-					node_config_string="${node_config_string}${node_string}"
-					first_iterartion=false
-				else
-					node_config_string="${node_config_string},${node_string}"
-				fi
-			fi
-		done
-
-		# Close node config list
-		node_config_string="$(echo -e "$node_config_string\n      ],")"
-
-		# Replace nodes configuration:
-		local new_config="$(echo "${node_config}" | sed '/m_nodesConfig/q')"
-		new_config="${new_config}${node_config_string}"
-		local end="$(echo "${node_config}" | sed -ne '/m_nodesConfig/{s///; :a' -e 'n;p;ba' -e '}')"
-		end="$(echo "${end}" | sed -ne '/],/{s///; :a' -e 'n;p;ba' -e '}')"
-		new_config="$(echo -e "${new_config}\n${end}")"
-
-		__DXRAM_CACHED_NODES_CONFIG=$new_config
-	else
-		local new_config="$__DXRAM_CACHED_NODES_CONFIG"
-	fi
-
-	echo "$new_config" > "$tmp_file"
-
-	# Write back new config
-	cdepl_cluster_upload_to_remote "$tmp_file" "$node_config_path"
+	
+	cdepl_cluster_file_system_cmd "cp $__DXRAM_CONFIG_PATH $node_config_path"
 }
 
 __cdepl_app_dxram_start_node()
@@ -692,7 +581,7 @@ __cdepl_app_dxram_start_node()
 		logfile=${__DXRAM_OUT_LOG_PATH}/node${node}${__DXRAM_LOG_FILE_PEER_POSTFIX}
 	fi
 
-	__cdepl_app_dxram_create_node_base_config "$node"
+	__cdepl_app_dxram_create_node_base_config $node
 
 	if [ "${__DXRAM_NODE_TYPE[$node]}" = "S" ]; then
 		__cdepl_app_dxram_start_superpeer "$node" "$logfile"
@@ -728,6 +617,11 @@ __cdepl_app_dxram_start_superpeer()
 	vm_opts="$vm_opts -Ddxram.m_config.m_engineConfig.m_address.m_port=${__DXRAM_NODE_PORT[$node]}"
 	vm_opts="$vm_opts -Ddxram.m_config.m_engineConfig.m_role=Superpeer"
 
+	# ZooKeeper connection settings
+	local zookeeper_ip="$(cdepl_cluster_resolve_node_to_ip "$__DXRAM_ZOOKEEPER_NODE")"
+	vm_opts="$vm_opts -Ddxram.m_config.m_componentConfigs[ZookeeperBootComponentConfig].m_connection.m_ip=${zookeeper_ip}"
+	vm_opts="$vm_opts -Ddxram.m_config.m_componentConfigs[ZookeeperBootComponentConfig].m_connection.m_port=${__DXRAM_ZOOKEEPER_PORT}"
+	
 	# Optional dxram node specific settings
 
 	if [ "${__DXRAM_NODE_NETWORK[$node]}" = "eth" ]; then
@@ -791,6 +685,11 @@ __cdepl_app_dxram_start_peer()
 	vm_opts="$vm_opts -Ddxram.m_config.m_engineConfig.m_address.m_ip=$ip"
 	vm_opts="$vm_opts -Ddxram.m_config.m_engineConfig.m_address.m_port=${__DXRAM_NODE_PORT[$node]}"
 	vm_opts="$vm_opts -Ddxram.m_config.m_engineConfig.m_role=Peer"
+
+	# ZooKeeper connection settings
+	local zookeeper_ip="$(cdepl_cluster_resolve_node_to_ip "$__DXRAM_ZOOKEEPER_NODE")"
+	vm_opts="$vm_opts -Ddxram.m_config.m_componentConfigs[ZookeeperBootComponentConfig].m_connection.m_ip=${zookeeper_ip}"
+	vm_opts="$vm_opts -Ddxram.m_config.m_componentConfigs[ZookeeperBootComponentConfig].m_connection.m_port=${__DXRAM_ZOOKEEPER_PORT}"
 	
 	# Optional dxram node specific settings
 
