@@ -46,7 +46,7 @@ cdepl_deploy_setup_out_path()
 	fi
 
 	__DEPLOY_CUR_OUT_PATH="${__DEPLOY_OUT_PATH}/${filename}_$(date '+%Y-%m-%d_%H-%M-%S-%3N')"
-	__DEPLOY_LOCAL_TMP_PATH="/tmp/cdepl"
+	eval __DEPLOY_LOCAL_TMP_PATH="~/cdepl_tmp"
 
 	cdepl_cluster_file_system_cmd "mkdir -p $__DEPLOY_CUR_OUT_PATH"
 
