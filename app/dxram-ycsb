@@ -104,6 +104,7 @@ cdepl_app_dxram_ycsb_init()
 		util_log_error_and_exit "[dxram-ycsb]: Path does not exist ($path), resolved path: $__DXRAM_YCSB_PATH"
 	fi
 
+	__cdepl_app_dxram_ycsb_resolve_default_config_values
 	__cdepl_app_dxram_ycsb_check
 	__cdepl_app_dxram_ycsb_check_config
 
@@ -443,19 +444,7 @@ cdepl_app_ycsb_dxram_start_node()
 	local node_range_start=$1
 	local node_range_end=$2
 
-	# We have to resolve these values once, only.
-	# Same as creating the cached nodes config to speed things up
-	if [ ! "$__DXRAM_YCSB_CACHED_NODES_CONFIG" ]; then
-		__cdepl_app_dxram_ycsb_resolve_default_config_values
-	fi
-
 	if [ "$node_range_end" ]; then
-		# If the initial cache isn't filled, create cache for first node
-		# then run everything else in parallel
-		if [ ! "$__DXRAM_YCSB_CACHED_NODES_CONFIG" ]; then
-			__cdepl_app_dxram_ycsb_create_node_base_config $node_range_start
-		fi
-
 		local counter=0
 		local pids=""
 
@@ -786,105 +775,9 @@ __cdepl_app_dxram_ycsb_resolve_default_config_values()
 __cdepl_app_dxram_ycsb_create_node_base_config()
 {
 	local node=$1
-
 	local node_config_path="${__DXRAM_YCSB_OUT_CONF_PATH}/node_${node}.conf"
-	local tmp_file="$(cdepl_deploy_get_local_tmp_path)/tmp_dxram_ycsb_${node}.conf"
 
-	# Create base node config once and cache it
-	if [ ! "$__DXRAM_YCSB_CACHED_NODES_CONFIG" ]; then
-		local zookeeper_ip="$(cdepl_cluster_resolve_node_to_ip $__DXRAM_YCSB_ZOOKEEPER_NODE)"
-		cdepl_cluster_download_from_remote $__DXRAM_YCSB_CONFIG_PATH $tmp_file
-		local node_config=$(cat $tmp_file)
-
-		if [ zookeeper_ip = "" ]; then
-			util_log_error_and_exit "[$node][dxram-ycsb] Could not resolve zookeeper ip for node $__DXRAM_YCSB_ZOOKEEPER_NODE"
-		fi
-
-		# Insert zookeeper config values
-		# Create replacement string for zookeeper configuration
-		local zookeeper_config_string="
-			\"m_path\": \"/dxram\",
-			\"m_connection\": {
-				\"m_ip\": \"$zookeeper_ip\",
-				\"m_port\": $__DXRAM_YCSB_ZOOKEEPER_PORT
-			},"
-
-		# Replace zookeeper configuration
-		local current_node_config="$(echo "$node_config" | sed '/ZookeeperBootComponentConfig/q')"
-		current_node_config="${current_node_config}${zookeeper_config_string}"
-		local end="$(echo "$node_config" | sed -ne '/ZookeeperBootComponentConfig/{s///; :a' -e 'n;p;ba' -e '}')"
-		end="$(echo "$end" | sed -ne '/},/{s///; :a' -e 'n;p;ba' -e '}')"
-		current_node_config="$(echo -e "${current_node_config}\n${end}")"
-
-		node_config="$current_node_config"
-
-		# Insert node config mappings
-		# Create replacement string for nodes configuration:
-		local default_node="{
-			\"m_address\": {
-				\"m_ip\": \"IP_TEMPLATE\",
-				\"m_port\": PORT_TEMPLATE
-			},
-			\"m_role\": \"ROLE_TEMPLATE\",
-			\"m_rack\": 0,
-			\"m_switch\": 0,
-			\"m_readFromFile\": 1
-		}"
-
-		local node_config_string=""
-		local first_iterartion=true
-
-		# Create "List" of node configs for configuration file
-		for i in `seq 0 $(($(cdepl_cluster_get_alloc_node_count) - 1))`; do
-			local ip=""
-			local port=""
-			local role=""
-
-			ip="$(cdepl_cluster_resolve_node_to_ip "$i")"
-
-			if [ ! "ip" ]; then
-				util_log_error_and_exit "[$node][dxram-ycsb] Could not resolve node to ip"
-			fi
-
-			port="${__DXRAM_YCSB_NODE_PORT[$i]}"
-
-				# Only for explicitly set node types = DXRAM instance
-			if [ "${__DXRAM_YCSB_NODE_TYPE[$i]}" = "S" ]; then
-				role="SUPERPEER"
-			elif [ "${__DXRAM_YCSB_NODE_TYPE[$i]}" = "PS" ] || [ "${__DXRAM_YCSB_NODE_TYPE[$i]}" = "PB" ]; then
-				role="PEER"
-			fi
-
-			if [ "${__DXRAM_YCSB_NODE_TYPE[$i]}" ]; then
-				local node_string=`echo "$default_node" | sed "s/IP_TEMPLATE/$ip/" | sed "s/PORT_TEMPLATE/$port/" | sed "s/ROLE_TEMPLATE/$role/"`
-
-				# Separate items of list with ,
-				if [ "$first_iterartion" == true ]; then
-					node_config_string="${node_config_string}${node_string}"
-					first_iterartion=false
-				else
-					node_config_string="${node_config_string},${node_string}"
-				fi
-			fi
-		done
-
-		# Close node config list
-		node_config_string="$(echo -e "$node_config_string\n      ],")"
-
-		# Replace nodes configuration:
-		local new_config="$(echo "${node_config}" | sed '/m_nodesConfig/q')"
-		new_config="${new_config}${node_config_string}"
-		local end="$(echo "${node_config}" | sed -ne '/m_nodesConfig/{s///; :a' -e 'n;p;ba' -e '}')"
-		end="$(echo "${end}" | sed -ne '/],/{s///; :a' -e 'n;p;ba' -e '}')"
-		new_config="$(echo -e "${new_config}\n${end}")"
-	else
-		local new_config="$__DXRAM_YCSB_CACHED_NODES_CONFIG"
-	fi
-
-	echo "$new_config" > $tmp_file
-
-	# Write back new config
-	cdepl_cluster_upload_to_remote $tmp_file $node_config_path
+	cdepl_cluster_file_system_cmd "cp $__DXRAM_YCSB_OUT_CONF_PATH $node_config_path"
 }
 
 __cdepl_app_ycsb_dxram_start_node()
@@ -944,6 +837,11 @@ __cdepl_app_dxram_ycsb_start_superpeer()
 	vm_opts="$vm_opts -Ddxram.m_config.m_engineConfig.m_address.m_ip=$ip"
 	vm_opts="$vm_opts -Ddxram.m_config.m_engineConfig.m_address.m_port=${__DXRAM_YCSB_NODE_PORT[$node]}"
 	vm_opts="$vm_opts -Ddxram.m_config.m_engineConfig.m_role=Superpeer"
+
+	# ZooKeeper connection settings
+	local zookeeper_ip="$(cdepl_cluster_resolve_node_to_ip "$__DXRAM_YCSB_ZOOKEEPER_NODE")"
+	vm_opts="$vm_opts -Ddxram.m_config.m_componentConfigs[ZookeeperBootComponentConfig].m_connection.m_ip=${zookeeper_ip}"
+	vm_opts="$vm_opts -Ddxram.m_config.m_componentConfigs[ZookeeperBootComponentConfig].m_connection.m_port=${__DXRAM_YCSB_ZOOKEEPER_PORT}"
 
 	# Optional dxram node specific settings
 
@@ -1017,6 +915,11 @@ __cdepl_app_dxram_ycsb_start_peer()
 	vm_opts="$vm_opts -Ddxram.m_config.m_engineConfig.m_address.m_ip=$ip"
 	vm_opts="$vm_opts -Ddxram.m_config.m_engineConfig.m_address.m_port=${__DXRAM_YCSB_NODE_PORT[$node]}"
 	vm_opts="$vm_opts -Ddxram.m_config.m_engineConfig.m_role=Peer"
+
+	# ZooKeeper connection settings
+	local zookeeper_ip="$(cdepl_cluster_resolve_node_to_ip "$__DXRAM_YCSB_ZOOKEEPER_NODE")"
+	vm_opts="$vm_opts -Ddxram.m_config.m_componentConfigs[ZookeeperBootComponentConfig].m_connection.m_ip=${zookeeper_ip}"
+	vm_opts="$vm_opts -Ddxram.m_config.m_componentConfigs[ZookeeperBootComponentConfig].m_connection.m_port=${__DXRAM_YCSB_ZOOKEEPER_PORT}"
 
 	# Optional dxram node specific settings
 
