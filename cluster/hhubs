@@ -300,7 +300,7 @@ _cdepl_cluster_on_node_setup_finish()
 	# Assign instances with IB first
 	for i in `seq 0 $((__HHUBS_TOTAL_NODES - 1))`; do
 		if [ "${__HHUBS_NODES_NET[$i]}" = "ib" ]; then
-			if [ "${__HHUBS_NODES_CPUS[$i]}" -le "4" ] &&
+			if [ "${__HHUBS_NODES_CPUS[$i]}" -le "6" ] &&
 					[ "${__HHUBS_NODES_MEM[$i]}" -le "32768" ] &&
 					[ "$group1_req_cnt" -lt "$group1_avail_cnt" ]; then
 				group1_req_cnt=$(($group1_req_cnt + 1))
