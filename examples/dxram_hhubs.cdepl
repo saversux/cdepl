@@ -121,7 +121,7 @@ cdepl_script_deploy()
 	util_log "[hhubs] DXRam instances running..."
 
 	# Show DXRam logs within the console
-	cdepl_cluster_show_logs "/home/${CLUSTER_USER}/cdepl_out/dxram_${CLUSTER_TYPE}/dxram/log"
+	cdepl_cluster_show_logs "${__DXRAM_OUT_PATH}/log"
 }
 
 cdepl_script_cleanup()
