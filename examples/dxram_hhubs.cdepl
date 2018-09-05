@@ -17,7 +17,10 @@
 # Example for (basic) dxram deployment
 #
 
-TOTAL_NODES=4
+SUPERPEER_COUNT=1
+PEER_COUNT=2
+
+TOTAL_NODES=$(( $SUPERPEER_COUNT + $PEER_COUNT ))
 
 # Cluster type and user selected
 CLUSTER_TYPE="hhubs"
@@ -31,7 +34,7 @@ ZK_PORT=2181
 # DXRAM parameters
 DX_PATH="/home/${CLUSTER_USER}/dxram"
 
-DX_PEER_PORT_START="22222"
+DX_PEER_PORT_START="22221"
 
 cdepl_script_process_cmd_args()
 {
@@ -53,7 +56,7 @@ cdepl_script_cluster_node_setup()
 	# Alloc total number of nodes for this deployment
 	cdepl_cluster_node_alloc $TOTAL_NODES
 
-		# Reserve nodes 0, 1, 2 exclusive (all resources available)
+	# Reserve nodes 0, 1, 2 exclusive (all resources available)
 	for i in `seq 0 2`; do
 		cdepl_cluster_node_excl $i
 	done
@@ -91,44 +94,41 @@ cdepl_script_deploy()
 	# Kill any still running instances from previous deployments
 	cdepl_app_dxram_node_cleanup 0 $((TOTAL_NODES - 1))
 
-	# Apply node settings before starting any nodes
-	cdepl_app_dxram_node_type 0 "S"
-
-	for i in `seq 1 $((TOTAL_NODES - 1))`; do
-		# Disable sending backups on the selected peers
-		cdepl_app_dxram_peer_backup_src $i false
-		# Disable receiving backups on the selected peers
-		cdepl_app_dxram_peer_backup_dst $i false
-		cdepl_app_dxram_node_type $i "P"
-		cdepl_app_dxram_peer_kvss $i 4096
+	for i in `seq 0 $((SUPERPEER_COUNT - 1))`; do
+		cdepl_app_dxram_node_type $i "S"
 		# When running localhost, we have to assign different ports for the peers
 		cdepl_app_dxram_node_port $i $DX_PEER_PORT_START
 		DX_PEER_PORT_START=$((DX_PEER_PORT_START + 1))
 	done
 
-	# Start superpeer and wait before starting peers
-	cdepl_app_dxram_start_node 0
-	cdepl_app_dxram_node_wait_started 0
+	for i in `seq $((SUPERPEER_COUNT)) $((TOTAL_NODES - 1))`; do
+		cdepl_app_dxram_node_type $i "P"
+		cdepl_app_dxram_peer_kvss $i 1024
+		# When running localhost, we have to assign different ports for the peers
+		cdepl_app_dxram_node_port $i $DX_PEER_PORT_START
+		DX_PEER_PORT_START=$((DX_PEER_PORT_START + 1))
+	done
 
-	# Start all peers
-	cdepl_app_dxram_start_node 1 $((TOTAL_NODES - 1))
+	# Start all nodes
+	cdepl_app_dxram_start_node 0 $((TOTAL_NODES - 1))
 
-	# Wait for all peers to be started
-	for i in `seq 1 $((TOTAL_NODES - 1))`; do
+	# Wait for all nodes to be started
+	for i in `seq 0 $((TOTAL_NODES - 1))`; do
 		cdepl_app_dxram_node_wait_started $i
 	done
 
 	# We are done
+	util_log "[hhubs] DXRam instances running..."
 
-	# Wait a moment before cleaning up
-	sleep 5
+	# Show DXRam logs within the console
+	cdepl_cluster_show_logs "/home/${CLUSTER_USER}/cdepl_out/dxram_${CLUSTER_TYPE}/dxram/log"
 }
 
 cdepl_script_cleanup()
 {
 	# Kill all dxram instances
 	cdepl_app_dxram_node_cleanup 0 $((TOTAL_NODES - 1))
-	
+
 	# Kill zookeeper
 	cdepl_app_zookeeper_cleanup 0
 }

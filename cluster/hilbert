@@ -269,6 +269,13 @@ cdepl_cluster_gather_log_files()
 	# We use a scratch file system for hilbert -> nothing to do here
 }
 
+cdepl_cluster_show_logs()
+{
+	local path="$1"
+
+	ssh -t ${__HILBERT_USER}@${__HILBERT_HOSTNAME} "less +F -R $path/*"
+}
+
 ####################################
 # "private" callback methods that should not be called by the user
 

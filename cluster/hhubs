@@ -217,6 +217,17 @@ cdepl_cluster_allows_sudo()
 	echo "1"
 }
 
+cdepl_cluster_show_logs()
+{
+	local path="$1"
+
+	if [ "$__HHUBS_SOLLIPULLI_MODE" = "1" ]; then
+		ssh -t sollipulli "less +F -R $path/*"
+	else
+		ssh -t -p 55517 ${__HHUBS_SOLLIPULLI_USER}@134.99.112.82 "less +F -R $path/*"
+	fi
+}
+
 ####################################
 # "private" callback methods that should not be called by the user
 
