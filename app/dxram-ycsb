@@ -32,6 +32,8 @@ readonly __DXRAM_YCSB_RUN_OR_LOAD_DONE_CONDITION="!---YCSB---!"
 
 readonly __DXRAM_YCSB_REQUIRED_ENVIRONMENT="java/1.8 gcc/6.1"
 
+__DXRAM_YCSB_RESOLVED_DEFAULT_VALUES=""
+
 __DXRAM_YCSB_PATH=""
 __DXRAM_YCSB_CONFIG_PATH=""
 __DXRAM_YCSB_LOG4J_CONFIG_PATH=""
@@ -104,7 +106,6 @@ cdepl_app_dxram_ycsb_init()
 		util_log_error_and_exit "[dxram-ycsb]: Path does not exist ($path), resolved path: $__DXRAM_YCSB_PATH"
 	fi
 
-	__cdepl_app_dxram_ycsb_resolve_default_config_values
 	__cdepl_app_dxram_ycsb_check
 	__cdepl_app_dxram_ycsb_check_config
 
@@ -443,6 +444,12 @@ cdepl_app_ycsb_dxram_start_node()
 {
 	local node_range_start=$1
 	local node_range_end=$2
+
+	# Resolve once before first node is started
+	if [ ! "$__DXRAM_YCSB_RESOLVED_DEFAULT_VALUES" ]; then
+		__DXRAM_YCSB_RESOLVED_DEFAULT_VALUES="1"
+		__cdepl_app_dxram_ycsb_resolve_default_config_values
+	fi
 
 	if [ "$node_range_end" ]; then
 		local counter=0
