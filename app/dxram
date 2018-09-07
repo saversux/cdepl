@@ -34,6 +34,8 @@ readonly __DXRAM_DEFAULT_STARTUP_CONDITION="!---ooo---!"
 
 readonly __DXRAM_REQUIRED_ENVIRONMENT="java/1.8 gcc/6.1"
 
+__DXRAM_RESOLVED_DEFAULT_VALUES=""
+
 __DXRAM_PATH=""
 __DXRAM_CONFIG_PATH=""
 
@@ -94,7 +96,6 @@ cdepl_app_dxram_init()
 
 	__cdepl_app_dxram_resolve_default_config_values
 	__cdepl_app_dxram_check
-	__cdepl_app_dxram_check_config
 
 	# Output path setup
 	cdepl_cluster_file_system_cmd "mkdir -p $__DXRAM_OUT_CONF_PATH"
@@ -355,6 +356,12 @@ cdepl_app_dxram_start_node()
 {
 	local node_range_start=$1
 	local node_range_end=$2
+
+	# Resolve once before first node is started
+	if [ ! "$__DXRAM_RESOLVED_DEFAULT_VALUES" ]; then
+		__DXRAM_RESOLVED_DEFAULT_VALUES="1"
+		__cdepl_app_dxram_resolve_default_config_values
+	fi
 
 	if [ "$node_range_end" ]; then
 		local pids=""
