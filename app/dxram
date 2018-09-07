@@ -57,6 +57,10 @@ __DXRAM_NODE_PEER_BACKUP_SRC=()
 __DXRAM_NODE_PEER_BACKUP_DST=()
 __DXRAM_NODE_MS_ROLE=()
 
+__DXRAM_NODE_AUTOSTART_APP=()
+__DXRAM_NODE_AUTOSTART_ARGS=()
+__DXRAM_NODE_AUTOSTART_INIT_ID=()
+
 ##
 # Initialize and setup the DXRAM environment. This must be called before any
 # other function of the dxram module.
@@ -473,6 +477,22 @@ cdepl_app_dxram_node_cleanup()
 	fi
 }
 
+cdepl_app_dxram_autostart()
+{
+	local node=$1
+	local app_class=$2
+	local app_arguments=$3
+	local app_init_id=$4
+
+	if [ "$node" -ge "$(cdepl_cluster_get_alloc_node_count)" ]; then
+		util_log_error_and_exit "[$node][dxram] Invalid node id $node > $(cdepl_cluster_get_alloc_node_count)"
+	fi
+
+	__DXRAM_NODE_AUTOSTART_APP[$node]="$app_class"
+	__DXRAM_NODE_AUTOSTART_ARGS[$node]="$app_arguments"
+	__DXRAM_NODE_AUTOSTART_INIT_ID[$node]="$app_init_id"
+}
+
 #################################################
 
 __cdepl_app_dxram_check()
@@ -713,6 +733,14 @@ __cdepl_app_dxram_start_peer()
 	if [ "${__DXRAM_NODE_PEER_KVSS[$node]}" ]; then
 		vm_opts="$vm_opts -Ddxram.m_config.m_componentConfigs[MemoryManagerComponentConfig].m_keyValueStoreSize.m_value=${__DXRAM_NODE_PEER_KVSS[$node]}"
 		vm_opts="$vm_opts -Ddxram.m_config.m_componentConfigs[MemoryManagerComponentConfig].m_keyValueStoreSize.m_unit=mb"
+	fi
+
+	if [ "${__DXRAM_NODE_AUTOSTART_APP[$node]}" != "" ]; then
+		vm_opts="$vm_opts -Ddxram.m_config.m_serviceConfigs[ApplicationServiceConfig].m_autoStart[0].m_className=${__DXRAM_NODE_AUTOSTART_APP[$node]}"
+		vm_opts="$vm_opts -Ddxram.m_config.m_serviceConfigs[ApplicationServiceConfig].m_autoStart[0].m_args=${__DXRAM_NODE_AUTOSTART_ARGS[$node]}"
+		vm_opts="$vm_opts -Ddxram.m_config.m_serviceConfigs[ApplicationServiceConfig].m_autoStart[0].m_startOrderId=${__DXRAM_NODE_AUTOSTART_INIT_ID[$node]}"
+		util_log "[$node][dxram][P] Enabled autostart for application ${__DXRAM_NODE_AUTOSTART_APP[$node]}"
+		util_log "$vm_opts"
 	fi
 
 	# Development and debugging
