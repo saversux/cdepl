@@ -777,7 +777,7 @@ __cdepl_app_dxram_ycsb_create_node_base_config()
 	local node=$1
 	local node_config_path="${__DXRAM_YCSB_OUT_CONF_PATH}/node_${node}.conf"
 
-	cdepl_cluster_file_system_cmd "cp $__DXRAM_YCSB_OUT_CONF_PATH $node_config_path"
+	cdepl_cluster_file_system_cmd "cp $__DXRAM_YCSB_CONFIG_PATH $node_config_path"
 }
 
 __cdepl_app_ycsb_dxram_start_node()
