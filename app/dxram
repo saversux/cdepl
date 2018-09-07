@@ -652,13 +652,13 @@ __cdepl_app_dxram_start_superpeer()
 	# Optional dxram node specific settings
 
 	if [ "${__DXRAM_NODE_NETWORK[$node]}" = "eth" ]; then
-		vm_opts="$vm_opts -Ddxram.m_config.m_componentConfigs[NetworkComponentConfig].m_core.m_device=Ethernet"
+		vm_opts="$vm_opts -Ddxram.m_config.m_componentConfigs[NetworkComponentConfig].m_coreConfig.m_device=ethernet"
 	elif [ "${__DXRAM_NODE_NETWORK[$node]}" = "ib" ]; then
-		vm_opts="$vm_opts -Ddxram.m_config.m_componentConfigs[NetworkComponentConfig].m_core.m_device=Infiniband"
+		vm_opts="$vm_opts -Ddxram.m_config.m_componentConfigs[NetworkComponentConfig].m_coreConfig.m_device=infiniband"
 	fi
 
 	if [ "${__DXRAM_NODE_MSG_HANDLER[$node]}" ]; then
-		vm_opts="$vm_opts -Ddxram.m_config.m_componentConfigs[NetworkComponentConfig].m_core.m_numMessageHandlerThreads=${__DXRAM_NODE_MSG_HANDLER[$node]}"
+		vm_opts="$vm_opts -Ddxram.m_config.m_componentConfigs[NetworkComponentConfig].m_coreConfig.m_numMessageHandlerThreads=${__DXRAM_NODE_MSG_HANDLER[$node]}"
 	fi
 
 	# Development and debugging
@@ -724,13 +724,13 @@ __cdepl_app_dxram_start_peer()
 	vm_opts="$vm_opts -Ddxram.m_config.m_componentConfigs[BackupComponentConfig].m_availableForBackup=${__DXRAM_NODE_PEER_BACKUP_DST[$node]}"
 
 	if [ "${__DXRAM_NODE_NETWORK[$node]}" = "eth" ]; then
-		vm_opts="$vm_opts -Ddxram.m_config.m_componentConfigs[NetworkComponentConfig].m_core.m_device=Ethernet"
+		vm_opts="$vm_opts -Ddxram.m_config.m_componentConfigs[NetworkComponentConfig].m_coreConfig.m_device=ethernet"
 	elif [ "${__DXRAM_NODE_NETWORK[$node]}" = "ib" ]; then
-		vm_opts="$vm_opts -Ddxram.m_config.m_componentConfigs[NetworkComponentConfig].m_core.m_device=Infiniband"
+		vm_opts="$vm_opts -Ddxram.m_config.m_componentConfigs[NetworkComponentConfig].m_coreConfig.m_device=infiniband"
 	fi
 
 	if [ "${__DXRAM_NODE_MSG_HANDLER[$node]}" ]; then
-		vm_opts="$vm_opts -Ddxram.m_config.m_componentConfigs[NetworkComponentConfig].m_core.m_numMessageHandlerThreads=${__DXRAM_NODE_MSG_HANDLER[$node]}"
+		vm_opts="$vm_opts -Ddxram.m_config.m_componentConfigs[NetworkComponentConfig].m_coreConfig.m_numMessageHandlerThreads=${__DXRAM_NODE_MSG_HANDLER[$node]}"
 	fi
 
 	if [ "${__DXRAM_NODE_MS_ROLE[$node]}" ]; then
@@ -738,8 +738,8 @@ __cdepl_app_dxram_start_peer()
 	fi
 
 	if [ "${__DXRAM_NODE_PEER_KVSS[$node]}" ]; then
-		vm_opts="$vm_opts -Ddxram.m_config.m_componentConfigs[MemoryManagerComponentConfig].m_keyValueStoreSize.m_value=${__DXRAM_NODE_PEER_KVSS[$node]}"
-		vm_opts="$vm_opts -Ddxram.m_config.m_componentConfigs[MemoryManagerComponentConfig].m_keyValueStoreSize.m_unit=mb"
+		vm_opts="$vm_opts -Ddxram.m_config.m_componentConfigs[ChunkComponentConfig].m_keyValueStoreSize.m_value=${__DXRAM_NODE_PEER_KVSS[$node]}"
+		vm_opts="$vm_opts -Ddxram.m_config.m_componentConfigs[ChunkComponentConfig].m_keyValueStoreSize.m_unit=mb"
 	fi
 
 	if [ "${__DXRAM_NODE_AUTOSTART_APP[$node]}" != "" ]; then
