@@ -94,8 +94,12 @@ cdepl_script_process_cmd_args()
 	CLUSTER_TYPE_INIT_ARGS="$cluster_type_init_args"
 	DXRAM_ARGS="$benchmark_args"
 
-	DXRAM_PATH="/home/${CLUSTER_USER}/dxram"
-    ZK_PATH="/home/${CLUSTER_USER}/zookeeper"
+	if [ "$DXRAM_PATH" = "" ]; then
+		DXRAM_PATH="/home/${CLUSTER_USER}/dxram"
+	fi
+	if [ "$ZK_PATH" = "" ]; then
+		ZK_PATH="/home/${CLUSTER_USER}/zookeeper"
+	fi
 }
 
 cdepl_script_cluster_node_setup()

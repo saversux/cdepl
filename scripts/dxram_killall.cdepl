@@ -57,7 +57,9 @@ cdepl_script_process_cmd_args()
 	CLUSTER_USER="$cluster_user"
 	CLUSTER_TYPE_INIT_ARGS="$cluster_type_init_args"
 
-	DXRAM_PATH="/home/${CLUSTER_USER}/dxram"
+	if [ "$DXRAM_PATH" = "" ]; then
+		DXRAM_PATH="/home/${CLUSTER_USER}/dxram"
+	fi
 }
 
 cdepl_script_cluster_node_setup()
