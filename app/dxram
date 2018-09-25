@@ -94,8 +94,8 @@ cdepl_app_dxram_init()
 		util_log_error_and_exit "[dxram]: Path does not exist ($path), resolved path: $__DXRAM_PATH"
 	fi
 
-	__cdepl_app_dxram_resolve_default_config_values
 	__cdepl_app_dxram_check
+	__cdepl_app_dxram_check_config
 
 	# Output path setup
 	cdepl_cluster_file_system_cmd "mkdir -p $__DXRAM_OUT_CONF_PATH"
