@@ -173,7 +173,7 @@ cdepl_cluster_show_logs()
 {
 	local path="$1"
 
-	less +F -R "$path/*"
+	less +F -R $path/*
 }
 
 ####################################
