@@ -113,7 +113,7 @@ cdepl_app_zookeeper_wait_started()
 
 		if [ "$success_started" != "" ] || [ "$success_running" != "" ]; then
 
-			local pid=$(cdepl_cluster_node_cmd "$node" "pgrep -f '^java -Dzookeeper.log.dir'")
+			local pid=$(cdepl_cluster_node_cmd "$node" "pgrep -f 'java -Dzookeeper.log.dir'")
 
 			echo ""
 
