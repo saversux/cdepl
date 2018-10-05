@@ -29,6 +29,8 @@ ZK_PATH=""
 ZK_NODE=0
 ZK_PORT=2181
 
+DX_PEER_PORT_START="22222"
+
 # Paths set in cdepl_script_process_cmd_args
 DXRAM_YCSB_PATH=""
 
@@ -94,7 +96,7 @@ cdepl_script_process_cmd_args()
 	if [ "$argc" != "10" ]; then
 		util_log_error "Missing benchmark arguments"
 		util_log_error "Usage: <total_nodes> <cluster_type> <cluster_user> [init args for cluster type...] -- [benchmark args...]"
-		util_log_error_and_exit "Benchmark args: <network type: eth, ib> <num dxram storage nodes> <num ycsb benchmark nodes> <storage size mb per node> <num message handler storages> <num message handlers benchmark clients> <num ycsb benchmark threads> <workload: a, b, g> <record count per node> <operation count per node>"
+		util_log_error_and_exit "Benchmark args: <network type: eth, ib> <num dxram storage nodes> <num ycsb benchmark nodes> <storage size mb per node> <num message handler storages> <num message handlers benchmark clients> <num ycsb benchmark threads> <workload: a, b, g, x> <record count per node> <operation count per node>"
 	fi
 
 	DXRAM_YCSB_PATH="/home/${CLUSTER_USER}/ycsb-dxram"
@@ -112,6 +114,7 @@ cdepl_script_cluster_node_setup()
 	# Load application modules of apps you want to deploy
 	cdepl_cluster_app_load "zookeeper"
 	cdepl_cluster_app_load "dxram-ycsb"
+	cdepl_cluster_app_load "dxram"
 
 	# Alloc total number of nodes for this deployment
 	cdepl_cluster_node_alloc $TOTAL_NODES
@@ -162,48 +165,36 @@ cdepl_script_deploy()
 	# Cleanup of failed startups in zookeeper
 	cdepl_app_zookeeper_remove $ZK_NODE "/dxram"
 
-	# Initialize dxram-ycsb deployment. Don't use both, dxram and dxram-ycsb
-	# This won't work because you need a unified node list for all instances
-	# which would be split when using two separate environments
+	# Start a DXRAM cluster first
+	# Initialize deployment
+	cdepl_app_dxram_init $DXRAM_YCSB_PATH $ZK_NODE $ZK_PORT
 	cdepl_app_dxram_ycsb_init $DXRAM_YCSB_PATH $ZK_NODE $ZK_PORT
-	
+
 	# Kill any still running instances from previous deployments
+	cdepl_app_dxram_node_cleanup 0 $((TOTAL_NODES - 1))
 	cdepl_app_dxram_ycsb_node_cleanup 0 $((TOTAL_NODES - 1))
 
-	local benchmark_range_start=$((1 + storage_nodes))
-	local benchmark_range_end=$((benchmark_range_start + ycsb_nodes - 1))
+	local ycsb_range_start=$((1 + storage_nodes))
+	local ycsb_range_end=$((ycsb_range_start + ycsb_nodes - 1))
 
-	# Set node types
-	cdepl_app_dxram_ycsb_node_type 0 "S"
-	cdepl_app_dxram_ycsb_run_as_sudo 0
-	cdepl_app_dxram_ycsb_node_network 0 $network_type
-
-	# Storages + loading
-	local counter=0
-
+	# Config superpeer
+	cdepl_app_dxram_node_type 0 "S"
+	cdepl_app_dxram_run_as_sudo 0
+	cdepl_app_dxram_node_network 0 $network_type
+		
+	# Config storage peers
 	for i in $(seq 1 $storage_nodes); do
-		cdepl_app_dxram_ycsb_run_as_sudo $i
-		cdepl_app_dxram_ycsb_node_network $i $network_type
-		cdepl_app_dxram_ycsb_node_type $i "PS"
-		cdepl_app_dxram_ycsb_peer_kvss $i $storage_size
-		cdepl_app_dxram_ycsb_node_message_handler $i $num_message_handler_storages
-
-		cdepl_app_dxram_ycsb_insertstart $i $((recordcount_per_node * counter))
-		counter=$((counter + 1))
-	done
-
-	# Benchmark nodes
-	for i in $(seq $benchmark_range_start $benchmark_range_end); do
-		cdepl_app_dxram_ycsb_run_as_sudo $i
-		cdepl_app_dxram_ycsb_node_network $i $network_type
-		cdepl_app_dxram_ycsb_node_type $i "PB"
-		cdepl_app_dxram_ycsb_node_message_handler $i $num_message_handler_benchmark
-		cdepl_app_dxram_ycsb_threads $i $ycsb_threads
+		cdepl_app_dxram_run_as_sudo $i
+		cdepl_app_dxram_node_network $i $network_type
+		cdepl_app_dxram_node_type $i "P"
+		cdepl_app_dxram_peer_kvss $i $storage_size
+		cdepl_app_dxram_node_message_handler $i $num_message_handler_storages
+		cdepl_app_dxram_node_port $i $DX_PEER_PORT_START
+		DX_PEER_PORT_START=$((DX_PEER_PORT_START + 1))
 	done
 
 	# YCSB parameter setup
 	cdepl_app_dxram_ycsb_total_storage_nodes $storage_nodes
-	cdepl_app_dxram_ycsb_total_benchmark_nodes $ycsb_nodes
 
 	case $workload in
 		"a")
@@ -215,19 +206,59 @@ cdepl_script_deploy()
 		"g")
 			cdepl_app_dxram_ycsb_workload_g $recordcount_per_node $operationcount
 			;;
+		x=*)
+			vals=$(echo "$workload" | cut -d "=" -f 2)
+			reads=$(echo "$vals" | cut -d "," -f 1)
+			writes=$(echo "$vals" | cut -d "," -f 2)
+			dist=$(echo "$vals" | cut -d "," -f 3)
+			batch=$(echo "$vals" | cut -d "," -f 4)
+			csize=$(echo "$vals" | cut -d "," -f 5)
+
+			if [ ! "$reads" ] || [ ! "$writes" ] || [ ! "$dist" ] || [ ! "$batch" ] || [ ! "$csize" ]; then
+				util_log_error_and_exit "Invalid custom workload format, must be: x=<reads>,<writes>,<dist>,<batch>,<csize> (e.g. x=0.5,0.5,zipfian,1,64 )"
+			fi
+
+			cdepl_app_dxram_ycsb_workload $recordcount_per_node $operationcount $reads $writes $dist $batch $csize
+			;;
 		*)
 			util_log_error_and_exit "Invalid workload specified: $workload"
+			;;
 	esac
 
+	# Config load peers
+	local counter="0"
+
+	for i in $(seq $ycsb_range_start $ycsb_range_end); do
+		cdepl_app_dxram_ycsb_run_as_sudo $i
+		cdepl_app_dxram_ycsb_node_network $i $network_type
+		cdepl_app_dxram_ycsb_node_type $i "L"
+		# When running localhost, we have to assign different ports for the peers
+		cdepl_app_dxram_ycsb_node_port $i $DX_PEER_PORT_START
+		DX_PEER_PORT_START=$((DX_PEER_PORT_START + 1))
+
+		cdepl_app_dxram_ycsb_load_target_peer_idx $i $counter
+		cdepl_app_dxram_ycsb_insertstart $i $((recordcount_per_node * counter))
+
+		counter=$((counter + 1))
+	done
+
 	# Start superpeer and wait before starting peers
-	cdepl_app_ycsb_dxram_start_node 0
-	cdepl_app_dxram_ycsb_node_wait_superpeer_started 0
+	cdepl_app_dxram_start_node 0
+	cdepl_app_dxram_node_wait_started 0
 
-	# Start storage and wait for loading to complete
-	cdepl_app_ycsb_dxram_start_node 1 $storage_nodes
+	# Start all storage peers
+	cdepl_app_dxram_start_node 1 $storage_nodes
 
+	# Wait for all peers to be started
 	for i in $(seq 1 $storage_nodes); do
-        cdepl_app_dxram_ycsb_storage_finished_loading $i &
+		cdepl_app_dxram_node_wait_started $i
+	done
+
+	# Load storage nodes
+	cdepl_app_ycsb_dxram_start_node $ycsb_range_start $ycsb_range_end
+
+	for i in $(seq $ycsb_range_start $ycsb_range_end); do
+        cdepl_app_dxram_ycsb_loader_finished_loading $i &
         pids="$pids $!"
 
         counter=$((counter + 1))
@@ -235,17 +266,26 @@ cdepl_script_deploy()
 		# Parallel deploy in batches of 10 which is the default limit
 		# for parallel connections on ssh servers, stay slightly below
 		# this limit (sometimes, 10 causes errors on multiplexing)
-		if [ "$counter" -ge "8" ] || [ "$i" = "$storage_nodes" ]; then
+		if [ "$counter" -ge "8" ] || [ "$i" = "$ycsb_range_end" ]; then
 			wait $pids
 			pids=""
 			counter=0
 		fi
     done 
 
-	# Start benchmark and wait for completion
-	cdepl_app_ycsb_dxram_start_node $benchmark_range_start $benchmark_range_end
+	# Re-configure ycsb nodes to run as benchmark nodes
+	for i in $(seq $ycsb_range_start $ycsb_range_end); do
+		cdepl_app_dxram_ycsb_run_as_sudo $i
+		cdepl_app_dxram_ycsb_node_network $i $network_type
+		cdepl_app_dxram_ycsb_node_type $i "B"
+		cdepl_app_dxram_ycsb_node_message_handler $i $num_message_handler_benchmark
+		cdepl_app_dxram_ycsb_threads $i $ycsb_threads
+	done
 
-	for i in $(seq $benchmark_range_start $benchmark_range_end); do
+	# Start benchmark and wait for completion
+	cdepl_app_ycsb_dxram_start_node $ycsb_range_start $ycsb_range_end
+
+	for i in $(seq $ycsb_range_start $ycsb_range_end); do
 		cdepl_app_dxram_ycsb_benchmark_wait_finished $i
 	done
 }
