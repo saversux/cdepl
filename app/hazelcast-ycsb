@@ -1,0 +1,575 @@
+#
+# Copyright (C) 2018 Heinrich-Heine-Universitaet Duesseldorf, Institute of Computer Science, Department Operating Systems
+#
+# This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>
+#
+
+readonly __HAZELCAST_YCSB_CLIENT_CONFIG="hazelcast-client.xml"
+
+readonly __HAZELCAST_YCSB_LOG_FILE_LOAD_POSTFIX="_load"
+readonly __HAZELCAST_YCSB_LOG_FILE_BENCH_POSTFIX="_bench"
+
+readonly __HAZELCAST_YCSB_PROCESS_IDENTIFIER="hazelcastdeployscript"
+readonly __HAZELCAST_YCSB_LOAD_DONE_COND="\[INSERT\], Return"
+readonly __HAZELCAST_YCSB_BENCH_DONE_COND="\[OVERALL\], RunTime"
+
+__HAZELCAST_YCSB_RESOLVED_DEFAULT_VALUES=""
+
+__HAZELCAST_YCSB_PATH=""
+__HAZELCAST_YCSB_OUT_PATH=""
+__HAZELCAST_YCSB_OUT_LOG_PATH=""
+
+__HAZELCAST_YCSB_TOTAL_STORAGE_NODES=""
+
+__HAZELCAST_YCSB_NODE_TYPE=()
+__HAZELCAST_YCSB_CLUSTER_ENTRY_NODE=""
+__HAZELCAST_YCSB_NODE_THREADS=()
+
+# Specify workload inline
+__HAZELCAST_YCSB_WORKLOAD_RECORDCOUNT_PER_NODE=""
+__HAZELCAST_YCSB_WORKLOAD_OPERATIONCOUNT=""
+__HAZELCAST_YCSB_WORKLOAD_READPROPORTION=""
+__HAZELCAST_YCSB_WORKLOAD_UPDATEPROPORTION=""
+__HAZELCAST_YCSB_WORKLOAD_REQUESTDISTRIBUTION=""
+__HAZELCAST_YCSB_WORKLOAD_FIELDCOUNT=""
+__HAZELCAST_YCSB_WORKLOAD_FIELDLENGTH=""
+
+__HAZELCAST_YCSB_NODE_INSERTSTART=()
+
+##
+# Initialize and setup the Hazelcast YCSB environment. This must be called before any
+# other function of the hazelcast-ycsb module.
+#
+# $1 path Path to folder containing build output of ycsb-hazelcast with bin, lib folder etc
+##
+cdepl_app_hazelcast_ycsb_init()
+{
+	local hazelcast_ycsb_path=$1
+
+	__HAZELCAST_YCSB_PATH="$(cdepl_cluster_file_system_cmd "realpath ${hazelcast_ycsb_path}")"
+	__HAZELCAST_YCSB_OUT_PATH="${__DEPLOY_CUR_OUT_PATH}"
+    __HAZELCAST_YCSB_OUT_LOG_PATH="${__HAZELCAST_YCSB_OUT_PATH}/log"
+
+	if [ ! "$__HAZELCAST_YCSB_PATH" ] || [ "$(cdepl_cluster_file_system_cmd "[ -d ${__HAZELCAST_YCSB_PATH} ] && echo \"1\"")" != "1" ]; then
+		util_log_error_and_exit "[hazelcast-ycsb]: Path does not exist: ${__HAZELCAST_YCSB_PATH}"
+	fi
+
+	util_log "[hazelcast-ycsb] Initialized: ${__HAZELCAST_YCSB_PATH}"
+	util_log "[hazelcast-ycsb] Output: ${__HAZELCAST_YCSB_OUT_PATH}"
+
+    # create log file output
+    cdepl_cluster_file_system_cmd "mkdir -p ${__HAZELCAST_YCSB_OUT_PATH}/log"
+}
+
+##
+# Set the node type for a Hazelcast YCSB client instance running on a node.
+#
+# In order to declare a node an actual Hazelcast client node/instance, you have to assign
+# a role. There is no default node role applied, otherwise. The node will be
+# ignored.
+#
+# $1 node Node to set the Hazelcast YCSB client role for
+# $2 type Hazelcast YCSB client node type to set for the specified node:
+#    L (loader) or B (benchmark)
+##
+cdepl_app_hazelcast_ycsb_node_type()
+{
+	local node=$1
+	local type=$2
+
+	# No default values. If node type not set explicitly, node is not considered to run a Hazelcast YCSB instance
+	if [ "$node" -ge "$(cdepl_cluster_get_alloc_node_count)" ]; then
+		util_log_error_and_exit "[$node][hazelcast-ycsb] Invalid node id $node > $(cdepl_cluster_get_alloc_node_count)"
+	fi
+
+	if [ "$type" != "L" ] && [ "$type" != "B" ]; then
+		util_log_error_and_exit "[$node][hazelcast-ycsb] Invalid node type $type for node $node"
+	fi
+
+	__HAZELCAST_YCSB_NODE_TYPE[$node]="$type"
+}
+
+##
+# Set the total number of storage nodes for the YCSB benchmark
+#
+# #1 total_nodes Total number of storages nodes
+##
+cdepl_app_hazelcast_ycsb_total_storage_nodes()
+{
+	local total_nodes=$1
+
+	__HAZELCAST_YCSB_TOTAL_STORAGE_NODES="$total_nodes"
+}
+
+##
+# Set the entry node for the ycsb client to contact the cluster
+#
+# $1 node Target Hazelcast server node to contact for entry
+##
+cdepl_app_hazelcast_ycsb_set_cluster_entry_node()
+{
+    local node=$1
+
+    if [ "$node" -ge "$(cdepl_cluster_get_alloc_node_count)" ]; then
+		util_log_error_and_exit "[$node][hazelcast-ycsb] Invalid node id $node > $(cdepl_cluster_get_alloc_node_count)"
+	fi
+
+    __HAZELCAST_YCSB_CLUSTER_ENTRY_NODE=$node
+}
+
+##
+# Set the number of ycsb threads to run on a benchmark node
+#
+# $1 node Target benchmark node
+# $2 threads Number of threads to start on the target node
+##
+cdepl_app_hazelcast_ycsb_threads()
+{
+	local node=$1
+	local threads=$2
+
+	if [ "$node" -ge "$(cdepl_cluster_get_alloc_node_count)" ]; then
+		util_log_error_and_exit "[$node][hazelcast-ycsb] Invalid node id $node > $(cdepl_cluster_get_alloc_node_count)"
+	fi
+
+	__HAZELCAST_YCSB_NODE_THREADS[$node]="$threads"
+}
+
+##
+# Specify an inline workload instead of using a workload config making the
+# deployment script more self containing
+#
+# $1 recordcount Number of records to create per node
+# $2 operationcount Number of operations to execute by each benchmark node
+# $3 readportion Distribution of reads
+# $4 updateportion Distribution of updates
+# $5 requestdistribution Distribution of requests (zipfian, uniform)
+# $6 fieldcount Number of fields per object
+# $7 fieldlength Length of a single field
+##
+cdepl_app_hazelcast_ycsb_workload()
+{
+	local recordcount=$1
+	local operationcount=$2
+	local readportion=$3
+	local updateportion=$4
+	local requestdistribution=$5
+	local fieldcount=$6
+	local fieldlength=$7
+
+	__HAZELCAST_YCSB_WORKLOAD_RECORDCOUNT_PER_NODE="$recordcount"
+	__HAZELCAST_YCSB_WORKLOAD_OPERATIONCOUNT="$operationcount"
+	__HAZELCAST_YCSB_WORKLOAD_READPROPORTION="$readportion"
+	__HAZELCAST_YCSB_WORKLOAD_UPDATEPROPORTION="$updateportion"
+	__HAZELCAST_YCSB_WORKLOAD_REQUESTDISTRIBUTION="$requestdistribution"
+	__HAZELCAST_YCSB_WORKLOAD_FIELDCOUNT="$fieldcount"
+	__HAZELCAST_YCSB_WORKLOAD_FIELDLENGTH="$fieldlength"
+}
+
+##
+# Set the insert start offset when creating/inserting objects during loading
+#
+# $1 node Target storage node
+# $2 insertstart Insert start offset for chunk IDs
+##
+cdepl_app_hazelcast_ycsb_insertstart()
+{
+	local node=$1
+	local insertstart=$2
+
+	if [ "$node" -ge "$(cdepl_cluster_get_alloc_node_count)" ]; then
+		util_log_error_and_exit "[$node][hazelcast-ycsb] Invalid node id $node > $(cdepl_cluster_get_alloc_node_count)"
+	fi
+
+	__HAZELCAST_YCSB_NODE_INSERTSTART[$node]="$insertstart"
+}
+
+##
+# Wrapper to set workload a
+#
+# $1 recordcount Number of records to create per node
+# $2 operationcount Number of operations to execute by each benchmark node
+##
+cdepl_app_hazelcast_ycsb_workload_a()
+{
+	local recordcount=$1
+	local operationcount=$2
+
+	cdepl_app_hazelcast_ycsb_workload $recordcount $operationcount "0.5" "0.5" "zipfian" "10" "100"
+}
+
+##
+# Wrapper to set workload b
+#
+# $1 recordcount Number of records to create per node
+# $2 operationcount Number of operations to execute by each benchmark node
+##
+cdepl_app_hazelcast_ycsb_workload_b()
+{
+	local recordcount=$1
+	local operationcount=$2
+
+	cdepl_app_hazelcast_ycsb_workload $recordcount $operationcount "0.95" "0.05" "zipfian" "10" "100"
+}
+
+##
+# Wrapper to set workload g
+#
+# $1 recordcount Number of records to create per node
+# $2 operationcount Number of operations to execute by each benchmark node
+##
+cdepl_app_hazelcast_ycsb_workload_g()
+{
+	local recordcount=$1
+	local operationcount=$2
+
+	cdepl_app_hazelcast_ycsb_workload $recordcount $operationcount "0.5" "0.5" "zipfian" "1" "64"
+}
+
+##
+# Start a Hazelcast YCSB client instance on the target node.
+#
+# $1 node_range_start Node id to start instance on (or range start)
+# $2 node_range_end (optional) If specified, all nodes from the range start to
+#    end are started
+##
+cdepl_app_hazelcast_ycsb_start_node()
+{
+	local node_range_start=$1
+	local node_range_end=$2
+
+	# Resolve once before first node is started
+	if [ ! "$__HAZELCAST_YCSB_RESOLVED_DEFAULT_VALUES" ]; then
+		__HAZELCAST_YCSB_RESOLVED_DEFAULT_VALUES="1"
+		__cdepl_app_hazelcast_ycsb_create_config
+	fi
+
+	if [ "$node_range_end" ]; then
+        local counter=0
+		local pids=""
+
+		for node in $(seq "$node_range_start" "$node_range_end"); do
+			__cdepl_app_hazelcast_ycsb_start_node "$node" &
+			pids="$pids $!"
+
+            counter=$((counter + 1))
+
+            # Parallel deploy in batches of 10 which is the default limit
+			# for parallel connections on ssh servers, stay slightly below 
+			# this limit (sometimes, 10 causes errors on multiplexing)
+			if [ "$counter" -ge "8" ]; then
+				wait $pids
+				pids=""
+				counter=0
+			fi
+		done
+
+		wait $pids
+	else
+		__cdepl_app_hazelcast_ycsb_start_node "$node_range_start"
+	fi
+}
+
+##
+# Check for a YCSB loader instance if it finished loading
+#
+# $1 node Node id of a strange node to check
+# $2 hide_progress (optional) Set to 1 to hide output of the loading progress
+##
+cdepl_app_hazelcast_ycsb_loader_finished_loading()
+{
+	local node=$1
+	local hide_progress=$2
+
+	local type="${__HAZELCAST_YCSB_NODE_TYPE[$node]}"
+	local logfile=${__HAZELCAST_YCSB_OUT_LOG_PATH}/node${node}${__HAZELCAST_YCSB_LOG_FILE_LOAD_POSTFIX}
+
+	if [ "$type" != "L" ]; then
+		util_log_error_and_exit "[$node][hazelcast-ycsb][$type] Invalid node type $type to wait for loader finish"
+	fi
+
+	util_log "[$node][hazelcast-ycsb][$type] Waiting for loading to finish: $__HAZELCAST_YCSB_LOAD_DONE_COND"
+
+	local first_progress=1
+
+	while true; do
+		if [ ! "$hide_progress" ]; then
+			local progress=$(cdepl_cluster_node_cmd $node "cat $logfile | grep 'current ops' | tail -n 1")
+
+			if [ ! "$progress" ]; then
+				echo -n "."
+			else
+				if [ "$first_progress" = "1" ]; then
+					first_progress=0
+					echo ""
+				fi
+
+				echo "[$node] ${progress}"
+			fi
+		else
+			echo -n "."
+		fi
+
+		local success=$(cdepl_cluster_node_cmd $node "cat $logfile 2> /dev/null | grep '$__HAZELCAST_YCSB_LOAD_DONE_COND'")
+		# Abort execution after an exception was thrown (every exception but NetworkResponseCancelledException)
+		local fail_error=$(cdepl_cluster_node_cmd $node "cat $logfile 2> /dev/null | grep -i 'exception'")
+
+		if [ "$fail_error" ]; then
+			echo ""
+
+			util_log_error_and_exit "[$node][hazelcast-ycsb][$type] Failed, error or exception:\n${fail_error}\nSee log file $logfile"
+		fi
+
+		if [ "$success" ]; then
+			echo ""
+			util_log "[$node][hazelcast-ycsb][$type] Storage loading complete"
+			break;
+		fi
+
+		sleep 1.0
+	done
+
+	return 0
+}
+
+##
+# Check for a YCSB benchmark instance if it running the benchmark
+#
+# $1 node Node id of a benchmark node to check
+# $2 hide_progress (optional) Set to 1 to hide output of the benchmark progress
+##
+cdepl_app_hazelcast_ycsb_benchmark_wait_finished()
+{
+	local node=$1
+	local hide_progress=$2
+
+	local type="${__HAZELCAST_YCSB_NODE_TYPE[$node]}"
+	local logfile=${__HAZELCAST_YCSB_OUT_LOG_PATH}/node${node}${__HAZELCAST_YCSB_LOG_FILE_BENCH_POSTFIX}
+
+	if [ "$type" != "B" ]; then
+		util_log_error_and_exit "[$node][hazelcast-ycsb][$type] Invalid node type $type to wait for benchmark to finish"
+	fi
+
+	util_log "[$node][hazelcast-ycsb][$type] Waiting for benchmark to finish: $__HAZELCAST_YCSB_BENCH_DONE_COND"
+
+	local first_progress=1
+
+	while true; do
+		if [ ! "$hide_progress" ]; then
+			local progress=$(cdepl_cluster_node_cmd $node "cat $logfile | grep 'current ops' | tail -n 1")
+
+			if [ ! "$progress" ]; then
+				echo -n "."
+			else
+				if [ "$first_progress" = "1" ]; then
+					first_progress=0
+					echo ""
+				fi
+
+				echo "[$node] ${progress}"
+			fi
+		else
+			echo -n "."
+		fi
+
+		local success=$(cdepl_cluster_node_cmd $node "cat $logfile 2> /dev/null | grep '$__HAZELCAST_YCSB_BENCH_DONE_COND'")
+		# Abort execution after an exception was thrown (every exception but NetworkResponseCancelledException)
+		local fail_error=$(cdepl_cluster_node_cmd $node "cat $logfile 2> /dev/null | grep -i 'exception'")
+
+		if [ "$fail_error" ]; then
+			util_log_error_and_exit "[$node][hazelcast-ycsb][$type] Failed, error or exception:\n${fail_error}\nSee log file $logfile"
+		fi
+
+		if [ "$success" ]; then
+			echo ""
+			util_log "[$node][hazelcast-ycsb][$type] Benchmark completed"
+			break;
+		fi
+
+		sleep 1.0
+	done
+
+	return 0
+}
+
+##
+# Cleanup any still running or remaining/crashed instances on the target node
+#
+# $1 Target node id (or start node id of range if second parameter provided)
+# $2 Optional: Node id range end (including) and first parameter is interpreted
+#    as range start (including)
+##
+cdepl_app_hazelcast_ycsb_node_cleanup()
+{
+	local node_range_start=$1
+	local node_range_end=$2
+
+	if [ "$node_range_end" ]; then
+		local counter=0
+		local pids=""
+
+		for node in $(seq $node_range_start $node_range_end); do
+			__cdepl_app_hazelcast_ycsb_cleanup $node &
+			pids="$pids $!"
+
+			counter=$((counter + 1))
+
+			# Parallel deploy in batches of 10 which is the default limit
+			# for parallel connections on ssh servers, stay slightly below 
+			# this limit (sometimes, 10 causes errors on multiplexing)
+			if [ "$counter" -ge "8" ]; then
+				wait $pids
+				sleep 1
+				pids=""
+				counter=0
+			fi
+		done
+
+		wait $pids
+	else
+		__cdepl_app_hazelcast_ycsb_cleanup $node_range_start
+	fi
+}
+
+#################################################
+
+__cdepl_app_hazelcast_ycsb_create_config()
+{
+    local tmp_config="/tmp/$__HAZELCAST_YCSB_CLIENT_CONFIG"
+
+    if [ ! "$__HAZELCAST_YCSB_CLUSTER_ENTRY_NODE" ]; then
+        util_log_error_and_exit "[hazelcast-ycsb] Cluster entry node not specified"
+    fi
+
+    local entry_node_ip=$(cdepl_cluster_resolve_node_to_ip $__HAZELCAST_YCSB_CLUSTER_ENTRY_NODE)
+
+    util_log "[hazelcast-ycsb] Resolved cluster entry node $__HAZELCAST_YCSB_CLUSTER_ENTRY_NODE to ip $entry_node_ip"
+
+    # Enable user code deployment to allow execution of the ycsb client
+
+	printf '%s' "
+<hazelcast-client xsi:schemaLocation=\"http://www.hazelcast.com/schema/client-config hazelcast-client-config-3.10.xsd\"
+           xmlns=\"http://www.hazelcast.com/schema/client-config\"
+           xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\">
+    <network>
+        <cluster-members>
+            <address>$entry_node_ip</address>
+        </cluster-members>
+    </network>
+</hazelcast-client>
+" > $tmp_config
+
+    cdepl_cluster_upload_to_remote $tmp_config $__HAZELCAST_YCSB_OUT_PATH
+}
+
+__cdepl_app_hazelcast_ycsb_start_node()
+{	
+	local node=$1
+
+    if [ "${__HAZELCAST_YCSB_NODE_TYPE[$node]}" = "" ]; then
+		util_log_error_and_exit "[$node][hazelcast-ycsb] No node type set, cannot start instance"
+	fi
+
+	local logfile="${__HAZELCAST_YCSB_OUT_PATH}/log/node${node}"
+    local ycsb_type=""
+
+	if [ "${__HAZELCAST_YCSB_NODE_TYPE[$node]}" = "L" ]; then
+		logfile=${__HAZELCAST_YCSB_OUT_LOG_PATH}/node${node}${__HAZELCAST_YCSB_LOG_FILE_LOAD_POSTFIX}
+        ycsb_type="load"
+    elif [ "${__HAZELCAST_YCSB_NODE_TYPE[$node]}" = "B" ]; then
+		logfile=${__HAZELCAST_YCSB_OUT_LOG_PATH}/node${node}${__HAZELCAST_YCSB_LOG_FILE_BENCH_POSTFIX}
+        ycsb_type="run"
+    else
+		util_log_error_and_exit "[$node][hazelcast-ycsb] Invalid node type ${__HAZELCAST_YCSB_NODE_TYPE[$node]} cannot start instance"
+	fi
+
+	if [ ! "${__HAZELCAST_YCSB_NODE_INSERTSTART[$node]}" ] && [ "$ycsb_type" = "load" ]; then
+		util_log_error_and_exit "[$node][hazelcast-ycsb][$ycsb_type] Missing value for insertstart parameter for storage"
+	fi
+
+	if [ "${__HAZELCAST_YCSB_NODE_INSERTSTART[$node]}" ]; then
+		ycsb_params="$ycsb_params -p insertstart=${__HAZELCAST_YCSB_NODE_INSERTSTART[$node]}"
+	fi
+
+    local ycsb_params=""
+
+    ycsb_params="$ycsb_params -jvm-args=-Dhazelcast.client.config=$__HAZELCAST_YCSB_OUT_PATH/$__HAZELCAST_YCSB_CLIENT_CONFIG"
+    ycsb_params="$ycsb_params -p status.interval=1"
+    ycsb_params="$ycsb_params -p readallfields=true"
+    ycsb_params="$ycsb_params -p insertorder=ordered"
+
+    if [ "$__HAZELCAST_YCSB_WORKLOAD_RECORDCOUNT_PER_NODE" ]; then
+		# For the storage nodes: how many records it has to load
+		# For the benchmark node: total number of records in the whole DB
+		if [ "$ycsb_type" = "load" ]; then
+			ycsb_params="$ycsb_params -p recordcount=$__HAZELCAST_YCSB_WORKLOAD_RECORDCOUNT_PER_NODE"
+		else
+			ycsb_params="$ycsb_params -p recordcount=$((__HAZELCAST_YCSB_WORKLOAD_RECORDCOUNT_PER_NODE * __HAZELCAST_YCSB_TOTAL_STORAGE_NODES))"
+		fi
+	fi
+
+	if [ "$__HAZELCAST_YCSB_WORKLOAD_OPERATIONCOUNT" ]; then
+		ycsb_params="$ycsb_params -p operationcount=$__HAZELCAST_YCSB_WORKLOAD_OPERATIONCOUNT"
+	fi
+
+	if [ "$__HAZELCAST_YCSB_WORKLOAD_READPROPORTION" ]; then
+		ycsb_params="$ycsb_params -p readproportion=$__HAZELCAST_YCSB_WORKLOAD_READPROPORTION"
+	fi
+
+	if [ "$__HAZELCAST_YCSB_WORKLOAD_UPDATEPROPORTION" ]; then
+		ycsb_params="$ycsb_params -p updateproportion=$__HAZELCAST_YCSB_WORKLOAD_UPDATEPROPORTION"
+	fi
+
+	if [ "$__HAZELCAST_YCSB_WORKLOAD_REQUESTDISTRIBUTION" ]; then
+		ycsb_params="$ycsb_params -p requestdistribution=$__HAZELCAST_YCSB_WORKLOAD_REQUESTDISTRIBUTION"
+	fi
+
+	if [ "$__HAZELCAST_YCSB_WORKLOAD_FIELDCOUNT" ]; then
+		ycsb_params="$ycsb_params -p fieldcount=$__HAZELCAST_YCSB_WORKLOAD_FIELDCOUNT"
+	fi
+
+	if [ "$__HAZELCAST_YCSB_WORKLOAD_FIELDLENGTH" ]; then
+		ycsb_params="$ycsb_params -p fieldlength=$__HAZELCAST_YCSB_WORKLOAD_FIELDLENGTH"
+	fi
+
+    util_log "[$node][hazelcast-ycsb] Starting $ycsb_type instance, logfile: $logfile"
+
+    cdepl_cluster_node_cmd "$node" "cd $__HAZELCAST_YCSB_PATH ; nohup ./bin/ycsb $ycsb_type hazelcast -threads ${__HAZELCAST_YCSB_NODE_THREADS[$node]} -s -P workloads/workloada $ycsb_params > $logfile 2>&1 &"
+}
+
+__cdepl_app_hazelcast_ycsb_get_instance_running_pid()
+{
+	local node=$1
+
+    echo "$(cdepl_cluster_node_cmd $node "pgrep -f '^java.*-D${__HAZELCAST_YCSB_PROCESS_IDENTIFIER}'")"
+}
+
+__cdepl_app_hazelcast_ycsb_cleanup()
+{
+	local node=$1
+
+	util_log "[$node][hazelcast-ycsb] Cleanup..."
+
+	local pid=$(__cdepl_app_hazelcast_ycsb_get_instance_running_pid "$node")
+
+	if [ "$pid" ]; then
+		# If we or someone else left some garbage processes on the node multiple
+		# pids are returned
+		for i in $pid; do
+			local kill_out=$(cdepl_cluster_node_cmd "$node" "kill -9 $i 2>&1")
+
+			if [ "$?" = "0" ] && [ ! "$kill_out" ]; then
+				util_log "[$node][hazelcast-ycsb] Killed (pid: $i)"
+			elif [ "$?" != "1" ]; then
+				util_log_warn "[$node][hazelcast-ycsb] Killing $i failed, Hazelcast YCSB instance(s) might stay alive"
+			fi
+		done
+	fi
+}
