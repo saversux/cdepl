@@ -1,0 +1,217 @@
+#!/bin/bash
+
+readonly __HAZELCAST_SERVER_CONFIG="hazelcast-server.xml"
+
+__HAZELCAST_PATH=""
+__HAZELCAST_OUT_PATH=""
+
+##
+# Initialize and setup Hazelcast environment. This must be called before any other
+# function of the Hazelcast module.
+#
+# $1 Path to folder containing the unpacked Hazelcast installation (with folders bin, lib etc)
+##
+cdepl_app_hazelcast_init()
+{
+	local hazelcast_path=$1
+
+	__HAZELCAST_PATH="$(cdepl_cluster_file_system_cmd "realpath ${hazelcast_path}")"
+	__HAZELCAST_OUT_PATH="${__DEPLOY_CUR_OUT_PATH}"
+
+	if [ ! "$__HAZELCAST_PATH" ] || [ "$(cdepl_cluster_file_system_cmd "[ -d ${__HAZELCAST_PATH} ] && echo \"1\"")" != "1" ]; then
+		util_log_error_and_exit "[hazelcast]: Path does not exist: ${__HAZELCAST_PATH}"
+	fi
+
+	util_log "[hazelcast] Initialized: ${__HAZELCAST_PATH}"
+	util_log "[hazelcast] Output: ${__HAZELCAST_OUT_PATH}"
+
+    # create log file output
+    cdepl_cluster_file_system_cmd "mkdir -p ${__HAZELCAST_OUT_PATH}/log"
+
+    __cdepl_app_hazelcast_create_config
+}
+
+##
+# Start a Hazelcast instance on the target node.
+#
+# $1 node_range_start Node id to start instance on (or range start)
+# $2 node_range_end (optional) If specified, all nodes from the range start to
+#    end are started
+##
+cdepl_app_hazelcast_start_node()
+{
+	local node_range_start=$1
+	local node_range_end=$2
+
+	if [ "$node_range_end" ]; then
+        local counter=0
+		local pids=""
+
+		for node in $(seq "$node_range_start" "$node_range_end"); do
+			__cdepl_app_hazelcast_start_node "$node" &
+			pids="$pids $!"
+        
+			counter=$((counter + 1))
+
+			# Parallel deploy in batches of 10 which is the default limit
+			# for parallel connections on ssh servers, stay slightly below 
+			# this limit (sometimes, 10 causes errors on multiplexing)
+			if [ "$counter" -ge "8" ]; then
+				wait $pids
+				pids=""
+				counter=0
+			fi
+		done
+
+		wait $pids
+	else
+		__cdepl_app_hazelcast_start_node "$node_range_start"
+	fi
+}
+
+##
+# Wait for a started Hazelcast instance to be fully started.
+#
+# $1 node Target node id with started Hazelcast instance
+##
+cdepl_app_hazelcast_node_wait_started()
+{
+	local node=$1
+
+	local logfile="${__HAZELCAST_OUT_PATH}/log/node${node}"
+
+    local condition="is STARTED"
+
+	util_log "[$node][hazelcast] Waiting for startup: $condition"
+
+	while true; do
+		echo -n "."
+
+		local success=$(cdepl_cluster_node_cmd "$node" "cat $logfile 2> /dev/null | grep '$condition'")
+		local fail_init=$(cdepl_cluster_node_cmd "$node" "cat $logfile 2> /dev/null | grep 'is already started in this folder'")
+
+		if [ "$success" ]; then
+			local pid=$(__cdepl_app_hazelcast_get_instance_running_pid "$node")
+
+			echo ""
+
+			if [ ! "$pid" ]; then
+				util_log_error_and_exit "[$node][hazelcast] Could not find started process"
+			fi
+
+			util_log "[$node][hazelcast] Started (pid: $pid)"
+
+			break
+		elif [ "$fail_init" ]; then
+			echo ""
+			util_log_error_and_exit "[$node][hazelcast] Could not be started. See log file $logfile"
+			return 1
+		fi
+
+		sleep 1.0
+	done
+
+	return 0
+}
+
+##
+# Cleanup any still running or remaining/crashed instances on the target node
+#
+# $1 Target node id (or start node id of range if second parameter provided)
+# $2 Optional: Node id range end (including) and first parameter is interpreted
+#    as range start (including)
+##
+cdepl_app_hazelcast_node_cleanup()
+{
+	local node_range_start=$1
+	local node_range_end=$2
+
+	if [ "$node_range_end" ]; then
+		local pids=""
+
+		for node in $(seq "$node_range_start" "$node_range_end"); do
+			__cdepl_app_hazelcast_cleanup "$node" &
+			pids="$pids $!"
+		done
+
+		wait $pids
+	else
+		__cdepl_app_hazelcast_cleanup "$node_range_start"
+	fi
+}
+
+#################################################
+
+__cdepl_app_hazelcast_start_node()
+{	
+	local node=$1
+
+	local logfile="${__HAZELCAST_OUT_PATH}/log/node${node}"
+    local run_java=""
+
+    if [ $JAVA_HOME ]; then
+	    run_java=$JAVA_HOME/bin/java
+    else
+        run_java=`which java 2>/dev/null`
+    fi
+
+    util_log "[$node][hazelcast] Starting instance, logfile: $logfile"
+
+    cdepl_cluster_node_cmd "$node" "cd $__HAZELCAST_PATH ; nohup $run_java -Dhazelcast.config=$__HAZELCAST_OUT_PATH/$__HAZELCAST_SERVER_CONFIG -cp ./lib/hazelcast-all-3.10.5.jar -server com.hazelcast.core.server.StartServer > $logfile 2>&1 &"
+}
+
+__cdepl_app_hazelcast_get_instance_running_pid()
+{
+	local node=$1
+
+	cdepl_cluster_node_cmd "$node" "pgrep -f 'hazelcast'"
+}
+
+__cdepl_app_hazelcast_cleanup()
+{
+	local node=$1
+
+	util_log "[$node][hazelcast] Cleanup..."
+
+	local pid=$(__cdepl_app_hazelcast_get_instance_running_pid "$node")
+
+	if [ "$pid" ]; then
+		# If we or someone else left some garbage processes on the node multiple
+		# pids are returned
+		for i in $pid; do
+			local kill_out=$(cdepl_cluster_node_cmd "$node" "kill -9 $i 2>&1")
+
+			if [ "$?" = "0" ] && [ ! "$kill_out" ]; then
+				util_log "[$node][hazelcast] Killed (pid: $i)"
+			elif [ "$?" != "1" ]; then
+				util_log_warn "[$node][hazelcast] Killing $i failed, Hazelcast instance(s) might stay alive"
+			fi
+		done
+	fi
+}
+
+__cdepl_app_hazelcast_create_config()
+{
+    local tmp_config="/tmp/$__HAZELCAST_SERVER_CONFIG"
+
+    # Enable user code deployment to allow execution of the ycsb client
+    # note: blacklist MUST contain something, otherwise everything is blacklisted (?!)
+    # empty whitelist = everything whitelist'd (?)
+
+	printf '%s' "
+<hazelcast xmlns=\"http://www.hazelcast.com/schema/config\"
+           xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"
+           xsi:schemaLocation=\"http://www.hazelcast.com/schema/config
+           http://www.hazelcast.com/schema/config/hazelcast-config-3.10.xsd\">
+
+    <user-code-deployment enabled=\"true\">
+        <class-cache-mode>ETERNAL</class-cache-mode>
+        <provider-mode>LOCAL_AND_CACHED_CLASSES</provider-mode>
+        <blacklist-prefixes>com.foo</blacklist-prefixes>
+        <whitelist-prefixes></whitelist-prefixes>
+    </user-code-deployment>
+</hazelcast>
+" > $tmp_config
+
+    cdepl_cluster_upload_to_remote $tmp_config $__HAZELCAST_OUT_PATH
+}
