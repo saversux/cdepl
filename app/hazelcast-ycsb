@@ -494,16 +494,16 @@ __cdepl_app_hazelcast_ycsb_start_node()
 		util_log_error_and_exit "[$node][hazelcast-ycsb][$ycsb_type] Missing value for insertstart parameter for storage"
 	fi
 
-	if [ "${__HAZELCAST_YCSB_NODE_INSERTSTART[$node]}" ]; then
-		ycsb_params="$ycsb_params -p insertstart=${__HAZELCAST_YCSB_NODE_INSERTSTART[$node]}"
-	fi
-
     local ycsb_params=""
 
     ycsb_params="$ycsb_params -jvm-args=-Dhazelcast.client.config=$__HAZELCAST_YCSB_OUT_PATH/$__HAZELCAST_YCSB_CLIENT_CONFIG"
     ycsb_params="$ycsb_params -p status.interval=1"
     ycsb_params="$ycsb_params -p readallfields=true"
     ycsb_params="$ycsb_params -p insertorder=ordered"
+
+	if [ "${__HAZELCAST_YCSB_NODE_INSERTSTART[$node]}" ]; then
+		ycsb_params="$ycsb_params -p insertstart=${__HAZELCAST_YCSB_NODE_INSERTSTART[$node]}"
+	fi
 
     if [ "$__HAZELCAST_YCSB_WORKLOAD_RECORDCOUNT_PER_NODE" ]; then
 		# For the storage nodes: how many records it has to load
