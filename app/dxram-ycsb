@@ -126,7 +126,7 @@ cdepl_app_dxram_ycsb_init()
 # ignored and not considered a DXRAM node/instance.
 #
 # $1 node Node to set the DXRAM YCSB role for
-# $2 type DXRAM YCSB node type to set for the specified node: S (superpeer), 
+# $2 type DXRAM YCSB node type to set for the specified node:
 #    L (loader) or B (benchmark)
 ##
 cdepl_app_dxram_ycsb_node_type()
@@ -846,7 +846,6 @@ __cdepl_app_dxram_ycsb_start_peer()
 	ycsb_params="$ycsb_params -p insertorder=ordered"
 	ycsb_params="$ycsb_params -p readallfields=true"
 	ycsb_params="$ycsb_params -p scanproportion=0.0"
-	ycsb_params="$ycsb_params -p updateproportion=0.0"
 
 	if [ "$__DXRAM_YCSB_WORKLOAD_RECORDCOUNT_PER_NODE" ]; then
 		ycsb_params="$ycsb_params -p dxram.recordsPerStoreNode=$__DXRAM_YCSB_WORKLOAD_RECORDCOUNT_PER_NODE"
