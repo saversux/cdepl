@@ -66,11 +66,11 @@ cdepl_app_consul_start()
 	cdepl_cluster_node_cmd $node "mkdir -p $__CONSUL_OUT_PATH"
 
     if [ "${__CONSUL_BOOTSTRAP_NODE}" = "$node" ]; then
-        cdepl_cluster_node_cmd $node "nohup ${__CONSUL_PATH}/consul agent -server -bootstrap -data-dir=${__CONSUL_DATA_DIR} >> $logfile 2>&1 &"
+        cdepl_cluster_node_cmd $node "nohup ${__CONSUL_PATH}/consul agent -server -bootstrap -config-file ${__CONSUL_PATH}/config.json -data-dir=${__CONSUL_DATA_DIR} >> $logfile 2>&1 &"
     else
         local bootstrap_ip="$(cdepl_cluster_resolve_node_to_ip ${__CONSUL_BOOTSTRAP_NODE})"
         util_log $__CONSUL_BOOTSTRAP_NODE
-        cdepl_cluster_node_cmd $node "nohup ${__CONSUL_PATH}/consul agent -join $bootstrap_ip -data-dir=${__CONSUL_DATA_DIR} >> $logfile 2>&1 &"
+        cdepl_cluster_node_cmd $node "nohup ${__CONSUL_PATH}/consul agent -join $bootstrap_ip -config-file ${__CONSUL_PATH}/config.json -data-dir=${__CONSUL_DATA_DIR} >> $logfile 2>&1 &"
     fi
     
 	if [ "$?" != "0" ]; then
