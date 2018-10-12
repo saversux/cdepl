@@ -1,3 +1,5 @@
+#!/bin/bash
+
 #
 # Copyright (C) 2018 Heinrich-Heine-Universitaet Duesseldorf, Institute of Computer Science, Department Operating Systems
 #
@@ -10,6 +12,13 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>
 #
+
+# Include guard
+if [ "$__CDEPL_APP_HAZELCAST_YCSB_INCLUDED" ]; then
+    return
+fi
+
+__CDEPL_APP_HAZELCAST_YCSB_INCLUDED="1"
 
 readonly __HAZELCAST_YCSB_CLIENT_CONFIG="hazelcast-client.xml"
 
@@ -54,7 +63,7 @@ cdepl_app_hazelcast_ycsb_init()
 	local hazelcast_ycsb_path=$1
 
 	__HAZELCAST_YCSB_PATH="$(cdepl_cluster_file_system_cmd "realpath ${hazelcast_ycsb_path}")"
-	__HAZELCAST_YCSB_OUT_PATH="${__DEPLOY_CUR_OUT_PATH}"
+	__HAZELCAST_YCSB_OUT_PATH="$(cdepl_run_get_cur_out_path)"
     __HAZELCAST_YCSB_OUT_LOG_PATH="${__HAZELCAST_YCSB_OUT_PATH}/log"
 
 	if [ ! "$__HAZELCAST_YCSB_PATH" ] || [ "$(cdepl_cluster_file_system_cmd "[ -d ${__HAZELCAST_YCSB_PATH} ] && echo \"1\"")" != "1" ]; then

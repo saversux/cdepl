@@ -1,5 +1,25 @@
 #!/bin/bash
 
+#
+# Copyright (C) 2018 Heinrich-Heine-Universitaet Duesseldorf, Institute of Computer Science, Department Operating Systems
+#
+# This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>
+#
+
+# Include guard
+if [ "$__CDEPL_APP_RAMCLOUD_INCLUDED" ]; then
+    return
+fi
+
+__CDEPL_APP_RAMCLOUD_INCLUDED="1"
+
 readonly __RAMCLOUD_LOG_FILE_COORDINATOR_POSTFIX="_coordinator"
 readonly __RAMCLOUD_LOG_FILE_SERVER_POSTFIX="_server"
 
@@ -38,7 +58,7 @@ cdepl_app_ramcloud_init()
 
     __RAMCLOUD_PATH="$(cdepl_cluster_file_system_cmd "readlink -f $path")"
 
-    __RAMCLOUD_OUT_PATH="${__DEPLOY_CUR_OUT_PATH}/ramcloud"
+    __RAMCLOUD_OUT_PATH="$(cdepl_run_get_cur_out_path)/ramcloud"
     __RAMCLOUD_OUT_LOG_PATH="${__RAMCLOUD_OUT_PATH}/log"
 
     # Check if ramcloud path is available

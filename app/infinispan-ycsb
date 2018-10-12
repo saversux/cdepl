@@ -1,3 +1,5 @@
+#!/bin/bash
+
 #
 # Copyright (C) 2018 Heinrich-Heine-Universitaet Duesseldorf, Institute of Computer Science, Department Operating Systems
 #
@@ -10,6 +12,13 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>
 #
+
+# Include guard
+if [ "$__CDEPL_APP_INFINISPAN_YCSB_INCLUDED" ]; then
+    return
+fi
+
+__CDEPL_APP_INFINISPAN_YCSB_INCLUDED="1"
 
 readonly __INFINISPAN_YCSB_CLIENT_CONFIG="infinispan-client.xml"
 
@@ -52,7 +61,7 @@ cdepl_app_infinispan_ycsb_init()
 	local infinispan_ycsb_path=$1
 
 	__INFINISPAN_YCSB_PATH="$(cdepl_cluster_file_system_cmd "realpath ${infinispan_ycsb_path}")"
-	__INFINISPAN_YCSB_OUT_PATH="${__DEPLOY_CUR_OUT_PATH}"
+	__INFINISPAN_YCSB_OUT_PATH="$(cdepl_run_get_cur_out_path)"
     __INFINISPAN_YCSB_OUT_LOG_PATH="${__INFINISPAN_YCSB_OUT_PATH}/log"
 
 	if [ ! "$__INFINISPAN_YCSB_PATH" ] || [ "$(cdepl_cluster_file_system_cmd "[ -d ${__INFINISPAN_YCSB_PATH} ] && echo \"1\"")" != "1" ]; then

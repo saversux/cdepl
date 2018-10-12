@@ -1,3 +1,5 @@
+#!/bin/bash
+
 #
 # Copyright (C) 2018 Heinrich-Heine-Universitaet Duesseldorf, Institute of Computer Science, Department Operating Systems
 #
@@ -11,11 +13,12 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>
 #
 
-#!/bin/bash
+# Include guard
+if [ "$__CDEPL_APP_IBDXNET_MSGRC_INCLUDED" ]; then
+    return
+fi
 
-##
-# App module for Ibdxnet's MsgrcLoopback test
-##
+__CDEPL_APP_IBDXNET_MSGRC_INCLUDED="1"
 
 readonly __IBDXNET_MSGRCLB_EXEC="MsgrcLoopback"
 readonly __IBDXNET_MSGRCLB_REQUIRED_ENVIRONMENT="gcc/6.1"
@@ -49,7 +52,7 @@ cdepl_app_ibdxnet_msgrclb_init()
 	__IBDXNET_MSGRCLB_PATH="$(cdepl_cluster_node_cmd 0 "readlink -f $path")"
 	__IBDXNET_MSGRCLB_TOTAL_NODES="$total_nodes"
 
-	__IBDXNET_MSGRCLB_OUT_PATH="${__DEPLOY_CUR_OUT_PATH}/ibdxnet-msgrclb"
+	__IBDXNET_MSGRCLB_OUT_PATH="$(cdepl_run_get_cur_out_path)/ibdxnet-msgrclb"
 	__IBDXNET_MSGRCLB_OUT_LOG_PATH="${__IBDXNET_MSGRCLB_OUT_PATH}/log"
 
 	# Check if path is available

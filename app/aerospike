@@ -1,5 +1,25 @@
 #!/bin/bash
 
+#
+# Copyright (C) 2018 Heinrich-Heine-Universitaet Duesseldorf, Institute of Computer Science, Department Operating Systems
+#
+# This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>
+#
+
+# Include guard
+if [ "$__CDEPL_APP_AEROSPIKE_INCLUDED" ]; then
+    return
+fi
+
+__CDEPL_APP_AEROSPIKE_INCLUDED="1"
+
 __AEROSPIKE_PATH=""
 __AEROSPIKE_OUT_PATH=""
 __AEROSPIKE_EXECUTABLE=""
@@ -21,7 +41,7 @@ cdepl_app_aerospike_init()
 	__AEROSPIKE_GROUP=$3
 
 	__AEROSPIKE_PATH="$(cdepl_cluster_file_system_cmd "realpath ${aerospike_path}")"
-	__AEROSPIKE_OUT_PATH="${__DEPLOY_CUR_OUT_PATH}"
+	__AEROSPIKE_OUT_PATH="$(cdepl_run_get_cur_out_path)"
 	__AEROSPIKE_EXECUTABLE="${__AEROSPIKE_PATH}/bin/asd"
 
 	if [ ! "$__AEROSPIKE_PATH" ] || [ "$(cdepl_cluster_file_system_cmd "[ -d ${__AEROSPIKE_PATH} ] && echo \"1\"")" != "1" ]; then

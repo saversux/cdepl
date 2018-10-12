@@ -1,0 +1,789 @@
+#!/bin/bash
+
+#
+# Copyright (C) 2018 Heinrich-Heine-Universitaet Duesseldorf, Institute of Computer Science, Department Operating Systems
+#
+# This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>
+#
+
+# Includes
+source "app/dxnet"
+
+# DXNet path
+DXNET_PATH=""
+
+_cdepl_run_application()
+{
+	if [ "$#" != "1" ] && [ "$#" != "2" ] && [ "$#" != "8" ]; then
+		util_log_error "Missing benchmark arguments"
+		util_log_error "Usage args determine the execution mode:
+  comprehensive: <network type: ib, eth>
+  selective: <benchmark name, e.g. benchmark_01> <network type: ib, eth>
+  User parameters (refer to function 'benchmark'): <network type: ib, eth> <bench_type> <range_node_count> <msg_type> <msg_count> <range_sizes> <range_threads> <range_msg_handlers>"
+        return
+    fi
+
+    DXNET_PATH="$(cdepl_cluster_application_install_dir)/dxnet"
+
+	# Execute one benchmark if the user provided arguments. Otherwise, execute
+	# a set of benchmarks
+
+	if [ "$#" = "1" ]; then
+		local network_type=$1
+
+		util_log "Executing comprehensive benchmark, network type $network_type"
+
+		benchmark_00 $network_type
+		benchmark_01 $network_type
+		benchmark_02 $network_type
+		benchmark_03 $network_type
+		benchmark_04 $network_type
+		benchmark_05 $network_type
+		benchmark_06 $network_type
+		benchmark_07 $network_type
+		benchmark_08 $network_type
+		benchmark_09 $network_type
+		benchmark_10 $network_type
+		benchmark_11 $network_type
+		benchmark_12 $network_type
+		benchmark_13 $network_type
+	elif [ "$#" = "2" ]; then
+		local benchmark_func=$1
+		local network_type=$2
+
+		util_log "Executing $benchmark_func, network type $network_type"
+
+		eval "$benchmark_func $network_type"
+	elif [ "$#" = "8" ]; then
+		util_log "Executing benchmark with user specified parameters"
+
+		benchmark ${@} "benchmark_$(date '+%Y-%m-%d_%H-%M-%S-%3N')"
+	else
+		util_log_error_and_exit "Invalid parameters"
+	fi
+}
+
+##
+# Run an all-to-all benchmark. Use this to run point-to-point benchmarks by
+# setting the number of nodes to 2.
+#
+# $1 Network type (ib, eth, lb)
+# $2 Workload id (0, 1, 2, 3)
+# $3 Total number of nodes to use for the benchmark
+# $4 Number of messages per node to send to other nodes (in total)
+# $5 Payload size for the messages to send
+# $6 Number of application/send threads
+# $7 Number of message handlers for receiving incoming messages
+# $8 Name of the benchmark configuration (for grouping the archives of the
+#    benchmark results)
+##
+benchmark_loopback()
+{
+	local workload=$1
+	local msg_per_node=$2
+	local msg_size=$3
+	local threads=$4
+	local msg_handler=$5
+	local benchmark_name=$6
+
+	echo "##### Loopback benchmark: $workload $msg_per_node $msg_size $threads $msg_handler"
+
+	# Initialize dxnet deployment
+	cdepl_app_dxnet_init $DXNET_PATH 2
+
+	# Target 1 will resolve to same node 0 on loopback
+	cdepl_app_dxnet_node_send_targets 0 1
+
+	# Set network type
+	depl_app_dxnet_network "lb"
+
+	# Set further parameters for node
+	depl_app_dxnet_workload 0 $workload
+	depl_app_dxnet_msg_send_count 0 $msg_per_node
+	depl_app_dxnet_msg_recv_count 0 $msg_per_node
+	depl_app_dxnet_msg_size 0 $msg_size
+
+	cdepl_app_dxnet_node_send_threads 0 $threads
+	cdepl_app_dxnet_node_message_handler 0 $msg_handler
+
+	# Start instance
+	cdepl_app_dxnet_start_node 0
+
+	# Wait for all instance to finish, this also checks for runtime errors
+	cdepl_app_dxnet_node_wait_finished 0
+
+	# Print results
+	printf "######################\nResults node 0\n"
+	cdepl_app_dxnet_node_get_results 0
+	printf "######################\n"
+}
+
+##
+# Run an all-to-all benchmark. Use this to run point-to-point benchmarks by
+# setting the number of nodes to 2.
+#
+# $1 Network type (ib, eth, lb)
+# $2 Workload id (0, 1, 2, 3)
+# $3 Total number of nodes to use for the benchmark
+# $4 Number of messages per node to send to other nodes (in total)
+# $5 Payload size for the messages to send
+# $6 Number of application/send threads
+# $7 Number of message handlers for receiving incoming messages
+# $8 Name of the benchmark configuration (for grouping the archives of the
+#    benchmark results)
+##
+benchmark_all_to_all()
+{
+	local network_type=$1
+	local workload=$2
+	local total_nodes=$3
+	local msg_per_node=$4
+	local msg_size=$5
+	local threads=$6
+	local msg_handler=$7
+	local benchmark_name=$8
+
+	echo "##### All-to-all benchmark: $workload $total_nodes $msg_per_node $msg_size $threads $msg_handler"
+
+	if [ "$total_nodes" -lt "2" ]; then
+		util_log_error_and_exit "Benchmark needs at least two nodes, provided: $total_nodes"
+	fi
+
+	# Initialize dxnet deployment
+	cdepl_app_dxnet_init $DXNET_PATH $total_nodes
+
+	# All to all
+	# On two nodes only -> point to point
+	for i in $(seq 0 $((total_nodes - 1))); do
+		local targets=""
+
+		for j in $(seq 0 $((total_nodes - 1))); do
+			if [ "$i" != "$j" ]; then
+				targets="$targets $j"
+			fi
+		done
+
+		cdepl_app_dxnet_node_send_targets $i $targets
+	done
+
+	# Set network type
+	depl_app_dxnet_network $network_type
+
+	# Set further parameters for nodes
+	for i in $(seq 0 $((total_nodes - 1))); do
+		depl_app_dxnet_workload $i $workload
+		depl_app_dxnet_msg_send_count $i $msg_per_node
+		depl_app_dxnet_msg_recv_count $i $((msg_per_node * (total_nodes - 1)))
+		depl_app_dxnet_msg_size $i $msg_size
+
+		cdepl_app_dxnet_node_send_threads $i $threads
+		cdepl_app_dxnet_node_message_handler $i $msg_handler
+
+		if [ "$network_type" = "ib" ]; then
+			cdepl_app_dxnet_run_as_sudo $i
+		fi
+	done
+
+	# Start all instances
+	cdepl_app_dxnet_start_node 0 $((total_nodes - 1))
+
+	# Wait for all instances to finish, this also checks for runtime errors
+	for i in $(seq 0 $((total_nodes - 1))); do
+		cdepl_app_dxnet_node_wait_finished $i
+	done
+
+	# Print results
+	for i in $(seq 0 $((total_nodes - 1))); do
+		printf "######################\nResults node $i\n"
+		cdepl_app_dxnet_node_get_results $i
+		printf "######################\n"
+	done
+}
+
+##
+# Run a benchmark which creates a ring structure with the specified number of
+# nodes. One node will always send to its predecessor and receive from its
+# successor.
+#
+# $1 Network type (ib, eth, lb)
+# $2 Workload id (0, 1, 2, 3)
+# $3 Total number of nodes to use for the benchmark
+# $4 Number of messages per node to send to its successor
+# $5 Payload size for the messages to send
+# $6 Number of application/send threads
+# $7 Number of message handlers for receiving incoming messages
+# $8 Name of the benchmark configuration (for grouping the archives of the
+#    benchmark results)
+##
+benchmark_ring()
+{
+	local network_type=$1
+	local workload=$2
+	local total_nodes=$3
+	local msg_per_node=$4
+	local msg_size=$5
+	local threads=$6
+	local msg_handler=$7
+	local benchmark_name=$8
+
+	echo "##### Ring benchmark: $workload $total_nodes $msg_per_node $msg_size $threads $msg_handler"
+
+	if [ "$total_nodes" -lt "2" ]; then
+		util_log_error_and_exit "Benchmark needs at least two nodes, provided: $total_nodes"
+	fi
+
+	# Initialize dxnet deployment
+	cdepl_app_dxnet_init $DXNET_PATH $total_nodes
+
+	# Ring structure
+	# One node sends to its successor and receives from its predecessor
+	for i in $(seq 0 $((total_nodes - 2))); do
+		cdepl_app_dxnet_node_send_targets $i $((i + 1))
+	done
+
+	# Last node sends to first
+	cdepl_app_dxnet_node_send_targets $((total_nodes - 1)) 0
+
+	# Set network type
+	depl_app_dxnet_network $network_type
+
+	# Set further parameters for nodes
+	for i in $(seq 0 $((total_nodes - 1))); do
+		depl_app_dxnet_workload $i $workload
+		depl_app_dxnet_msg_send_count $i $msg_per_node
+		depl_app_dxnet_msg_recv_count $i $msg_per_node
+		depl_app_dxnet_msg_size $i $msg_size
+
+		cdepl_app_dxnet_node_send_threads $i $threads
+		cdepl_app_dxnet_node_message_handler $i $msg_handler
+
+		if [ "$network_type" = "ib" ]; then
+			cdepl_app_dxnet_run_as_sudo $i
+		fi
+	done
+
+	# Start all instances
+	cdepl_app_dxnet_start_node 0 $((total_nodes - 1))
+
+	# Wait for all instances to finish, this also checks for runtime errors
+	for i in $(seq 0 $((total_nodes - 1))); do
+		cdepl_app_dxnet_node_wait_finished $i
+	done
+
+	# Print results
+	for i in $(seq 0 $((total_nodes - 1))); do
+		printf "######################\nResults node $i\n"
+		cdepl_app_dxnet_node_get_results $i
+		printf "######################\n"
+	done
+}
+
+##
+# Run a one-to-all benchmark. A single send only node sends to all other
+# receive only nodes.
+#
+# $1 Network type (ib, eth, lb)
+# $2 Workload id (0, 1, 2, 3)
+# $3 Total number of nodes to use for the benchmark
+# $4 Number of messages to send to _each_ other node
+# $5 Payload size for the messages to send
+# $6 Number of application/send threads
+# $7 Number of message handlers for receiving incoming messages
+# $8 Name of the benchmark configuration (for grouping the archives of the
+#    benchmark results)
+##
+benchmark_one_to_all()
+{
+	local network_type=$1
+	local workload=$2
+	local total_nodes=$3
+	local msg_per_node=$4
+	local msg_size=$5
+	local threads=$6
+	local msg_handler=$7
+	local benchmark_name=$8
+
+	echo "##### One-to-all benchmark: $workload $total_nodes $msg_per_node $msg_size $threads $msg_handler"
+
+	if [ "$total_nodes" -lt "2" ]; then
+		util_log_error_and_exit "Benchmark needs at least two nodes, provided: $total_nodes"
+	fi
+
+	# Initialize dxnet deployment
+	cdepl_app_dxnet_init $DXNET_PATH $total_nodes
+
+	# One-to-all
+	# One node send only, other nodes recv only
+	cdepl_app_dxnet_node_send_targets 0 "$(seq -s ' ' 1 $((total_nodes - 1)))"
+
+	# Parameters sender
+	depl_app_dxnet_msg_send_count 0 $((msg_per_node * (total_nodes - 1)))
+	depl_app_dxnet_msg_recv_count 0 0
+	cdepl_app_dxnet_node_send_threads 0 $threads
+
+	# Sender might need message handlers for request-response
+	cdepl_app_dxnet_node_message_handler 0 $msg_handler
+
+	# Parameters receivers
+	for i in $(seq 1 $((total_nodes - 1))); do
+		depl_app_dxnet_msg_send_count $i 0
+		depl_app_dxnet_msg_recv_count $i $msg_per_node
+
+		# Receiver doesn't need send threads
+		cdepl_app_dxnet_node_send_threads $i 0
+		cdepl_app_dxnet_node_message_handler $i $msg_handler
+	done
+
+	# Set further parameters for all nodes
+	for i in $(seq 0 $((total_nodes - 1))); do
+		depl_app_dxnet_workload $i $workload
+		depl_app_dxnet_msg_size $i $msg_size
+
+		if [ "$network_type" = "ib" ]; then
+			cdepl_app_dxnet_run_as_sudo $i
+		fi
+	done
+
+	# Set network type
+	depl_app_dxnet_network $network_type
+
+	# Start all instances
+	cdepl_app_dxnet_start_node 0 $((total_nodes - 1))
+
+	# Wait for all instances to finish, this also checks for runtime errors
+	for i in $(seq 0 $((total_nodes - 1))); do
+		cdepl_app_dxnet_node_wait_finished $i
+	done
+
+	# Print results
+	for i in $(seq 0 $((total_nodes - 1))); do
+		printf "######################\nResults node $i\n"
+		cdepl_app_dxnet_node_get_results $i
+		printf "######################\n"
+	done
+}
+
+##
+# Run a all-to-one benchmark. A single receiver node receives messages from
+# all other send only nodes.
+#
+# $1 Network type (ib, eth, lb)
+# $2 Workload id (0, 1, 2, 3)
+# $3 Total number of nodes to use for the benchmark
+# $4 Number of messages to send from each other node to single receiver
+# $5 Payload size for the messages to send
+# $6 Number of application/send threads
+# $7 Number of message handlers for receiving incoming messages
+# $8 Name of the benchmark configuration (for grouping the archives of the
+#    benchmark results)
+##
+benchmark_all_to_one()
+{
+	local network_type=$1
+	local workload=$2
+	local total_nodes=$3
+	local msg_per_node=$4
+	local msg_size=$5
+	local threads=$6
+	local msg_handler=$7
+	local benchmark_name=$8
+
+	echo "##### All-to-one benchmark: $workload $total_nodes $msg_per_node $msg_size $threads $msg_handler"
+
+	if [ "$total_nodes" -lt "2" ]; then
+		util_log_error_and_exit "Benchmark needs at least two nodes, provided: $total_nodes"
+	fi
+
+	# Initialize dxnet deployment
+	cdepl_app_dxnet_init $DXNET_PATH $total_nodes
+
+	# All-to-one
+	# One recv only, other nodes send only
+
+	# Parameters receiver
+	depl_app_dxnet_msg_send_count 0 0
+	depl_app_dxnet_msg_recv_count 0 $((msg_per_node * (total_nodes - 1)))
+	cdepl_app_dxnet_node_message_handler 0 $msg_handler
+	# Receiver doesn't need send threads
+	cdepl_app_dxnet_node_send_threads 0 0
+
+	# Sender target
+	for i in $(seq 1 $((total_nodes - 1))); do
+		cdepl_app_dxnet_node_send_targets $i 0
+	done
+
+	# Parameters senders
+	for i in $(seq 1 $((total_nodes - 1))); do
+		depl_app_dxnet_msg_send_count $i $msg_per_node
+		depl_app_dxnet_msg_recv_count $i 0
+
+		# Receiver doesn't need send threads
+		cdepl_app_dxnet_node_send_threads 0 0
+		cdepl_app_dxnet_node_message_handler 0 $msg_handler
+	done
+
+	# Set further parameters for all nodes
+	for i in $(seq 0 $((total_nodes - 1))); do
+		depl_app_dxnet_workload $i $workload
+		depl_app_dxnet_msg_size $i $msg_size
+
+		if [ "$network_type" = "ib" ]; then
+			cdepl_app_dxnet_run_as_sudo $i
+		fi
+	done
+
+	# Set network type
+	depl_app_dxnet_network $network_type
+
+	# Start all instances
+	cdepl_app_dxnet_start_node 0 $((total_nodes - 1))
+
+	# Wait for all instances to finish, this also checks for runtime errors
+	for i in $(seq 0 $((total_nodes - 1))); do
+		cdepl_app_dxnet_node_wait_finished $i
+	done
+
+	# Print results
+	for i in $(seq 0 $((total_nodes - 1))); do
+		printf "######################\nResults node $i\n"
+		cdepl_app_dxnet_node_get_results $i
+		printf "######################\n"
+	done
+}
+
+##
+# Filter a sequence of values
+#
+# $1 Sequence of values to filter
+# $2 Range/value to filter, e.g. 0 for nothing, single value or range like 2-5
+#    (2 and 5 including)
+# stdout: Filtered sequence
+##
+filter_list()
+{
+	local list=$1
+	local range=$2
+
+	if [ "$range" = "0" ]; then
+		echo "$list"
+	else
+		local start=$(echo $range | cut -d '-' -f 1)
+		local end=$(echo $range | cut -d '-' -f 2)
+
+		if [ "$start" = "$end" ]; then
+			echo "$start"
+		else
+			local tmp=""
+
+			for elem in $list; do
+				if [[ ! "$start" || "$elem" -ge "$start" ]] && [ "$elem" -le "$end" ]; then
+					if [ ! "$tmp" ]; then
+						tmp="$elem"
+					else
+						tmp="$tmp $elem"
+					fi
+				fi
+			done
+
+			echo "$tmp"
+		fi
+	fi
+}
+
+##
+# Root benchmark function
+#
+# $1 Network type: ib, eth, lb
+# $2 Benchmark type: one2all, all2one, all2all, ring
+# $3 Range of node counts to execute, e.g. 0 for all, other value for single 
+#    count or range like 2-8 (2 and 8 including)
+# $4 Message type: msg, rr (Request-Response)
+# $5 Total message count
+# $6 Range of sizes to execute, e.g. 0 for all, other value for single 
+#    count or range like 2-8 (2 and 8 including)
+# $7 Range of (send) threads to execute, e.g. 0 for all, other value for single 
+#    count or range like 2-8 (2 and 8 including)
+# $8 Range of msg handler threads to execute, e.g. 0 for all, other value for single 
+#    count or range like 2-8 (2 and 8 including)
+# $9 Name for the benchmark (for debug outputs and archive name)
+##
+benchmark()
+{
+	local network_type=$1
+	local bench_type=$2
+	local range_nodes=$3
+	local msg_type=$4
+	local msg_count=$5
+	local range_sizes=$6
+	local range_threads=$7
+	local range_msg_handlers=$8
+	local name=$9
+
+	local nodes="2 4 8 16 24 32 40 48 56 64 72 80 88 96 104 112"
+	local sizes="1 2 4 8 16 32 64 128 256 512 1024 2048 4096 8192 16384 32768 65536 131072 262144 524288 1048576"
+	local threads="1 2 4 8 16 32 64 128"
+	local msg_handlers="2 4 8 16"
+
+	# Scale down benchmark sets
+	nodes=$(filter_list "$nodes" $range_nodes)
+	sizes=$(filter_list "$sizes" $range_sizes)
+	threads=$(filter_list "$threads" $range_threads)
+	msg_handlers=$(filter_list "$msg_handlers" $range_msg_handlers)
+
+	if [ "$msg_type" = "msg" ]; then
+		workload="0"
+	elif [ "$msg_type" = "rr" ]; then
+		workload="3"
+	else
+		util_log_error_and_exit "Invalid message type type: $msg_type"
+	fi
+
+	echo "##### $name start: $network_type $bench_type $range_nodes $msg_type $msg_count $range_sizes $range_threads $range_msg_handlers ######"
+
+    local total_nodes=$(cdepl_cluster_get_alloc_node_count)
+
+	# Intentional "typo" due to some naming bug
+	for nnode in $nodes; do
+		if [ "$nnode" -gt "$total_nodes" ]; then
+			util_log_warn "Can't execute benchmark with $nnode nodes, not enough nodes available ($total_nodes), skipping"
+			continue
+		fi
+
+		for size in $sizes; do
+			for thread in $threads; do
+				for msg_handler in $msg_handlers; do
+					# Scale down message count once exceeding 4k to avoid unnecessary long
+					# running benchmarks
+					msg_count_tmp=$msg_count
+					scale=$(echo "$size / 4096" | bc)
+
+					if [ "$scale" -gt 1 ]; then
+						msg_count_tmp=$(echo "$msg_count_tmp / $scale" | bc)
+						echo "For large message size, scaling down message count: $msg_count_tmp"
+					fi
+
+					case "$bench_type" in
+						"one2all")
+							benchmark_one_to_all "$network_type" "$workload" "$nnode" "$msg_count_tmp" "$size" "$thread" "$msg_handler" "$name"
+							;;
+						"all2one")
+							benchmark_all_to_one "$network_type" "$workload" "$nnode" "$msg_count_tmp" "$size" "$thread" "$msg_handler" "$name"
+							;;
+						"all2all")
+							benchmark_all_to_all "$network_type" "$workload" "$nnode" "$msg_count_tmp" "$size" "$thread" "$msg_handler" "$name"
+							;;
+						"ring")
+							benchmark_ring $network_type "$workload" "$nnode" "$msg_count_tmp" "$size" "$thread" "$msg_handler" "$name"
+							;;
+						*)
+							util_log_error_and_exit "Invalid benchmark type: $bench_type"
+							;;
+					esac
+				done
+			done
+		done
+	done
+
+	echo "##### $name finished ######"
+}
+
+##
+# Warmup
+#
+# One-to-one uni-directional warm up to quickly check if the max throughput
+# is ok on the target cluster before continuing with the other benchmarks
+#
+# $1 Network type to use: ib, eth
+##
+benchmark_00()
+{		
+	local network_type=$1
+
+	echo "##### DETERMINE LOOPBACK MAX THROUGHPUT #####"
+
+	benchmark_loopback 0 20000000 32768 1 2 "benchmark_00"
+
+	echo "##### WARMUP $network_type THROUGHPUT ######"
+
+	# Throughput
+	benchmark $network_type "one2all" 2 "msg" 20000000 16384 1 2 "benchmark_00"
+
+	echo "##### WARMUP $network_type LATENCY ######"
+
+	# Latency
+	benchmark $network_type "one2all" 2 "rr" 4000000 1 1 2 "benchmark_00"
+}
+
+##
+# One-to-one uni-directional base line for throughput and saturation of messages
+# with increasing payload size
+#
+# $1 Network type to use: ib, eth
+##
+benchmark_01()
+{
+	local network_type=$1
+
+	benchmark $network_type "one2all" 2 "msg" 100000000 0 1 1 "benchmark_01"
+}
+
+##
+# End-to-end (full duplex) base line for throughput and saturation of messages
+# with increasing payload size
+#
+# $1 Network type to use: ib, eth
+##
+benchmark_02()
+{
+	local network_type=$1
+
+	benchmark $network_type "all2all" 2 "msg" 100000000 0 1 1 "benchmark_02"
+}
+
+##
+# One-to-one uni-directional base line for throughput and latency with
+# request-response pattern swith increasing payload size
+#
+# $1 Network type to use: ib, eth
+##
+benchmark_03()
+{
+	local network_type=$1
+
+	benchmark $network_type "one2all" 2 "rr" 10000000 0 1 1 "benchmark_03"
+}
+
+##
+# End-to-end full duplex base line for throughput and latency with
+# request-response pattern with increasing payload size
+#
+# $1 Network type to use: ib, eth
+##
+benchmark_04()
+{
+	local network_type=$1
+
+	benchmark $network_type "all2all" 2 "rr" 10000000 0 1 2 "benchmark_04"
+}
+
+##
+# End-to-end latency baseline for minimal payload request-response latency
+# with increasing application thread and message handler count
+#
+# $1 Network type to use: ib, eth
+##
+benchmark_05()
+{
+	local network_type=$1
+
+	benchmark $network_type "all2all" 2 "rr" 10000000 1 0 0 "benchmark_05"
+}
+
+##
+# Base line for throughput and saturation of messages with increasing node
+# count and different payload sizes
+#
+# $1 Network type to use: ib, eth
+##
+benchmark_06()
+{
+	local network_type=$1
+
+	benchmark $network_type "all2all" 0 "msg" 100000000 0 1 2 "benchmark_06"
+}
+
+##
+# Throughput and scalability with very small messages (16 byte) with increasing
+# node count and different thread counts
+#
+# $1 Network type to use: ib, eth
+##
+benchmark_07()
+{
+	local network_type=$1
+
+	benchmark $network_type "all2all" 0 "msg" 100000000 16 0 8 "benchmark_07"
+}
+
+##
+# High request-response load with minimal payload to show latency/throughput
+# with increasing node node and different thread counts
+#
+# $1 Network type to use: ib, eth
+##
+benchmark_08()
+{
+	local network_type=$1
+
+	benchmark $network_type "all2all" 0 "rr" 10000000 1 0 8 "benchmark_08"
+}
+
+##
+# Key-value storage/graph pattern, request-response with 64 byte payload to
+# show latency/throughput with increasing node count on different thread counts
+#
+# $1 Network type to use: ib, eth
+##
+benchmark_09()
+{
+	local network_type=$1
+
+	benchmark $network_type "all2all" 0 "rr" 10000000 64 0 8 "benchmark_09"
+}
+
+##
+# End-to-end with many nodes forming a ring structure. Node sends to its
+# successor and receives from its predecessor with different node counts
+# and message sizes.
+#
+# $1 Network type to use: ib, eth
+##
+benchmark_10()
+{
+	local network_type=$1
+
+	benchmark $network_type "ring" 0 "msg" 100000000 0 1 2 "benchmark_10"
+}
+
+##
+# All to one messages with increasing node and thread counts
+#
+# $1 Network type to use: ib, eth
+##
+benchmark_11()
+{
+	local network_type=$1
+
+	benchmark $network_type "all2one" 0 "msg" 100000000 64 0 8 "benchmark_11"
+}
+
+##
+# All to one request-response with increasing node and thread counts
+#
+# $1 Network type to use: ib, eth
+##
+benchmark_12()
+{
+	local network_type=$1
+
+	benchmark $network_type "all2one" 0 "rr" 10000000 64 0 8 "benchmark_12"
+}
+
+##
+# One to all messages with increasing node and thread counts
+#
+# $1 Network type to use: ib, eth
+##
+benchmark_13()
+{
+	local network_type=$1
+
+	benchmark $network_type "one2all" 0 "msg" 100000000 64 0 8 "benchmark_13"
+}

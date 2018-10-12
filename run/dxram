@@ -1,0 +1,118 @@
+#!/bin/bash
+
+#
+# Copyright (C) 2018 Heinrich-Heine-Universitaet Duesseldorf, Institute of Computer Science, Department Operating Systems
+#
+# This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>
+#
+
+# Includes
+source "app/dxram"
+source "app/zookeeper"
+
+# Zookeeper config values
+ZK_NODE=0
+ZK_PORT=2181
+
+DX_PEER_PORT_START="22222"
+
+_cdepl_run_application()
+{
+    local num_superpeers="$1"
+    local num_peers="$2"
+    local kvss_mb="$3"
+    local msg_handler="$4"
+
+    if [ "$#" -lt "4" ]; then
+        util_log "Usage: <num superpeers> <num peers> <kvss mb> <peer msg handler>"
+        return
+    fi
+
+    local cluster_total_nodes=$(cdepl_cluster_get_alloc_node_count)
+
+    # Some arg verification
+	if [ "$num_superpeers" -lt "1" ]; then
+		util_log "Specify at least one superpeer"
+        return
+	fi
+
+	if [ "$num_peers" -lt "1" ]; then
+		util_log "Specify at least one peer"
+        return
+	fi
+
+	local peer_node_offset=""
+
+	if [ "$superpeers_on_peer_nodes" = "1" ]; then
+		peer_node_offset="0"
+
+		if [ "$num_superpeers" -gt "$cluster_total_nodes" ]; then
+			util_log_error_and_exit "Too many superpeers ($num_superpeers) specified, total nodes: $cluster_total_nodes"
+		fi	
+
+		if [ "$num_peers" -gt "$cluster_total_nodes" ]; then
+			util_log_error_and_exit "Too many peers ($num_peers) specified, total nodes: $cluster_total_nodes"
+		fi
+	else
+		peer_node_offset="$num_superpeers"
+
+		if [ "$((num_superpeers + num_peers))" -gt "$cluster_total_nodes" ]; then
+			util_log_error_and_exit "Too many superpeers ($num_superpeers) + peers ($num_peers) specified, total nodes: $cluster_total_nodes"
+		fi
+	fi
+
+    local dxram_path="$(cdepl_cluster_application_install_dir)/dxram"
+    local zookeeper_path="$(cdepl_cluster_application_install_dir)/zookeeper"
+
+	util_log "Starting $num_superpeers superpeers and $num_peers peers (kvss: $kvss_mb MB each, $msg_handler msg handler)"
+
+	# Initilize zookeeper deployment
+	cdepl_app_zookeeper_init $zookeeper_path
+
+	# Start zookeeper instance and wait until started
+	cdepl_app_zookeeper_start $ZK_NODE $ZK_PORT
+	cdepl_app_zookeeper_wait_started $ZK_NODE
+
+	# Cleanup of failed startups in zookeeper
+	cdepl_app_zookeeper_remove $ZK_NODE "/dxram"
+
+	# Initialize dxram deployment
+	cdepl_app_dxram_init $dxram_path $ZK_NODE $ZK_PORT
+
+	# Config superpeers
+	for i in $(seq 0 $((num_superpeers - 1))); do
+		cdepl_app_dxram_node_type $i "S"
+	done
+
+	# Config peers
+	for i in $(seq $peer_node_offset $((peer_node_offset + num_peers - 1))); do
+		cdepl_app_dxram_node_type $i "P"
+		cdepl_app_dxram_peer_kvss $i $kvss_mb
+        cdepl_app_dxram_node_message_handler $i $msg_handler
+		# When running localhost, we have to assign different ports for the peers
+		cdepl_app_dxram_node_port $i $DX_PEER_PORT_START
+		DX_PEER_PORT_START=$((DX_PEER_PORT_START + 1))
+	done
+
+	# Start superpeers
+	cdepl_app_dxram_start_node 0 $((num_superpeers - 1))
+
+	for i in $(seq 0 $((num_superpeers - 1))); do
+		cdepl_app_dxram_node_wait_started $i
+	done
+
+	# Start all peers
+	cdepl_app_dxram_start_node $peer_node_offset $((peer_node_offset + num_peers - 1))
+
+	# Wait for all peers to be started
+	for i in $(seq $peer_node_offset $((peer_node_offset + num_peers - 1))); do
+		cdepl_app_dxram_node_wait_started $i
+	done
+}

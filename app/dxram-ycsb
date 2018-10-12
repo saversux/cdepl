@@ -1,3 +1,5 @@
+#!/bin/bash
+
 #
 # Copyright (C) 2018 Heinrich-Heine-Universitaet Duesseldorf, Institute of Computer Science, Department Operating Systems
 #
@@ -11,7 +13,12 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>
 #
 
-#!/bin/bash
+# Include guard
+if [ "$__CDEPL_APP_DXRAM_YCSB_INCLUDED" ]; then
+    return
+fi
+
+__CDEPL_APP_DXRAM_YCSB_INCLUDED="1"
 
 readonly __DXRAM_YCSB_BINARY="bin/dxram"
 
@@ -92,7 +99,7 @@ cdepl_app_dxram_ycsb_init()
 	__DXRAM_YCSB_CONFIG_PATH="${__DXRAM_YCSB_PATH}/config/dxram.json"
 	__DXRAM_YCSB_LOG4J_CONFIG_PATH="${__DXRAM_YCSB_PATH}/config/log4j2.xml"
 
-	__DXRAM_YCSB_OUT_PATH="${__DEPLOY_CUR_OUT_PATH}/dxram_ycsb"
+	__DXRAM_YCSB_OUT_PATH="$(cdepl_run_get_cur_out_path)/dxram_ycsb"
 	__DXRAM_YCSB_OUT_CONF_PATH="${__DXRAM_YCSB_OUT_PATH}/conf"
 	__DXRAM_YCSB_OUT_LOG_PATH="${__DXRAM_YCSB_OUT_PATH}/log"
 

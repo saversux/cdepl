@@ -1,0 +1,97 @@
+#!/bin/bash
+
+#
+# Copyright (C) 2018 Heinrich-Heine-Universitaet Duesseldorf, Institute of Computer Science, Department Operating Systems
+#
+# This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>
+#
+
+# Includes
+source "app/ibdxnet-msgrclb"
+
+_cdepl_run_application()
+{
+    if [ "$#" != "1" ]; then
+		util_log "Usage: <benchmark name, e.g. benchmark_01>"
+        return
+	fi
+
+    local benchmark_func=$1
+
+    local cluster_total_nodes=$(cdepl_cluster_get_alloc_node_count)
+    local ibdxnet_path="$(cdepl_cluster_application_install_dir)/ibdxnet"
+
+	cdepl_app_ibdxnet_msgrclb_init "${ibdxnet_path}/build/bin" $cluster_total_nodes
+
+	eval "$benchmark_func"
+}
+
+##
+# Uni-directional point to point
+##
+benchmark_01()
+{
+    cdepl_app_ibdxnet_msgrclb_node_list 0 1
+    cdepl_app_ibdxnet_msgrclb_node_list 1 0
+
+    cdepl_app_ibdxnet_msgrclb_run_as_sudo 0
+    cdepl_app_ibdxnet_msgrclb_run_as_sudo 1
+
+    cdepl_app_ibdxnet_msgrclb_send_targets 0 1
+
+    cdepl_app_ibdxnet_msgrclb_start_node 0 1
+
+    echo "Running endless, check log files for output"
+}
+
+##
+# Bi-directional point to point
+##
+benchmark_02()
+{
+    cdepl_app_ibdxnet_msgrclb_node_list 0 1
+    cdepl_app_ibdxnet_msgrclb_node_list 1 0
+
+    cdepl_app_ibdxnet_msgrclb_run_as_sudo 0
+    cdepl_app_ibdxnet_msgrclb_run_as_sudo 1
+
+    cdepl_app_ibdxnet_msgrclb_send_targets 0 1
+    cdepl_app_ibdxnet_msgrclb_send_targets 1 0
+
+    cdepl_app_ibdxnet_msgrclb_start_node 0 1
+
+    echo "Running endless, check log files for output"
+}
+
+##
+# All to all bi-directional
+##
+benchmark_03()
+{
+    local cluster_total_nodes=$(cdepl_cluster_get_alloc_node_count)
+
+    for i in $(seq 0 $((cluster_total_nodes - 1))); do
+		local targets=""
+
+		for j in $(seq 0 $((cluster_total_nodes - 1))); do
+			if [ "$i" != "$j" ]; then
+				targets="$targets $j"
+			fi
+		done
+
+		cdepl_app_ibdxnet_msgrclb_node_list $i $targets
+        cdepl_app_ibdxnet_msgrclb_send_targets $i $targets
+        cdepl_app_ibdxnet_msgrclb_run_as_sudo $i
+	done
+
+    cdepl_app_ibdxnet_msgrclb_start_node 0 $((cluster_total_nodes - 1))
+
+    echo "Running endless, check log files for output"
+}

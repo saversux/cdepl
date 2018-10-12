@@ -1,0 +1,111 @@
+#!/bin/bash
+
+#
+# Copyright (C) 2018 Heinrich-Heine-Universitaet Duesseldorf, Institute of Computer Science, Department Operating Systems
+#
+# This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>
+#
+
+__DEPLOY_OUT_PATH=""
+
+##
+# Get the currently set out path for logfiles, configs etc of the deployed
+# applications
+#
+# Return stdout: Current path set
+##
+cdepl_cluster_out_path()
+{
+	echo "$__DEPLOY_OUT_PATH"
+}
+
+cdepl_cluster_help()
+{
+    local cmd=$1
+
+    case "$cmd" in
+        "status")
+            echo "Get the current status of the target cluster (e.g. nodes allocated by configured user)."
+			;;
+
+		"alloc")
+            echo "Allocate one or multiple nodes, e.g. alloc any 2 nodes available: cluster alloc 2; alloc specific nodes, e.g. alloc node list 65,66"
+			;;
+
+        "nodes")
+            echo "Get the currently allocated nodes with node id mappings"
+            ;;
+
+		"free")
+            echo "Free all nodes or specific nodes, e.g. node free 65"
+			;;
+			
+		*)
+            util_log_error "Invalid command specified, available: status, alloc, nodes, free"
+			;;
+    esac
+}
+
+cdepl_cluster_main()
+{
+	local cmd=$1
+	local args=${@:2}
+
+    if [ ! "$cmd" ]; then
+	    util_log "Usage: cluster <cmd> [args ...]"
+	    return
+    fi
+
+	case "$cmd" in
+		"help")
+            cdepl_cluster_help $args
+            ;;
+        
+        "status")
+            _cdepl_cluster_status $args
+			;;
+
+		"alloc")
+            _cdepl_cluster_alloc $args
+			;;
+
+        "nodes")
+            _cdepl_cluster_nodes $args
+            ;;
+
+		"free")
+            _cdepl_cluster_free $args
+			;;
+			
+		*)
+            util_log_error "Invalid command specified, available: status, alloc, nodes, free"
+			;;
+    esac
+}
+
+###############
+# Entry point #
+###############
+
+# Check if cluster type is available
+if [ ! -f "cluster/$(cdepl_configuration_get_cluster_type)" ]; then
+    util_log_error_and_exit "Cluster type $(cdepl_configuration_get_cluster_type) not available or not a file"
+fi
+
+source "cluster/$(cdepl_configuration_get_cluster_type)"
+
+_cdepl_cluster_init
+
+# Setup cdepl_out dir
+# Have default output dir if user does not want a specific location
+__DEPLOY_OUT_PATH="$(cdepl_cluster_get_base_path_deploy_out)/cdepl_out"
+cdepl_cluster_file_system_cmd "mkdir -p $__DEPLOY_OUT_PATH"
+
+util_log "[cluster] Deploy output path $__DEPLOY_OUT_PATH"

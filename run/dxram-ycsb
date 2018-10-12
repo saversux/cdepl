@@ -1,0 +1,192 @@
+#!/bin/bash
+
+#
+# Copyright (C) 2018 Heinrich-Heine-Universitaet Duesseldorf, Institute of Computer Science, Department Operating Systems
+#
+# This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>
+#
+
+# Includes
+source "app/dxram"
+source "app/dxram-ycsb"
+source "app/zookeeper"
+
+# Zookeeper config values
+ZK_NODE=0
+ZK_PORT=2181
+
+DX_PEER_PORT_START="22222"
+
+_cdepl_run_application()
+{
+    local cluster_cluster_total_nodes=$(cdepl_cluster_get_alloc_node_count)
+
+	if [ "$cluster_total_nodes" -lt "3" ]; then
+		util_log_error "Not enough nodes ($cluster_total_nodes), minimum is 3"
+        return
+    fi
+
+    if [ "$#" -lt 10 ]; then
+		util_log_error "Missing benchmark arguments"
+		util_log_error "Usage: <network type: eth, ib> <num dxram storage nodes> <num ycsb benchmark nodes> <storage size mb per node> <num message handler storages> <num message handlers benchmark clients> <num ycsb benchmark threads> <workload: a, b, g, x> <record count per node> <operation count per node>"
+        return
+    fi
+
+	local network_type=$1
+	local storage_nodes=$2
+	local ycsb_nodes=$3
+	local storage_size=$4
+	local num_message_handler_storages=$5
+	local num_message_handler_benchmark=$6
+	local ycsb_threads=$7
+	local workload=$8
+	local recordcount_per_node=$9
+	local operationcount=${10}
+
+	if [ "$((1 + storage_nodes + ycsb_nodes))" -gt "$cluster_total_nodes" ]; then
+		util_log_error "Not enough nodes for 1 superpeer, $storage_nodes storage nodes and $ycsb_nodes ycsb benchmark nodes: total $cluster_total_nodes"
+        return
+    fi
+
+    local dxram_ycsb_path="$(cdepl_cluster_application_install_dir)/ycsb-dxram"
+    local zookeeper_path="$(cdepl_cluster_application_install_dir)/zookeeper"
+
+	# Initilize zookeeper deployment
+	cdepl_app_zookeeper_init $zookeeper_path
+
+	# Start zookeeper instance and wait until started
+	cdepl_app_zookeeper_start $ZK_NODE $ZK_PORT
+	cdepl_app_zookeeper_wait_started $ZK_NODE
+
+	# Cleanup of failed startups in zookeeper
+	cdepl_app_zookeeper_remove $ZK_NODE "/dxram"
+
+	# Start a DXRAM cluster first
+	# Initialize deployment
+	cdepl_app_dxram_init $dxram_ycsb_path $ZK_NODE $ZK_PORT
+	cdepl_app_dxram_ycsb_init $dxram_ycsb_path $ZK_NODE $ZK_PORT
+
+	local ycsb_range_start=$((1 + storage_nodes))
+	local ycsb_range_end=$((ycsb_range_start + ycsb_nodes - 1))
+
+	# Config superpeer
+	cdepl_app_dxram_node_type 0 "S"
+	cdepl_app_dxram_run_as_sudo 0
+	cdepl_app_dxram_node_network 0 $network_type
+		
+	# Config storage peers
+	for i in $(seq 1 $storage_nodes); do
+		cdepl_app_dxram_run_as_sudo $i
+		cdepl_app_dxram_node_network $i $network_type
+		cdepl_app_dxram_node_type $i "P"
+		cdepl_app_dxram_peer_kvss $i $storage_size
+		cdepl_app_dxram_node_message_handler $i $num_message_handler_storages
+		cdepl_app_dxram_node_port $i $DX_PEER_PORT_START
+		DX_PEER_PORT_START=$((DX_PEER_PORT_START + 1))
+	done
+
+	# YCSB parameter setup
+	cdepl_app_dxram_ycsb_total_storage_nodes $storage_nodes
+
+	case $workload in
+		"a")
+			cdepl_app_dxram_ycsb_workload_a $recordcount_per_node $operationcount
+			;;
+		"b")
+			cdepl_app_dxram_ycsb_workload_b $recordcount_per_node $operationcount
+			;;
+		"g")
+			cdepl_app_dxram_ycsb_workload_g $recordcount_per_node $operationcount
+			;;
+		x=*)
+			vals=$(echo "$workload" | cut -d "=" -f 2)
+			reads=$(echo "$vals" | cut -d "," -f 1)
+			writes=$(echo "$vals" | cut -d "," -f 2)
+			dist=$(echo "$vals" | cut -d "," -f 3)
+			batch=$(echo "$vals" | cut -d "," -f 4)
+			csize=$(echo "$vals" | cut -d "," -f 5)
+
+			if [ ! "$reads" ] || [ ! "$writes" ] || [ ! "$dist" ] || [ ! "$batch" ] || [ ! "$csize" ]; then
+				util_log_error_and_exit "Invalid custom workload format, must be: x=<reads>,<writes>,<dist>,<batch>,<csize> (e.g. x=0.5,0.5,zipfian,1,64 )"
+			fi
+
+			cdepl_app_dxram_ycsb_workload $recordcount_per_node $operationcount $reads $writes $dist $batch $csize
+			;;
+		*)
+			util_log_error_and_exit "Invalid workload specified: $workload"
+			;;
+	esac
+
+	# Config load peers
+	local counter="0"
+
+	for i in $(seq $ycsb_range_start $ycsb_range_end); do
+		cdepl_app_dxram_ycsb_run_as_sudo $i
+		cdepl_app_dxram_ycsb_node_network $i $network_type
+		cdepl_app_dxram_ycsb_node_type $i "L"
+		# When running localhost, we have to assign different ports for the peers
+		cdepl_app_dxram_ycsb_node_port $i $DX_PEER_PORT_START
+		DX_PEER_PORT_START=$((DX_PEER_PORT_START + 1))
+
+		cdepl_app_dxram_ycsb_load_target_peer_idx $i $counter
+		cdepl_app_dxram_ycsb_insertstart $i $((recordcount_per_node * counter))
+
+		counter=$((counter + 1))
+	done
+
+	# Start superpeer and wait before starting peers
+	cdepl_app_dxram_start_node 0
+	cdepl_app_dxram_node_wait_started 0
+
+	# Start all storage peers
+	cdepl_app_dxram_start_node 1 $storage_nodes
+
+	# Wait for all peers to be started
+	for i in $(seq 1 $storage_nodes); do
+		cdepl_app_dxram_node_wait_started $i
+	done
+
+	# Load storage nodes
+	cdepl_app_ycsb_dxram_start_node $ycsb_range_start $ycsb_range_end
+
+	for i in $(seq $ycsb_range_start $ycsb_range_end); do
+        cdepl_app_dxram_ycsb_loader_finished_loading $i &
+        pids="$pids $!"
+
+        counter=$((counter + 1))
+
+		# Parallel deploy in batches of 10 which is the default limit
+		# for parallel connections on ssh servers, stay slightly below
+		# this limit (sometimes, 10 causes errors on multiplexing)
+		if [ "$counter" -ge "8" ] || [ "$i" = "$ycsb_range_end" ]; then
+			wait $pids
+			pids=""
+			counter=0
+		fi
+    done 
+
+	# Re-configure ycsb nodes to run as benchmark nodes
+	for i in $(seq $ycsb_range_start $ycsb_range_end); do
+		cdepl_app_dxram_ycsb_run_as_sudo $i
+		cdepl_app_dxram_ycsb_node_network $i $network_type
+		cdepl_app_dxram_ycsb_node_type $i "B"
+		cdepl_app_dxram_ycsb_node_message_handler $i $num_message_handler_benchmark
+		cdepl_app_dxram_ycsb_threads $i $ycsb_threads
+	done
+
+	sleep 1
+
+	# Start benchmark and wait for completion
+	cdepl_app_ycsb_dxram_start_node $ycsb_range_start $ycsb_range_end
+
+	for i in $(seq $ycsb_range_start $ycsb_range_end); do
+		cdepl_app_dxram_ycsb_benchmark_wait_finished $i
+	done
+}

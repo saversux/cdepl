@@ -1,0 +1,98 @@
+#!/bin/bash
+
+#
+# Copyright (C) 2018 Heinrich-Heine-Universitaet Duesseldorf, Institute of Computer Science, Department Operating Systems
+#
+# This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>
+#
+
+readonly __CDEPL_CONFIG_SCRIPT_DIR="$( cd "$(dirname "${BASH_SOURCE[0]}")" && pwd )"
+readonly __CDEPL_CONFIG_FILE="${__CDEPL_CONFIG_SCRIPT_DIR}/.cdepl"
+
+__CDEPL_CLUSTER_TYPE=""
+declare -A __CDEPL_CONFIGURATION
+
+cdepl_configuration_init()
+{
+    local cluster_type=$1
+
+    __CDEPL_CLUSTER_TYPE="$cluster_type"
+
+    local file="${__CDEPL_CONFIG_FILE}_${cluster_type}"
+
+    if [ ! -e "$file" ]; then
+        return
+    fi
+
+    while IFS=$':= \t' read key value; do
+        [[ $key = [#!]* ]] || [[ $key = "" ]] || __CDEPL_CONFIGURATION[$key]=$value
+    done < "$file"
+}
+
+cdepl_configuration_get_cluster_type()
+{
+    echo "$__CDEPL_CLUSTER_TYPE"
+}
+
+cdepl_configuration_set()
+{
+    local key=$1
+    local value=$2
+
+    if [ ! "$key" ] && [ ! "$value" ]; then
+        echo "Set a configuration value."
+        echo "Usage: config key1 value2"
+        return
+    fi
+
+    __CDEPL_CONFIGURATION["$key"]="$value"
+}
+
+cdepl_configuration_get()
+{
+    local key=$1
+
+    if [ ! "$key" ]; then
+        echo "Get a configuration value."
+        echo "Usage: config key1"
+        return
+    fi
+    
+    echo "${__CDEPL_CONFIGURATION["$key"]}"
+}
+
+cdepl_configuration_get_and_check()
+{
+    local key=$1
+    local default_value=$2
+
+    if [ ! "${__CDEPL_CONFIGURATION[$key]}" ] && [ ! "$default_value" ]; then
+        util_log_error "[conf] Missing configuration value for key \"$key\""
+        echo ""
+    elif [ ! "${__CDEPL_CONFIGURATION[$key]}" ]; then
+        echo "$default_value"
+    else
+        echo "${__CDEPL_CONFIGURATION[$key]}"
+    fi
+}
+
+cdepl_configuration_save()
+{
+    local cluster_type=$1
+
+    local file="${__CDEPL_CONFIG_FILE}_${__CDEPL_CLUSTER_TYPE}"
+
+    rm -f $file
+    touch $file
+
+    for i in "${!__CDEPL_CONFIGURATION[@]}"; do
+        echo "${i}=${__CDEPL_CONFIGURATION[$i]}" >> $file
+    done
+}

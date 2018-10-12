@@ -1,0 +1,261 @@
+#!/bin/bash
+
+#
+# Copyright (C) 2018 Heinrich-Heine-Universitaet Duesseldorf, Institute of Computer Science, Department Operating Systems
+#
+# This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>
+#
+
+#
+# Simple cluster module to deploy to arbitrary clusters using a list of
+# node id to hostname mappings
+#
+
+__SIMPLE_MAX_NODE_COUNT=""
+__SIMPLE_USER=""
+__SIMPLE_TOTAL_NODES=""
+
+__SIMPLE_NODE_MAP=""
+
+cdepl_cluster_get_base_path_deploy_out()
+{
+	local user=$1
+
+	echo "/home/$user"
+}
+
+cdepl_cluster_node_alloc()
+{
+	local num_nodes=$1
+
+	__SIMPLE_TOTAL_NODES="$num_nodes"
+}
+
+cdepl_cluster_get_alloc_node_count()
+{
+	echo "$__SIMPLE_TOTAL_NODES"
+}
+
+cdepl_cluster_node_excl()
+{
+	local node=$1
+
+	# Nodes are always exclusive, ignore
+}
+
+cdepl_cluster_node_cpu_limit_single_socket()
+{
+	local node=$1
+
+	util_log_warn "[simple] Limiting to single CPU socket not implemented"
+}
+
+cdepl_cluster_node_cpus()
+{
+	local node=$1
+	local cpus=$2
+
+	# Not supporting resource allocation, ignore
+}
+
+cdepl_cluster_node_mem()
+{
+	local node=$1
+	local mem=$2
+
+	# Not supporting resource allocation, ignore
+}
+
+cdepl_cluster_node_network()
+{
+	local node=$1
+	local net=$2
+
+	# Not supporting resource allocation, ignore
+}
+
+cdepl_cluster_resolve_hostname_to_ip()
+{
+	local hostname=$1
+
+	local ip=""
+
+	ip="$(cdepl_cluster_node_cmd 0 "host $hostname | cut -d ' ' -f 4 | grep -E '[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}'")"
+
+	if [ "$ip" = "" ]; then
+		ip="$(cdepl_cluster_node_cmd 0 "dig $hostname | grep -E '[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}' | awk '{ if (\$3 == "IN" && \$4 == "A") print \$5 }'")"
+	fi
+
+	echo $ip
+}
+
+cdepl_cluster_resolve_node_to_ip()
+{
+	local node=$1
+
+	if [ "${__SIMPLE_NODE_MAP[$node]}" = "" ]; then
+		util_log_error_and_exit "[simple][$node] Resolve node to ip failed, remote node does not exist"
+	fi
+
+	cdepl_cluster_resolve_hostname_to_ip "${__SIMPLE_NODE_MAP[$node]}"
+}
+
+cdepl_cluster_node_resolve_node_to_hostname()
+{
+	local node=$1
+
+	echo "${__SIMPLE_NODE_MAP[$node]}"
+}
+
+cdepl_cluster_node_cmd()
+{
+	local node=$1
+	local cmd="$2"
+	local required_env="$3"
+
+	if [ "${__SIMPLE_NODE_MAP[$node]}" = "" ]; then
+		util_log_error_and_exit "[simple][node $node] Exec node $cmd, node does not exist"
+	fi
+
+	# -n -f for nohup
+	# Use ControlMaster to establish the TCP connection, once, and keep it active
+	# until all sessions are closed and no further session was established
+	# within 60 seconds
+	# Note when using nohup: You must redirect stdin/stdout and not add any
+	# command before it using &&, e.g. cd ~ && nohup ...
+	# This will hang the session with controlmaster
+	ssh -o ControlMaster=auto -o ControlPath=~/.ssh/cdepl_%r@%h:%p.sock -o ControlPersist=60 ${__SIMPLE_USER}@${__SIMPLE_NODE_MAP[$node]} -n -f "$cmd"
+}
+
+cdepl_cluster_gather_log_files()
+{
+	local cmd="$1"
+	local required_env="$2"
+
+	# We assume a shared file system is available on a simple cluster -> nothing to do here
+}
+
+cdepl_cluster_upload_to_remote()
+{
+	local local_path=$1
+	local remote_path=$2
+	local recursive=$3
+
+	if [ "$recursive" ]; then
+		recursive="-r"
+	fi
+
+	util_log_debug "[simple] Upload $local_path -> $remote_path"
+
+	# Use ControlMaster to establish the TCP connection, once, and keep it active
+	# until all sessions are closed and no further session was established
+	# within 60 seconds
+	scp $recursive -o ControlMaster=auto -o ControlPath=~/.ssh/cdepl_%r@%h:%p.sock -o ControlPersist=60 $local_path ${__SIMPLE_USER}@${__SIMPLE_NODE_MAP[0]}:${remote_path} > /dev/null 2>&1
+}
+
+cdepl_cluster_download_from_remote()
+{
+	local remote_path=$1
+	local local_path=$2
+	local recursive=$3
+
+	if [ "$recursive" ]; then
+		recursive="-r"
+	fi
+
+	util_log_debug "[simple] Download $remote_path -> $local_path"
+
+	# Use ControlMaster to establish the TCP connection, once, and keep it active
+	# until all sessions are closed and no further session was established
+	# within 60 seconds
+	scp $recursive -o ControlMaster=auto -o ControlPath=~/.ssh/cdepl_%r@%h:%p.sock -o ControlPersist=60 ${__SIMPLE_USER}@${__SIMPLE_NODE_MAP[0]}:$remote_path $local_path > /dev/null 2>&1
+}
+
+cdepl_cluster_file_system_cmd()
+{
+	local cmd="$1"
+
+	# We assume a shared file system is available on a simple cluster -> send command to node 0, only
+	cdepl_cluster_node_cmd 0 "$cmd"
+}
+
+cdepl_cluster_allows_sudo()
+{
+	echo ""
+}
+
+####################################
+# "private" callback methods that should not be called by the user
+
+# "constructor"
+_cdepl_cluster_on_init()
+{
+	local cluster_user=$1
+	local cluster_nodes="${@:2}"
+
+	__SIMPLE_USER="$cluster_user"
+
+	local node_id=""
+	local node_host=""
+
+	__SIMPLE_MAX_NODE_COUNT=0
+
+	for arg in $cluster_nodes; do
+		if [ ! "$node_id" ]; then
+			node_id="$arg"
+		elif [ ! "$node_host" ]; then
+			node_host="$arg"
+
+			if [ "${__SIMPLE_NODE_MAP[$node_id]}" ]; then
+				util_log_warn "[simple] Overwriting existing node map entry ${node_id}: ${__SIMPLE_NODE_MAP[$node_id]} -> $node_host"
+			fi
+
+			__SIMPLE_NODE_MAP[$node_id]="$node_host"
+			__SIMPLE_MAX_NODE_COUNT=$((__SIMPLE_MAX_NODE_COUNT + 1))
+
+			node_id=""
+			node_host=""
+		fi
+	done
+}
+
+_cdepl_cluster_on_node_setup_finish()
+{
+	local nodes=""
+
+	for i in `seq 0 $((__SIMPLE_MAX_NODE_COUNT - 1))`; do
+		nodes="${nodes}${i} ${__SIMPLE_NODE_MAP[$i]}\n"
+	done
+
+	util_log_debug "[simple] Node allocations:\n$nodes"
+
+	# Store node mappings to file
+	cdepl_cluster_node_cmd 0 "printf \"$nodes\" > ${__DEPLOY_CUR_OUT_PATH}/node_mappings"
+}
+
+_cdepl_cluster_before_deploy()
+{
+	util_log_debug "[simple] before_deploy"
+}
+
+_cdepl_cluster_after_deploy()
+{
+	util_log_debug "[simple] after_deploy"
+}
+
+_cdepl_cluster_before_cleanup()
+{
+	util_log_debug "[simple] before_cleanup"
+}
+
+_cdepl_cluster_after_cleanup()
+{
+	util_log_debug "[simple] after_cleanup"
+}

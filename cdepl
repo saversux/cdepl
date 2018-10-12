@@ -1,0 +1,77 @@
+#!/bin/bash
+
+#
+# Copyright (C) 2018 Heinrich-Heine-Universitaet Duesseldorf, Institute of Computer Science, Department Operating Systems
+#
+# This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>
+#
+
+readonly CDEPL_VERSION="0.3.0"
+readonly CDEPL_SCRIPT_DIR="$( cd "$(dirname "${BASH_SOURCE[0]}")" && pwd )"
+
+##
+# Check if the tools required by cdepl (locally) are available
+##
+__cdepl_check_required_programs()
+{	
+	if ! [ -x "$(command -v cat)" ]; then
+		util_log_error_and_exit "Please install coreutils. Used for cat, cut, mkdir, readlink, rm and sleep."
+	fi
+
+	if ! [ -x "$(command -v grep)" ]; then
+		util_log_error_and_exit "Please install grep."
+	fi
+
+	if ! [ -x "$(command -v sed)" ]; then
+		util_log_error_and_exit "Please install sed."
+	fi
+
+	if ! [ -x "$(command -v ssh)" ]; then
+		util_log_error_and_exit "Please install openssh-client. Used for scp and ssh."
+	fi
+}
+
+###############
+# Entry point #
+###############
+
+cd $CDEPL_SCRIPT_DIR
+
+if [ "$(command -v git)" ]; then
+	readonly CDEPL_GITREV="$(git log -1 --format=%h --date=short HEAD)"
+else
+	readonly CDEPL_GITREV="N/A"
+fi
+
+# Includes
+source "util"
+
+_util_check_bash_version
+
+cluster_type=$1
+cdepl_cmd_list_file=$2
+
+if [ ! "$cluster_type" ]; then
+    util_log "Usage: $0 <cluster type> [cdepl cmd list file]"
+    exit 1
+fi
+
+rcfile="PS1='cdepl> ' ; cd $CDEPL_SCRIPT_DIR ; source auto-completion ; source configuration ; cdepl_configuration_init $cluster_type ; source main"
+
+echo "Starting cdepl shell (v$CDEPL_VERSION) for cluster type $cluster_type"
+
+if [ ! "$cdepl_cmd_list_file" ]; then
+    bash --rcfile <(echo "$rcfile") -i
+else
+    echo "Running cmd list script file $cdepl_cmd_list_file"
+    bash --rcfile <(echo "$rcfile ; source $cdepl_cmd_list_file ; exit")
+fi
+
+echo "Exited cdepl shell"

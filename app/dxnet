@@ -13,10 +13,12 @@
 
 #!/bin/bash
 
-##
-# App module to run DXNetMain, DXNet's build in benchmark to test throughput
-# and latency with various parameters
-##
+# Include guard
+if [ "$__CDEPL_APP_DXNET_INCLUDED" ]; then
+    return
+fi
+
+__CDEPL_APP_DXNET_INCLUDED="1"
 
 readonly __DXNET_BINARY="bin/dxnet"
 
@@ -70,7 +72,7 @@ cdepl_app_dxnet_init()
 	__DXNET_TOTAL_NODES="$total_nodes"
 	__DXNET_CONFIG_PATH="${__DXNET_PATH}/config/dxnet.conf"
 
-	__DXNET_OUT_PATH="${__DEPLOY_CUR_OUT_PATH}/dxnet"
+	__DXNET_OUT_PATH="$(cdepl_run_get_cur_out_path)/dxnet"
 	__DXNET_OUT_CONF_PATH="${__DXNET_OUT_PATH}/conf"
 	__DXNET_OUT_LOG_PATH="${__DXNET_OUT_PATH}/log"
 
@@ -656,7 +658,7 @@ __cdepl_app_dxnet_create_node_base_config()
 	local node=$1
 
 	local node_config_path="${__DXNET_OUT_CONF_PATH}/node_${node}.conf"
-	local tmp_file="$(cdepl_deploy_get_local_tmp_path)/tmp_dxnet_${node}.conf"
+	local tmp_file="$(cdepl_run_get_local_tmp_path)/tmp_dxnet_${node}.conf"
 
 	# Tremendously speed this up by caching the nodes config
 	if [ ! "$__DXNET_CACHED_NODES_CONFIG" ]; then

@@ -1,3 +1,5 @@
+#!/bin/bash
+
 #
 # Copyright (C) 2018 Heinrich-Heine-Universitaet Duesseldorf, Institute of Computer Science, Department Operating Systems
 #
@@ -11,16 +13,12 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>
 #
 
-#!/bin/bash
-
 #
 # Cluster module for HILBERT HPC system of the Heinrich-Heine-University
 # Duesseldorf
 #
 
 readonly __HILBERT_MAX_NODES="112"
-readonly __HILBERT_MAX_CPUS_PER_NODE="24"
-readonly __HILBERT_MAX_MEM_PER_NODE="106903"
 readonly __HILBERT_HOSTNAME="hpc.rz.uni-duesseldorf.de"
 
 readonly __HILBERT_QSUB="/opt/pbs/bin/qsub"
@@ -28,19 +26,12 @@ readonly __HILBERT_QDEL="/opt/pbs/bin/qdel"
 
 readonly __PBS_ATTACH="1"
 
-__HILBERT_NODE_EXCL_FIRST_CALL=""
+__HILBERT_USER=""
+__HILBERT_APP_INSTALL_DIR=""
+__HILBERT_CDEPL_OUT_DIR=""
+__HILBERT_PROJECT=""
 
 __HILBERT_TOTAL_NODES="0"
-__HILBERT_CPUS_PER_NODE="0"
-__HILBERT_MEM_MB_PER_NODE="0"
-
-__HILBERT_USER=""
-__HILBERT_PROJECT=""
-__HILBERT_WALLTIME=""
-__HILBERT_JOB_NAME=""
-__HILBERT_QUEUE=""
-__HILBERT_NODES_EXPLICIT=""
-__HILBERT_NODES_SINGLE_SOCKET=()
 
 __HILBERT_JOB_ID=""
 __HILBERT_JOB_ID_LONG=""
@@ -57,23 +48,12 @@ __HILBERT_DEPENDENCY_MAP["java/1.8.0"]="Java/1.8.0_151"
 __HILBERT_DEPENDENCY_MAP["pcre/8.38.0"]="pcre/8.38"
 __HILBERT_DEPENDENCY_MAP["protobuf/2.6.1"]="protobuf/2.6.1"
 
-cdepl_cluster_get_base_path_deploy_out()
+##################################
+# "API" impl for applications
+
+cdepl_cluster_get_user()
 {
-	local user=$1
-
-    # Use gpfs instead of home -> more space
-	echo "/gpfs/project/$user"
-}
-
-cdepl_cluster_node_alloc()
-{
-	local num_nodes=$1
-
-	if [ "$num_nodes" -gt "$__HILBERT_MAX_NODES" ]; then
-		util_log_error_and_exit "[hilbert] Cannot allocate $num_nodes, max: $__HILBERT_MAX_NODES"
-	fi
-
-	__HILBERT_TOTAL_NODES="$num_nodes"
+	echo "$__HILBERT_USER"
 }
 
 cdepl_cluster_get_alloc_node_count()
@@ -81,58 +61,14 @@ cdepl_cluster_get_alloc_node_count()
 	echo "$__HILBERT_TOTAL_NODES"
 }
 
-cdepl_cluster_node_excl()
+cdepl_cluster_application_install_dir()
 {
-	local node=$1
-
-	# Max out for all instances, I don't think it's possible to allocate
-	# different amounts of cpu and ram for different instances
-	__HILBERT_CPUS_PER_NODE="$__HILBERT_MAX_CPUS_PER_NODE"
-	__HILBERT_MEM_MB_PER_NODE="$__HILBERT_MAX_MEM_PER_NODE"
-
-	# Print this once
-	if [ ! "$__HILBERT_NODE_EXCL_FIRST_CALL" ]; then
-		__HILBERT_NODE_EXCL_FIRST_CALL="0"
-		util_log "All nodes ($__HILBERT_TOTAL_NODES) allocated exclusively. Depending on the number of nodes selected, your job might have to wait a little longer until you get all the nodes exclusively"
-	fi
+	echo "$__HILBERT_APP_INSTALL_DIR"
 }
 
-cdepl_cluster_node_cpu_limit_single_socket()
+cdepl_cluster_get_base_path_deploy_out()
 {
-	local node=$1
-
-	__HILBERT_NODES_SINGLE_SOCKET[$node]="1"
-}
-
-cdepl_cluster_node_cpus()
-{
-	local node=$1
-	local cpus=$2
-
-	# I don't think it's possible to allocate a different number of cpus
-	# per instance
-	# Just use the highest number and allocate that amount on every node
-	if [ "$cpus" -gt "$__HILBERT_CPUS_PER_NODE" ] && [ "$cpus" -le "$__HILBERT_MAX_CPUS_PER_NODE" ]; then
-		__HILBERT_CPUS_PER_NODE="$cpus"
-	fi
-}
-
-cdepl_cluster_node_mem()
-{
-	local node=$1
-	local mem=$2
-
-	if [ "$mem" -gt "$__HILBERT_MEM_MB_PER_NODE" ] && [ "$mem" -le "$__HILBERT_MAX_MEM_PER_NODE" ]; then
-		__HILBERT_MEM_MB_PER_NODE="$mem"
-	fi
-}
-
-cdepl_cluster_node_network()
-{
-	local node=$1
-	local net=$2
-
-	# All nodes are supporting eth and ib
+	echo "$__HILBERT_CDEPL_OUT_DIR"
 }
 
 cdepl_cluster_resolve_hostname_to_ip()
@@ -261,76 +197,18 @@ cdepl_cluster_file_system_cmd()
 	__cdepl_cluster_login_cmd "$cmd"
 }
 
-cdepl_cluster_gather_log_files()
+##################################
+# called by cdepl and commands from cdepl console
+
+_cdepl_cluster_init()
 {
-    local path="$1"
-    local cur_path="$2"
+	__HILBERT_USER="$(cdepl_configuration_get_and_check "user")"
+	__HILBERT_APP_INSTALL_DIR="$(cdepl_configuration_get_and_check "app_install_dir" "/home/$__HILBERT_USER")"
+	__HILBERT_CDEPL_OUT_DIR="$(cdepl_configuration_get_and_check "cdepl_out_dir" "/gpfs/project/$__HILBERT_USER")"
+	__HILBERT_PROJECT="$(cdepl_configuration_get_and_check "project")"
 
-	# We use a scratch file system for hilbert -> nothing to do here
-}
-
-cdepl_cluster_show_logs()
-{
-	local path="$1"
-
-	ssh -t ${__HILBERT_USER}@${__HILBERT_HOSTNAME} "less +F -R $path/*"
-}
-
-####################################
-# "private" callback methods that should not be called by the user
-
-# "constructor"
-_cdepl_cluster_on_init()
-{
-	local cluster_user=$1
-	# Required for job system
-	local project_name=$2
-	# Also required for job system
-	local walltime=$3
-
-	# Default walltime 30 mins if not specified
-	if [ ! "$walltime" ]; then
-		walltime="00:30:00"
-	fi
-
-	__HILBERT_WALLTIME="$walltime"
-
-    # Optional arguments, e.g.
-    # q=Devel
-    # j=bla
-    # n=hilbert74+hilbert75+hilbert76
-    local job_name=""
-    local queue=""
-    local nodes=""
-
-    for arg in "${@:4}"; do
-        case "${arg:0:2}" in
-            "j=") job_name="${arg:2}" ;;
-            "q=") queue="${arg:2}" ;;
-            "n=") nodes="${arg:2}" ;;
-            *) ;;
-        esac
-    done
-
-	util_log_debug "[hilbert] on_init: user $cluster_user project $project_name $walltime"
-
-	__HILBERT_USER="$cluster_user"
-
-	if [ ! "$project_name" ]; then
-		util_log_error_and_exit "[hilbert] No project name specified on init"
-	fi
-
-	__HILBERT_PROJECT="$project_name"
-
-	# If no job name specified, default
-	if [ "$job_name" ]; then
-		__HILBERT_JOB_NAME="$job_name"
-	else
-		__HILBERT_JOB_NAME="${__HILBERT_PROJECT}"
-	fi
-
-    __HILBERT_QUEUE="$queue"
-    __HILBERT_NODES_EXPLICIT="$nodes"
+	# Delete old socket handle which hangs ssh calls after restarting on broken connection
+	rm -f ~/.ssh/cdepl_*.sock 
 
 	# Check if passwordless auth available
 	ssh -o PasswordAuthentication=no -o BatchMode=yes ${__HILBERT_USER}@${__HILBERT_HOSTNAME} exit &> /dev/null
@@ -347,48 +225,110 @@ _cdepl_cluster_on_init()
 	__cdepl_cluster_login_cmd ":"
 }
 
-_cdepl_cluster_on_node_setup_finish()
+_cdepl_cluster_status()
 {
-	util_log_debug "[hilbert] on_node_setup_finish"
+	echo "Current jobs running of user $__HILBERT_USER"
+	__cdepl_cluster_login_cmd "qstat -u $__HILBERT_USER"
+
+	echo ""
+
+	local resource_available="$(curl -k "https://myjam3.hhu.de/ajax.php?modul=cluster&script=FreeRessources" 2> /dev/null)"
+    printf "Resources currently available:\n${resource_available}\n"
+}
+
+_cdepl_cluster_alloc()
+{
+	local arg=$1
+	local list=$2 
+	local job_args=${@:3}
+
+	if [ ! "$arg" ]; then
+		util_log "Usage: cluster alloc <num nodes> or cluster alloc list <comma separated list of node nums, e.g. 65,66>"
+		return
+	fi
+
+	local node_count=""
+	local nodes_explicit=""
+
+	if [ "$arg" = "list" ]; then
+		local counter=0
+
+		for i in $(echo $list | sed "s/,/ /g"); do
+			nodes_explicit="${nodes_explicit}hilbert${i} "
+			counter=$((counter + 1))
+		done
+
+		__HILBERT_TOTAL_NODES=$counter
+	else
+		node_count="$args"
+		__HILBERT_TOTAL_NODES=$node_count
+	fi
+
+	# Also required for job system, default walltime for short jobs < 2h
+	local walltime="01:59:00"
+	local queue=""
+	local job_name="cdepl"
+	# Hardware specs
+	local cpu_count="1"
+	local mem_mb="1024"
+
+    # Optional arguments, e.g.
+    # q=Devel
+    # j=bla
+
+    for arg in "$job_args"; do
+        case "${arg:0:2}" in
+		    "c=") cpu_count="${arg:2}" ;;
+            "m=") mem_mb="${arg:2}" ;;
+			"j=") job_name="${arg:2}" ;;
+            "q=") queue="${arg:2}" ;;
+			"t=") walltime="${arg:2}" ;;
+            *) ;;
+        esac
+    done
+
+	# create separate folder for hilbert data
+	local timestamp="$(date '+%Y-%m-%d_%H-%M-%S-%3N')" 
+	local hilbert_data_path="$(cdepl_cluster_out_path)/hilbert_$timestamp"
+
+	__cdepl_cluster_login_cmd "mkdir -p $hilbert_data_path"
 
 	# Create job script to bootstrap the cluster: allocate nodes, get node mappings
-
 	local tmp_job_script="/tmp/cdepl_hilbert_deploy.job"
-	local job_script="${__DEPLOY_CUR_OUT_PATH}/deploy.job"
-	local node_mappings_path="${__DEPLOY_CUR_OUT_PATH}/node_mappings"
+	local job_script="$hilbert_data_path/deploy.job"
+	local node_mappings_path="$hilbert_data_path/node_mappings"
 
     # We could pass this stuff as parameters to PBS but want them documented
     # with the job script
     local pbs_job_string=""
 
-    if [ "$__HILBERT_NODES_EXPLICIT" ]; then
-        pbs_job_string="#PBS -l nodes=${__HILBERT_NODES_EXPLICIT}"
-        util_log_debug "[hilbert] Explicit node allocation: ${__HILBERT_NODES_EXPLICIT}"
+    if [ "$nodes_explicit" ]; then
+        pbs_job_string="#PBS -l nodes=${nodes_explicit}:ncpus=${cpu_count}:mem=${mem_mb}MB"
+        util_log_debug "[hilbert] Explicit node allocation: ${nodes_explicit}"
     else
-        pbs_job_string="#PBS -l select=${__HILBERT_TOTAL_NODES}:ncpus=${__HILBERT_CPUS_PER_NODE}:mem=${__HILBERT_MEM_MB_PER_NODE}MB:arch=ivybridge
+        pbs_job_string="#PBS -l select=${node_count}:ncpus=${cpu_count}:mem=${mem_mb}MB:arch=ivybridge
 #PBS -l place=scatter"
     fi
 
-    if [ "$__HILBERT_QUEUE" ]; then
+    if [ "$queue" ]; then
         pbs_job_string="$pbs_job_string
-#PBS -q ${__HILBERT_QUEUE}"
-        util_log_debug "[hilbert] Non default queue specified: ${__HILBERT_QUEUE}"
+#PBS -q ${queue}"
+        util_log_debug "[hilbert] Non default queue specified: ${queue}"
     fi
 
     pbs_job_string="$pbs_job_string
-#PBS -l walltime=${__HILBERT_WALLTIME}
+#PBS -l walltime=${walltime}
 #PBS -r n
-#PBS -N $__HILBERT_JOB_NAME
+#PBS -N $job_name
 #PBS -A $__HILBERT_PROJECT
-#PBS -e ${__DEPLOY_CUR_OUT_PATH}/deploy.stderr
-#PBS -o ${__DEPLOY_CUR_OUT_PATH}/deploy.stdout"
+#PBS -e ${hilbert_data_path}/hilbert.stderr
+#PBS -o ${hilbert_data_path}/hilbert.stdout"
 
     # Glue everything together
 	printf '%s' "#!/bin/bash
 
 ${pbs_job_string}
 
-JOB_WORKING_DIR=\"${__DEPLOY_CUR_OUT_PATH}\"
 NODES_COUNT=\"\"
 NODES_HOSTNAME=\"\"
 NODE_MAPPINGS=\"\"
@@ -403,7 +343,7 @@ done
 
 echo \"Total node count: \$NODES_COUNT\"
 
-echo \"Resolving node mappings for deployment: \"${__DEPLOY_CUR_OUT_PATH}\"\"
+echo \"Resolving node mappings for deployment: \"${hilbert_data_path}\"\"
 
 i=0
 while [ \$i -lt \$NODES_COUNT ]; do
@@ -415,7 +355,7 @@ printf \"\$NODE_MAPPINGS\" > \"$node_mappings_path\"
 sync
 
 # Keep job running to keep allocated nodes active
-run_time=\$(echo \"${__HILBERT_WALLTIME}\" | awk -F: '{ print (\$1 * 3600) + (\$2 * 60) + \$3 }')
+run_time=\$(echo \"${walltime}\" | awk -F: '{ print (\$1 * 3600) + (\$2 * 60) + \$3 }')
 
 echo \"Keep job running for \$run_time seconds...\"
 sleep \$run_time
@@ -450,7 +390,7 @@ echo \"Job finished\"
 	__HILBERT_JOB_ID=$(echo $qsub_output | cut -d '.' -f 1)
 	__HILBERT_JOB_ID_LONG=$qsub_output
 
-	util_log_debug "[hilbert] Job submitted $__HILBERT_JOB_ID ($qsub_output), waiting for job to start..."
+	util_log_debug "[hilbert] Job submitted $job_script $__HILBERT_JOB_ID ($qsub_output), waiting for job to start..."
 
 	local node_mappings=""
 
@@ -465,7 +405,7 @@ echo \"Job finished\"
 	while true; do
 		# Hack to trigger cache flush of gpfs to avoid waiting longer than
 		# necessary (approx 3 sec compared to 30 sec)
-		__cdepl_cluster_login_cmd "ls $__DEPLOY_CUR_OUT_PATH > /dev/null 2>&1"
+		__cdepl_cluster_login_cmd "ls ${hilbert_data_path} > /dev/null 2>&1"
 
 		if [ "$(__cdepl_cluster_login_cmd "[ -f ${node_mappings_path} ] && echo 1")" = "1" ]; then
 			node_mappings=$(__cdepl_cluster_login_cmd "cat $node_mappings_path")
@@ -491,31 +431,34 @@ echo \"Job finished\"
 
 	echo ""
 
-	util_log_debug "[hilbert] Job started, node allocations:\\n${node_mappings}"
+	util_log_debug "[hilbert] Job started"
 }
 
-_cdepl_cluster_before_deploy()
+_cdepl_cluster_nodes()
 {
-	util_log_debug "[hilbert] before_deploy"
+	local mappings=""
+
+	for ((i = 0; i < $__HILBERT_TOTAL_NODES; i++)); do
+		mappings="${mappings}$i ${__HILBERT_NODE_MAPPING[$i]}\n"
+	done
+
+	printf "Node mappings of allocation:\n$mappings"
 }
 
-_cdepl_cluster_after_deploy()
+_cdepl_cluster_free()
 {
-	util_log_debug "[hilbert] after_deploy"
+	local job_id=$1
+
+	if [ ! "$job_id" ]; then
+		job_id=$__HILBERT_JOB_ID
+	fi
+
+	util_log "[hilbert] Deleting job $job_id"
+	__cdepl_cluster_login_cmd "qdel $job_id" > /dev/null 2>&1
 }
 
-_cdepl_cluster_before_cleanup()
-{
-	util_log_debug "[hilbert] before_cleanup"
-}
-
-_cdepl_cluster_after_cleanup()
-{
-	util_log_debug "[hilbert] after_cleanup"
-
-	util_log_debug "[hilbert] Deployment finished, delete job $__HILBERT_JOB_ID"
-	__cdepl_cluster_login_cmd "qdel $__HILBERT_JOB_ID" > /dev/null 2>&1
-}
+##################################
+# private to this script
 
 __cdepl_cluster_login_cmd()
 {

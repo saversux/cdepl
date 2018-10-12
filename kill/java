@@ -1,0 +1,111 @@
+#!/bin/bash
+
+#
+# Copyright (C) 2018 Heinrich-Heine-Universitaet Duesseldorf, Institute of Computer Science, Department Operating Systems
+#
+# This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>
+#
+
+# Includes
+
+_cdepl_kill_application()
+{
+    local node_range_start=$1
+	local node_range_end=$2
+
+    local cluster_total_nodes=$(cdepl_cluster_get_alloc_node_count)
+
+    if [ ! "$node_range_start" ] && [ ! "$node_range_end" ]; then
+        __cdepl_run_java_killall_node 0 $((cluster_total_nodes - 1))
+    elif [ "$node_range_start" ] && [ ! "$node_range_end" ]; then
+        if [ "$node_range_start" -ge "$cluster_total_nodes" ]; then
+            util_log_error "Specified node $node_range_start is out of range"
+            return
+        fi
+
+        __cdepl_run_java_killall_cleanup $node_range_start
+    else
+        if [ "$node_range_start" -ge "$cluster_total_nodes" ]; then
+            util_log_error "Specified node start $node_range_start is out of range"
+            return
+        fi
+        
+        if [ "$node_range_end" -ge "$cluster_total_nodes" ]; then
+            util_log_error "Specified node end $node_range_start is out of range"
+            return
+        fi
+
+        if [ "$node_range_end" -gt "$node_range_start" ]; then
+            util_log_error "Node end is greater than node start"
+            return
+        fi
+
+        __cdepl_run_java_killall_node $node_range_start $node_range_end
+    fi
+}
+
+__cdepl_run_java_killall_node()
+{
+    local node_range_start=$1
+	local node_range_end=$2
+
+	if [ "$node_range_end" ]; then
+		local pids=""
+
+		for node in $(seq "$node_range_start" "$node_range_end"); do
+			__cdepl_run_java_killall_cleanup "$node" &
+			pids="$pids $!"
+		done
+
+		wait $pids
+	else
+		__cdepl_run_java_killall_cleanup "$node_range_start"
+	fi
+}
+
+__cdepl_run_java_killall_get_instance_running_pid()
+{
+	local node=$1
+
+	# Consider port for multiple instances on a single machine (e.g. localhost)
+	cdepl_cluster_node_cmd "$node" "pgrep java"
+}
+
+__cdepl_run_java_killall_cleanup()
+{
+	local node=$1
+
+	util_log "[$node][java] Cleanup..."
+
+	local pid=$(__cdepl_run_java_killall_get_instance_running_pid "$node")
+
+	if [ "$pid" ]; then
+		# If we or someone else left some garbage processes on the node multiple
+		# pids are returned
+		for i in $pid; do
+			local kill_out=$(cdepl_cluster_node_cmd "$node" "kill -9 $i 2>&1")
+
+			if [ "$?" = "0" ] && [ ! "$kill_out" ]; then
+				util_log "[$node][java] Killed (pid: $i)"
+			elif [ "$kill_out" ]; then
+				# Probably operation not permitted, try root
+				cdepl_cluster_node_cmd "$node" "sudo -P kill -9 $i > /dev/null 2>&1"
+
+				if [ "$?" = "0" ]; then
+					util_log "[$node][java] Killed (root) (pid: $i)"
+				elif [ "$?" != "1" ]; then
+					util_log_warn "[$node][java] Killing (root) $i failed, Java instance(s) might stay alive"
+				fi
+			elif [ "$?" != "1" ]; then
+				util_log_warn "[$node][java] Killing $i failed, Java instance(s) might stay alive"
+			fi
+		done
+	fi
+}
