@@ -282,6 +282,8 @@ cdepl_script_deploy()
 		cdepl_app_dxram_ycsb_threads $i $ycsb_threads
 	done
 
+	sleep 1
+
 	# Start benchmark and wait for completion
 	cdepl_app_ycsb_dxram_start_node $ycsb_range_start $ycsb_range_end
 
