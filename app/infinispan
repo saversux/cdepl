@@ -20,8 +20,6 @@ fi
 
 __CDEPL_APP_INFINISPAN_INCLUDED="1"
 
-readonly __INFINISPAN_SERVER_CONFIG="infinispan-server.xml"
-
 __INFINISPAN_PATH=""
 __INFINISPAN_OUT_PATH=""
 __INFINISPAN_OUT_DATA_PATH=""
@@ -165,13 +163,6 @@ __cdepl_app_infinispan_start_node()
 
 	local logfile="${__INFINISPAN_OUT_PATH}/log/node${node}"
     local data_dir="${__INFINISPAN_OUT_DATA_PATH}/node${node}"
-    local run_java=""
-
-    if [ $JAVA_HOME ]; then
-	    run_java=$JAVA_HOME/bin/java
-    else
-        run_java=`which java 2>/dev/null`
-    fi
 
     util_log "[$node][infinispan] Starting instance, logfile: $logfile"
 
@@ -179,7 +170,10 @@ __cdepl_app_infinispan_start_node()
 
     local ip=$(cdepl_cluster_resolve_node_to_ip $node)
 
-    config="$config -c clustered.xml"
+	# All configuration files must be relativ to installation dir, apply your configuration values
+	# to that file manually because we can't just create a minimal configuration in this script
+	# (a lot of default boilerplate is required and just annoying to maintain here)
+    config="$config -c standalone.xml"
     config="$config -Djboss.bind.address=$ip -Djboss.bind.address.management=$ip"
     config="$config -Djboss.server.data.dir=$data_dir"
 
@@ -217,30 +211,4 @@ __cdepl_app_infinispan_cleanup()
 			fi
 		done
 	fi
-}
-
-__cdepl_app_infinispan_create_config()
-{
-    local tmp_config="/tmp/$__INFINISPAN_SERVER_CONFIG"
-
-    # Enable user code deployment to allow execution of the ycsb client
-    # note: blacklist MUST contain something, otherwise everything is blacklisted (?!)
-    # empty whitelist = everything whitelist'd (?)
-
-	printf '%s' "
-<infinispan xmlns=\"http://www.infinispan.com/schema/config\"
-           xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"
-           xsi:schemaLocation=\"http://www.infinispan.com/schema/config
-           http://www.infinispan.com/schema/config/infinispan-config-3.10.xsd\">
-
-    <user-code-deployment enabled=\"true\">
-        <class-cache-mode>ETERNAL</class-cache-mode>
-        <provider-mode>LOCAL_AND_CACHED_CLASSES</provider-mode>
-        <blacklist-prefixes>com.foo</blacklist-prefixes>
-        <whitelist-prefixes></whitelist-prefixes>
-    </user-code-deployment>
-</infinispan>
-" > $tmp_config
-
-    cdepl_cluster_upload_to_remote $tmp_config $__INFINISPAN_OUT_PATH
 }
