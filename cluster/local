@@ -1,0 +1,168 @@
+#!/bin/bash
+
+#
+# Copyright (C) 2018 Heinrich-Heine-Universitaet Duesseldorf, Institute of Computer Science, Department Operating Systems
+#
+# This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>
+#
+
+#
+# Cluster module to deploy to localhost
+#
+
+__LOCAL_USER=""
+__LOCAL_APP_INSTALL_DIR=""
+__LOCAL_CDEPL_OUT_DIR=""
+
+__LOCAL_TOTAL_NODES=""
+
+cdepl_cluster_get_user()
+{
+	echo "$__LOCAL_USER"
+}
+
+cdepl_cluster_get_alloc_node_count()
+{
+	echo "$__LOCAL_TOTAL_NODES"
+}
+
+cdepl_cluster_application_install_dir()
+{
+	echo "$__LOCAL_APP_INSTALL_DIR"
+}
+
+cdepl_cluster_get_base_path_deploy_out()
+{
+	echo "$__LOCAL_CDEPL_OUT_DIR"
+}
+
+cdepl_cluster_resolve_hostname_to_ip()
+{
+	local hostname=$1
+
+	local ip=""
+
+	if [ "$hostname" = "localhost" ]; then
+		ip="127.0.0.1"
+	else
+		ip="$(host $hostname | cut -d ' ' -f 4 | grep -E '[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}')"
+
+		if [ "$ip" = "" ]; then
+			ip="$(dig $hostname | grep -E '[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}' | awk '{ if (\$3 == "IN" && \$4 == "A") print \$5 }')"
+		fi
+	fi
+
+	echo $ip
+}
+
+cdepl_cluster_resolve_node_to_ip()
+{
+	local node=$1
+
+	# Always localhost
+	echo "127.0.0.1"
+}
+
+cdepl_cluster_node_resolve_node_to_hostname()
+{
+	local node=$1
+
+	echo "localhost"
+}
+
+cdepl_cluster_node_cmd()
+{
+	local node=$1
+	local cmd="$2"
+	local required_env="$3"
+
+	eval "$cmd"
+}
+
+cdepl_cluster_upload_to_remote()
+{
+	local local_path=$1
+	local remote_path=$2
+	local recursive=$3
+
+	if [ "$recursive" ]; then
+		recursive="-r"
+	fi
+
+	util_log_debug "[local] Copy $local_path -> $remote_path"
+
+	cp $recursive $local_path $remote_path
+}
+
+cdepl_cluster_download_from_remote()
+{
+	local remote_path=$1
+	local local_path=$2
+	local recursive=$3
+
+	if [ "$recursive" ]; then
+		recursive="-r"
+	fi
+
+	util_log_debug "[local] Copy $remote_path -> $local_path"
+
+	cp $recursive $remote_path $local_path
+}
+
+cdepl_cluster_file_system_cmd()
+{
+	local cmd="$1"
+
+	eval "$cmd"
+}
+
+cdepl_cluster_allows_sudo()
+{
+	echo ""
+}
+
+##################################
+# called by cdepl and commands from cdepl console
+
+_cdepl_cluster_init()
+{
+	__LOCAL_USER=$(whoami)
+	__LOCAL_APP_INSTALL_DIR=$(cdepl_configuration_get_and_check "app_install_dir" "/home/$__LOCAL_USER")
+	__LOCAL_CDEPL_OUT_DIR=$(cdepl_configuration_get_and_check "cdepl_out_dir" "/home/$__LOCAL_USER")
+}
+
+_cdepl_cluster_status()
+{
+	echo "No alloc/free status available on localhost"
+}
+
+_cdepl_cluster_alloc()
+{
+	local count=$1
+
+	if [ ! "$count" ]; then
+		util_log "Usage: cluster alloc <num virtual nodes>"
+		return
+	fi
+
+	__LOCAL_TOTAL_NODES=$count
+
+	echo "Allocated $count virtual nodes"
+}
+
+_cdepl_cluster_nodes()
+{
+	echo "Number of virtual nodes allocated: $__LOCAL_TOTAL_NODES"
+}
+
+_cdepl_cluster_free()
+{
+	local noop=""
+}
