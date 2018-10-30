@@ -37,6 +37,8 @@ __HILBERT_JOB_ID=""
 __HILBERT_JOB_ID_LONG=""
 __HILBERT_NODE_MAPPING=()
 
+__HILBERT_LIMIT_CPU_SOCKETS=""
+
 declare -gA __HILBERT_DEPENDENCY_MAP
 __HILBERT_DEPENDENCY_MAP["boost/1.55.0"]="Boost/1.55.0"
 __HILBERT_DEPENDENCY_MAP["boost/1.62.0"]="Boost/1.62.0"
@@ -75,7 +77,10 @@ cdepl_cluster_resolve_hostname_to_ip()
 {
 	local hostname=$1
 
-	echo "$(__cdepl_cluster_login_cmd "getent hosts $hostname | sed -E 's/([0-9]*.[0-9]*.[0-9]*.[0-9]*).*/\1/p' | head -n 1")"
+	#|hilbert(\d+)|10.28.($1/255+2).($1%255)| 
+	local node_id="$(echo "$hostname" | sed 's/hilbert//')"
+
+	echo "10.28.2.$node_id"
 }
 
 cdepl_cluster_resolve_node_to_ip()
@@ -123,8 +128,8 @@ cdepl_cluster_node_cmd()
 
     printf -v cmd '%q ' $cmd
     # Limit to single socket?
-    if [ "${__HILBERT_NODES_SINGLE_SOCKET[$node]}" ]; then
-        printf -v inner_command '%q ' $env taskset -c 0-11 bash -c "\"$cmd\""
+    if [ "$__HILBERT_LIMIT_CPU_SOCKETS" ]; then
+        printf -v inner_command '%q ' $env taskset -c $__HILBERT_LIMIT_CPU_SOCKETS bash -c "\"$cmd\""
     else
 		printf -v inner_command '%q ' $env bash -c "\"$cmd\""
     fi
@@ -277,6 +282,8 @@ _cdepl_cluster_alloc()
 	local mem_mb="1024"
 	# ivybridge = old nodes, skylake = new nodes
 	local arch="skylake"
+	# e.g. limit to cpu0 (12 cores): 0-11
+	local limit_cpu_sockets=""
 
     # Optional arguments, e.g.
     # q=Devel
@@ -290,15 +297,25 @@ _cdepl_cluster_alloc()
 			"j=") job_name="${arg:2}" ;;
             "q=") queue="${arg:2}" ;;
 			"t=") walltime="${arg:2}" ;;
+			"s=") limit_cpu_sockets="${arg:2}" ;;
             *) ;;
         esac
     done
+
+	__HILBERT_LIMIT_CPU_SOCKETS="$limit_cpu_sockets"
+
+	if [ "$__HILBERT_LIMIT_CPU_SOCKETS" ]; then
+		util_log "Limited CPU sockets to $__HILBERT_LIMIT_CPU_SOCKETS"
+	fi
 
 	# create separate folder for hilbert data
 	local timestamp="$(date '+%Y-%m-%d_%H-%M-%S-%3N')" 
 	local hilbert_data_path="$(cdepl_cluster_out_path)/hilbert_$timestamp"
 
 	__cdepl_cluster_login_cmd "mkdir -p $hilbert_data_path"
+
+	# Create symlink for faster access to most recent deployment
+	cdepl_cluster_file_system_cmd "ln -sfn $hilbert_data_path/ $(cdepl_cluster_out_path)/hilbert"
 
 	# Create job script to bootstrap the cluster: allocate nodes, get node mappings
 	local tmp_job_script="/tmp/cdepl_hilbert_deploy.job"
@@ -382,7 +399,8 @@ echo \"Job finished\"
 
     local resource_available="$(curl -k "https://myjam3.hhu.de/ajax.php?modul=cluster&script=FreeRessources" 2> /dev/null)"
 
-    util_log_debug "[hilbert] Resources currently available:\n${resource_available}"
+    util_log_debug "[hilbert] Resources currently available:
+${resource_available}"
 
 	# Submit the job script and wait for the node mappings to be written to disk
 
