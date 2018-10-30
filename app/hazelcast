@@ -152,6 +152,18 @@ cdepl_app_hazelcast_node_cleanup()
 		for node in $(seq "$node_range_start" "$node_range_end"); do
 			__cdepl_app_hazelcast_cleanup "$node" &
 			pids="$pids $!"
+
+			counter=$((counter + 1))
+
+			# Parallel deploy in batches of 10 which is the default limit
+			# for parallel connections on ssh servers, stay slightly below 
+			# this limit (sometimes, 10 causes errors on multiplexing)
+			if [ "$counter" -ge "8" ]; then
+				wait $pids
+				sleep 1
+				pids=""
+				counter=0
+			fi
 		done
 
 		wait $pids
@@ -177,7 +189,7 @@ __cdepl_app_hazelcast_start_node()
 
     util_log "[$node][hazelcast] Starting instance, logfile: $logfile"
 
-    cdepl_cluster_node_cmd "$node" "cd $__HAZELCAST_PATH ; nohup $run_java -Dhazelcast.config=$__HAZELCAST_OUT_PATH/$__HAZELCAST_SERVER_CONFIG -cp ./lib/hazelcast-all-3.10.5.jar -server com.hazelcast.core.server.StartServer > $logfile 2>&1 &"
+    cdepl_cluster_node_cmd "$node" "cd $__HAZELCAST_PATH ; nohup $run_java -Dhazelcast.health.monitoring.level=NOISY -Dhazelcast.health.monitoring.delay.seconds=1 -Dhazelcast.jmx=true -Dcom.sun.management.jmxremote -Dcom.sun.management.jmxremote.port=8999 -Dcom.sun.management.jmxremote.ssl=false -Dcom.sun.management.jmxremote.authenticate=false -Dhazelcast.config=$__HAZELCAST_OUT_PATH/$__HAZELCAST_SERVER_CONFIG -cp ./lib/hazelcast-enterprise-all-3.10.6.jar -server com.hazelcast.core.server.StartServer > $logfile 2>&1 &"
 }
 
 __cdepl_app_hazelcast_get_instance_running_pid()
@@ -217,14 +229,31 @@ __cdepl_app_hazelcast_create_config()
     # Enable user code deployment to allow execution of the ycsb client
     # note: blacklist MUST contain something, otherwise everything is blacklisted (?!)
     # empty whitelist = everything whitelist'd (?)
-
+    # <native-memory enabled=\"true\" allocator-type=\"POOLED\">
+	# 	<size value=\"80\" unit=\"GIGABYTES\"/>
+	# </native-memory>
+	# <property name=\"hazelcast.io.thread.count\">3</property> 
+	# <cache name=\"default\">
+	# 	<in-memory-format>NATIVE</in-memory-format>
+	# 	<backup-count>0</backup-count>
+	# </cache>
 	printf '%s' "
 <hazelcast xmlns=\"http://www.hazelcast.com/schema/config\"
            xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"
            xsi:schemaLocation=\"http://www.hazelcast.com/schema/config
            http://www.hazelcast.com/schema/config/hazelcast-config-3.10.xsd\">
 
-    <user-code-deployment enabled=\"true\">
+	<license-key>ENTERPRISE_HD#10Nodes#VHSyA5rflEuFkbjTUIm7w1KaJON601111101111110901118000210001199</license-key>
+
+	<native-memory enabled=\"true\" allocator-type=\"POOLED\">
+		<size value=\"55\" unit=\"GIGABYTES\"/>
+	</native-memory>
+	<map name=\"default\">
+		<in-memory-format>NATIVE</in-memory-format>
+		<backup-count>0</backup-count>
+	</map>
+	
+	<user-code-deployment enabled=\"true\">
         <class-cache-mode>ETERNAL</class-cache-mode>
         <provider-mode>LOCAL_AND_CACHED_CLASSES</provider-mode>
         <blacklist-prefixes>com.foo</blacklist-prefixes>
