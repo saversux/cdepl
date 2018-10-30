@@ -20,6 +20,8 @@ fi
 
 __CDEPL_APP_INFINISPAN_INCLUDED="1"
 
+readonly __INFINISPAN_REQUIRED_ENVIRONMENT="java/1.8"
+
 __INFINISPAN_PATH=""
 __INFINISPAN_OUT_PATH=""
 __INFINISPAN_OUT_DATA_PATH=""
@@ -100,14 +102,14 @@ cdepl_app_infinispan_node_wait_started()
 
 	local logfile="${__INFINISPAN_OUT_PATH}/log/node${node}"
 
-    local condition="Infinispan Server .* started in"
+    local condition=" started in "
 
 	util_log "[$node][infinispan] Waiting for startup: $condition"
 
 	while true; do
 		echo -n "."
 
-		local success=$(cdepl_cluster_node_cmd "$node" "cat $logfile 2> /dev/null | grep '$condition'")
+		local success="$(cdepl_cluster_node_cmd "$node" "grep '$condition' $logfile")"
 
 		if [ "$success" ]; then
 			local pid=$(__cdepl_app_infinispan_get_instance_running_pid "$node")
@@ -147,6 +149,18 @@ cdepl_app_infinispan_node_cleanup()
 		for node in $(seq "$node_range_start" "$node_range_end"); do
 			__cdepl_app_infinispan_cleanup "$node" &
 			pids="$pids $!"
+
+			counter=$((counter + 1))
+
+			# Parallel deploy in batches of 10 which is the default limit
+			# for parallel connections on ssh servers, stay slightly below 
+			# this limit (sometimes, 10 causes errors on multiplexing)
+			if [ "$counter" -ge "8" ]; then
+				wait $pids
+				sleep 1
+				pids=""
+				counter=0
+			fi
 		done
 
 		wait $pids
@@ -187,7 +201,7 @@ __cdepl_app_infinispan_start_node()
     # Create out dir for data output
     cdepl_cluster_node_cmd "$node" "mkdir -p $data_dir"
 
-    cdepl_cluster_node_cmd "$node" "cd $__INFINISPAN_PATH ; nohup ./bin/standalone.sh $config > $logfile 2>&1 &"
+    cdepl_cluster_node_cmd "$node" "cd $__INFINISPAN_PATH ; nohup ./bin/standalone.sh $config > $logfile 2>&1 &" "$__INFINISPAN_REQUIRED_ENVIRONMENT"
 }
 
 __cdepl_app_infinispan_get_instance_running_pid()
