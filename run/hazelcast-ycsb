@@ -19,9 +19,9 @@ source "app/hazelcast-ycsb"
 
 _cdepl_run_application()
 {
-	if [ "$#" != "6" ]; then
+	if [ "$#" != "7" ]; then
 		util_log_error "Missing benchmark arguments"
-		util_log_error "Usage: <num storage nodes> <num ycsb nodes> <num ycsb benchmark threads> <workload: a, b, g, x> <record count per node> <operation count per node>"
+		util_log_error "Usage: <num storage nodes> <num ycsb nodes> <num ycsb load threads> <num ycsb benchmark threads> <workload: a, b, g, x> <record count per node> <operation count per node>"
 		return
 	fi
 
@@ -36,10 +36,11 @@ _cdepl_run_application()
 
 	local storage_nodes=$1
 	local ycsb_nodes=$2
-	local ycsb_threads=$3
-	local workload=$4
-	local recordcount_per_node=$5
-	local operationcount=$6
+	local ycsb_load_threads=$3
+	local ycsb_threads=$4
+	local workload=$5
+	local recordcount_per_node=$6
+	local operationcount=$7
 
 	if [ "$((storage_nodes + ycsb_nodes))" -gt "$cluster_total_nodes" ]; then
 		util_log_error "Not enough nodes for $storage_nodes storage nodes and $ycsb_nodes ycsb benchmark nodes: total $cluster_total_nodes"
@@ -93,7 +94,7 @@ _cdepl_run_application()
 
 	for i in $(seq $ycsb_range_start $ycsb_range_end); do
 		cdepl_app_hazelcast_ycsb_node_type $i "L"
-		cdepl_app_hazelcast_ycsb_threads $i 4
+		cdepl_app_hazelcast_ycsb_threads $i $ycsb_load_threads
 
 		cdepl_app_hazelcast_ycsb_insertstart $i $((recordcount_per_node * counter))
 
