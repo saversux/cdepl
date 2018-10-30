@@ -26,7 +26,7 @@ DX_PEER_PORT_START="22222"
 
 _cdepl_run_application()
 {
-    local cluster_cluster_total_nodes=$(cdepl_cluster_get_alloc_node_count)
+    local cluster_total_nodes=$(cdepl_cluster_get_alloc_node_count)
 
 	if [ "$cluster_total_nodes" -lt "3" ]; then
 		util_log_error "Not enough nodes ($cluster_total_nodes), minimum is 3"
@@ -149,9 +149,7 @@ _cdepl_run_application()
 	cdepl_app_dxram_start_node 1 $storage_nodes
 
 	# Wait for all peers to be started
-	for i in $(seq 1 $storage_nodes); do
-		cdepl_app_dxram_node_wait_started $i
-	done
+	cdepl_app_dxram_node_wait_started 1 $storage_nodes
 
 	# Load storage nodes
 	cdepl_app_ycsb_dxram_start_node $ycsb_range_start $ycsb_range_end
