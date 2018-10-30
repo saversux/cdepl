@@ -373,6 +373,18 @@ cdepl_app_dxram_start_node()
 		for node in $(seq "$node_range_start" "$node_range_end"); do
 			__cdepl_app_dxram_start_node "$node" &
 			pids="$pids $!"
+
+			counter=$((counter + 1))
+
+			# Parallel deploy in batches of 10 which is the default limit
+			# for parallel connections on ssh servers, stay slightly below 
+			# this limit (sometimes, 10 causes errors on multiplexing)
+			if [ "$counter" -ge "8" ]; then
+				wait $pids
+				sleep 1
+				pids=""
+				counter=0
+			fi
 		done
 
 		wait $pids
@@ -392,74 +404,44 @@ cdepl_app_dxram_shutdown_node()
 	util_log_error_and_exit "Soft shutdown not implemented"
 }
 
-# second parameter condition optional, using default start condition otherwise
-
 ##
 # Wait for a started DXRAM instance to be started. A DXRAM instance is
 # considered started once all components and services are initialized
 # (signaled by a specific string to be printed).
 #
-# $1 node Target node id with started DXRAM instance
-# $2 condition Optional parameter to specify a different condition (string)
-#    to wait for instead of using the default DXRAM startup string.
+# $1 Target node id (or start node id of range if second parameter provided)
+# $2 Optional: Node id range end (including) and first parameter is interpreted
+#    as range start (including)
 ##
 cdepl_app_dxram_node_wait_started()
 {
-	local node=$1
-	local condition=$2
+	local node_range_start=$1
+	local node_range_end=$2
 
-	local type="${__DXRAM_NODE_TYPE[$node]}"
-	local logfile=""
+	if [ "$node_range_end" ]; then
+		local pids=""
 
-	if [ "${__DXRAM_NODE_TYPE[$node]}" = "S" ]; then
-		logfile=${__DXRAM_OUT_LOG_PATH}/node${node}${__DXRAM_LOG_FILE_SUPERPEER_POSTFIX}
-	else
-		logfile=${__DXRAM_OUT_LOG_PATH}/node${node}${__DXRAM_LOG_FILE_PEER_POSTFIX}
-	fi
+		for node in $(seq "$node_range_start" "$node_range_end"); do
+			__cdepl_app_dxram_node_wait_started "$node" &
+			pids="$pids $!"
 
-	# Use default condition if not specfied
-	if [ ! "$condition" ]; then
-		condition="$__DXRAM_DEFAULT_STARTUP_CONDITION"
-	fi
+			counter=$((counter + 1))
 
-	util_log "[$node][dxram][$type] Waiting for startup: $condition"
-
-	while true; do
-		echo -n "."
-
-		local success=$(cdepl_cluster_node_cmd "$node" "cat $logfile 2> /dev/null | sed 's,\x1B\[[0-9;]*[a-zA-Z],,g' | grep '$condition'")
-		local fail_init=$(cdepl_cluster_node_cmd "$node" "cat $logfile 2> /dev/null | sed 's,\x1B\[[0-9;]*[a-zA-Z],,g' | grep '^Initializing DXRAM failed.$'")
-		# Abort execution after an exception was thrown (every exception but NetworkResponseCancelledException)
-		local fail_error=$(cdepl_cluster_node_cmd "$node" "cat $logfile 2> /dev/null | sed 's,\x1B\[[0-9;]*[a-zA-Z],,g' | grep -i 'exception' | grep -v 'NetworkResponseCancelledException' | grep -v 'fpu_exception'")
-		# "A fatal error" -> JVM segfaults
-		local fail_error2=$(cdepl_cluster_node_cmd "$node" "cat $logfile 2> /dev/null | sed 's,\x1B\[[0-9;]*[a-zA-Z],,g' | grep -i -e '\[ERROR\]' -e '\# A fatal error'")
-
-		if [ "$success" ]; then
-			local pid=$(__cdepl_app_dxram_get_instance_running_pid "$node" "${DXRAM_YCSB_NODE_PORT[$node]}")
-
-			echo ""
-
-			if [ ! "$pid" ]; then
-				util_log_error_and_exit "[$node][dxram][$type] Could not find started process"
+			# Parallel deploy in batches of 10 which is the default limit
+			# for parallel connections on ssh servers, stay slightly below 
+			# this limit (sometimes, 10 causes errors on multiplexing)
+			if [ "$counter" -ge "8" ]; then
+				wait $pids
+				sleep 1
+				pids=""
+				counter=0
 			fi
+		done
 
-			util_log "[$node][dxram][$type] Started (pid: $pid)"
-
-			break
-		elif [ "$fail_init" ]; then
-			echo ""
-			util_log_error_and_exit "[$node][dxram][$type] Could not be started. See log file $logfile"
-			return 1
-		elif [ "$fail_error" ] || [ "$fail_error2" ]; then
-			echo ""
-			util_log_error_and_exit "[$node][dxram][$type] Failed, error or exception. See log file $logfile"
-			return 2
-		fi
-
-		sleep 1.0
-	done
-
-	return 0
+		wait $pids
+	else
+		__cdepl_app_dxram_node_wait_started "$node_range_start"
+	fi
 }
 
 ##
@@ -480,6 +462,18 @@ cdepl_app_dxram_node_cleanup()
 		for node in $(seq "$node_range_start" "$node_range_end"); do
 			__cdepl_app_dxram_cleanup "$node" &
 			pids="$pids $!"
+
+			counter=$((counter + 1))
+
+			# Parallel deploy in batches of 10 which is the default limit
+			# for parallel connections on ssh servers, stay slightly below 
+			# this limit (sometimes, 10 causes errors on multiplexing)
+			if [ "$counter" -ge "8" ]; then
+				wait $pids
+				sleep 1
+				pids=""
+				counter=0
+			fi
 		done
 
 		wait $pids
@@ -776,6 +770,63 @@ __cdepl_app_dxram_start_peer()
 	# Don't use && instead of ;
 	# This will hang if ssh with controlmaster and nohup is used
 	cdepl_cluster_node_cmd "$node" "cd $__DXRAM_PATH ; JAVA_OPTS='$vm_opts' DXRAM_OPTS='-D${__DXRAM_PROCESS_IDENTIFIER}' $root nohup ./$__DXRAM_BINARY > $logfile 2>&1 &" "$__DXRAM_REQUIRED_ENVIRONMENT"
+}
+
+__cdepl_app_dxram_node_wait_started()
+{
+	local node=$1
+	local condition=$2
+
+	local type="${__DXRAM_NODE_TYPE[$node]}"
+	local logfile=""
+
+	if [ "${__DXRAM_NODE_TYPE[$node]}" = "S" ]; then
+		logfile=${__DXRAM_OUT_LOG_PATH}/node${node}${__DXRAM_LOG_FILE_SUPERPEER_POSTFIX}
+	else
+		logfile=${__DXRAM_OUT_LOG_PATH}/node${node}${__DXRAM_LOG_FILE_PEER_POSTFIX}
+	fi
+
+	# Use default condition if not specfied
+	if [ ! "$condition" ]; then
+		condition="$__DXRAM_DEFAULT_STARTUP_CONDITION"
+	fi
+
+	util_log "[$node][dxram][$type] Waiting for startup: $condition"
+
+	while true; do
+		local success=$(cdepl_cluster_node_cmd "$node" "cat $logfile 2> /dev/null | sed 's,\x1B\[[0-9;]*[a-zA-Z],,g' | grep '$condition'")
+		local fail_init=$(cdepl_cluster_node_cmd "$node" "cat $logfile 2> /dev/null | sed 's,\x1B\[[0-9;]*[a-zA-Z],,g' | grep '^Initializing DXRAM failed.$'")
+		# Abort execution after an exception was thrown (every exception but NetworkResponseCancelledException)
+		local fail_error=$(cdepl_cluster_node_cmd "$node" "cat $logfile 2> /dev/null | sed 's,\x1B\[[0-9;]*[a-zA-Z],,g' | grep -i 'exception' | grep -v 'NetworkResponseCancelledException' | grep -v 'fpu_exception'")
+		# "A fatal error" -> JVM segfaults
+		local fail_error2=$(cdepl_cluster_node_cmd "$node" "cat $logfile 2> /dev/null | sed 's,\x1B\[[0-9;]*[a-zA-Z],,g' | grep -i -e '\[ERROR\]' -e '\# A fatal error'")
+
+		if [ "$success" ]; then
+			local pid=$(__cdepl_app_dxram_get_instance_running_pid "$node" "${DXRAM_YCSB_NODE_PORT[$node]}")
+
+			echo ""
+
+			if [ ! "$pid" ]; then
+				util_log_error_and_exit "[$node][dxram][$type] Could not find started process"
+			fi
+
+			util_log "[$node][dxram][$type] Started (pid: $pid)"
+
+			break
+		elif [ "$fail_init" ]; then
+			echo ""
+			util_log_error_and_exit "[$node][dxram][$type] Could not be started. See log file $logfile"
+			return 1
+		elif [ "$fail_error" ] || [ "$fail_error2" ]; then
+			echo ""
+			util_log_error_and_exit "[$node][dxram][$type] Failed, error or exception. See log file $logfile"
+			return 2
+		fi
+
+		sleep 1.0
+	done
+
+	return 0
 }
 
 __cdepl_app_dxram_get_instance_running_pid()
