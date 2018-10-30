@@ -29,6 +29,8 @@ readonly __INFINISPAN_YCSB_PROCESS_IDENTIFIER="infinispandeployscript"
 readonly __INFINISPAN_YCSB_LOAD_DONE_COND="\[INSERT\], Return"
 readonly __INFINISPAN_YCSB_BENCH_DONE_COND="\[OVERALL\], RunTime"
 
+readonly __INFINISPAN_YCSB_REQUIRED_ENVIRONMENT="java/1.8"
+
 __INFINISPAN_YCSB_PATH=""
 __INFINISPAN_YCSB_OUT_PATH=""
 __INFINISPAN_YCSB_OUT_LOG_PATH=""
@@ -515,7 +517,7 @@ __cdepl_app_infinispan_ycsb_start_node()
 
     util_log "[$node][infinispan-ycsb] Starting $ycsb_type instance, logfile: $logfile"
 
-    cdepl_cluster_node_cmd "$node" "cd $__INFINISPAN_YCSB_PATH ; nohup ./bin/ycsb $ycsb_type infinispan-cs -threads ${__INFINISPAN_YCSB_NODE_THREADS[$node]} -s -P workloads/workloada $ycsb_params > $logfile 2>&1 &"
+    cdepl_cluster_node_cmd "$node" "cd $__INFINISPAN_YCSB_PATH ; nohup ./bin/ycsb $ycsb_type infinispan-cs -threads ${__INFINISPAN_YCSB_NODE_THREADS[$node]} -s -P workloads/workloada $ycsb_params > $logfile 2>&1 &" "$__INFINISPAN_YCSB_REQUIRED_ENVIRONMENT"
 }
 
 __cdepl_app_infinispan_ycsb_get_instance_running_pid()
