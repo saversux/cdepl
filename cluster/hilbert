@@ -305,7 +305,7 @@ _cdepl_cluster_alloc()
 	__HILBERT_LIMIT_CPU_SOCKETS="$limit_cpu_sockets"
 
 	if [ "$__HILBERT_LIMIT_CPU_SOCKETS" ]; then
-		util_log "Limited CPU sockets to $__HILBERT_LIMIT_CPU_SOCKETS"
+		util_log "[hilbert] Limited CPU sockets to $__HILBERT_LIMIT_CPU_SOCKETS for all commands sent to nodes"
 	fi
 
 	# create separate folder for hilbert data
