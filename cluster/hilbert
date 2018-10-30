@@ -204,7 +204,7 @@ _cdepl_cluster_init()
 {
 	__HILBERT_USER="$(cdepl_configuration_get_and_check "user")"
 	__HILBERT_APP_INSTALL_DIR="$(cdepl_configuration_get_and_check "app_install_dir" "/home/$__HILBERT_USER")"
-	__HILBERT_CDEPL_OUT_DIR="$(cdepl_configuration_get_and_check "cdepl_out_dir" "/gpfs/project/$__HILBERT_USER")"
+	__HILBERT_CDEPL_OUT_DIR="$(cdepl_configuration_get_and_check "cdepl_out_dir" "/scratch_gs/$__HILBERT_USER")"
 	__HILBERT_PROJECT="$(cdepl_configuration_get_and_check "project")"
 
 	# Delete old socket handle which hangs ssh calls after restarting on broken connection
@@ -240,7 +240,7 @@ _cdepl_cluster_alloc()
 {
 	local arg=$1
 	local list=$2 
-	local job_args=${@:3}
+	local job_args=""
 
 	if [ ! "$arg" ]; then
 		util_log "Usage: cluster alloc <num nodes> or cluster alloc list <comma separated list of node nums, e.g. 65,66>"
@@ -259,9 +259,13 @@ _cdepl_cluster_alloc()
 		done
 
 		__HILBERT_TOTAL_NODES=$counter
+
+		job_args=${@:3}
 	else
-		node_count="$args"
+		node_count="$arg"
 		__HILBERT_TOTAL_NODES=$node_count
+
+		job_args=${@:2}
 	fi
 
 	# Also required for job system, default walltime for short jobs < 2h
@@ -271,13 +275,16 @@ _cdepl_cluster_alloc()
 	# Hardware specs
 	local cpu_count="1"
 	local mem_mb="1024"
+	# ivybridge = old nodes, skylake = new nodes
+	local arch="skylake"
 
     # Optional arguments, e.g.
     # q=Devel
     # j=bla
 
-    for arg in "$job_args"; do
+    for arg in $job_args; do
         case "${arg:0:2}" in
+			"a=") arch="${arg:2}" ;;
 		    "c=") cpu_count="${arg:2}" ;;
             "m=") mem_mb="${arg:2}" ;;
 			"j=") job_name="${arg:2}" ;;
@@ -306,7 +313,7 @@ _cdepl_cluster_alloc()
         pbs_job_string="#PBS -l nodes=${nodes_explicit}:ncpus=${cpu_count}:mem=${mem_mb}MB"
         util_log_debug "[hilbert] Explicit node allocation: ${nodes_explicit}"
     else
-        pbs_job_string="#PBS -l select=${node_count}:ncpus=${cpu_count}:mem=${mem_mb}MB:arch=ivybridge
+        pbs_job_string="#PBS -l select=${node_count}:ncpus=${cpu_count}:mem=${mem_mb}MB:arch=${arch}
 #PBS -l place=scatter"
     fi
 
