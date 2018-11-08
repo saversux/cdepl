@@ -29,6 +29,8 @@ readonly __HAZELCAST_YCSB_PROCESS_IDENTIFIER="hazelcastdeployscript"
 readonly __HAZELCAST_YCSB_LOAD_DONE_COND="\[INSERT\], Return"
 readonly __HAZELCAST_YCSB_BENCH_DONE_COND="\[OVERALL\], RunTime"
 
+readonly __HAZELCAST_YCSB_REQUIRED_ENVIRONMENT="java/1.8"
+
 __HAZELCAST_YCSB_RESOLVED_DEFAULT_VALUES=""
 
 __HAZELCAST_YCSB_PATH=""
@@ -550,7 +552,7 @@ __cdepl_app_hazelcast_ycsb_start_node()
 
     util_log "[$node][hazelcast-ycsb] Starting $ycsb_type instance, logfile: $logfile"
 
-    cdepl_cluster_node_cmd "$node" "cd $__HAZELCAST_YCSB_PATH ; nohup ./bin/ycsb $ycsb_type hazelcast -threads ${__HAZELCAST_YCSB_NODE_THREADS[$node]} -s -P workloads/workloada $ycsb_params > $logfile 2>&1 &"
+    cdepl_cluster_node_cmd "$node" "cd $__HAZELCAST_YCSB_PATH ; nohup ./bin/ycsb $ycsb_type hazelcast -threads ${__HAZELCAST_YCSB_NODE_THREADS[$node]} -s -P workloads/workloada $ycsb_params > $logfile 2>&1 &" "$__HAZELCAST_YCSB_REQUIRED_ENVIRONMENT"
 }
 
 __cdepl_app_hazelcast_ycsb_get_instance_running_pid()
