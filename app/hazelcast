@@ -22,6 +22,8 @@ __CDEPL_APP_HAZELCAST_INCLUDED="1"
 
 readonly __HAZELCAST_SERVER_CONFIG="hazelcast-server.xml"
 
+readonly __HAZELCAST_REQUIRED_ENVIRONMENT="java/1.8"
+
 __HAZELCAST_PATH=""
 __HAZELCAST_OUT_PATH=""
 
@@ -179,17 +181,10 @@ __cdepl_app_hazelcast_start_node()
 	local node=$1
 
 	local logfile="${__HAZELCAST_OUT_PATH}/log/node${node}"
-    local run_java=""
-
-    if [ $JAVA_HOME ]; then
-	    run_java=$JAVA_HOME/bin/java
-    else
-        run_java=`which java 2>/dev/null`
-    fi
 
     util_log "[$node][hazelcast] Starting instance, logfile: $logfile"
 
-    cdepl_cluster_node_cmd "$node" "cd $__HAZELCAST_PATH ; nohup $run_java -Dhazelcast.health.monitoring.level=NOISY -Dhazelcast.health.monitoring.delay.seconds=1 -Dhazelcast.jmx=true -Dcom.sun.management.jmxremote -Dcom.sun.management.jmxremote.port=8999 -Dcom.sun.management.jmxremote.ssl=false -Dcom.sun.management.jmxremote.authenticate=false -Dhazelcast.config=$__HAZELCAST_OUT_PATH/$__HAZELCAST_SERVER_CONFIG -cp ./lib/hazelcast-enterprise-all-3.10.6.jar -server com.hazelcast.core.server.StartServer > $logfile 2>&1 &"
+    cdepl_cluster_node_cmd "$node" "cd $__HAZELCAST_PATH ; nohup java -Dhazelcast.health.monitoring.level=NOISY -Dhazelcast.health.monitoring.delay.seconds=1 -Dhazelcast.jmx=true -Dcom.sun.management.jmxremote -Dcom.sun.management.jmxremote.port=8999 -Dcom.sun.management.jmxremote.ssl=false -Dcom.sun.management.jmxremote.authenticate=false -Dhazelcast.config=$__HAZELCAST_OUT_PATH/$__HAZELCAST_SERVER_CONFIG -cp ./lib/hazelcast-enterprise-all-3.10.6.jar -server com.hazelcast.core.server.StartServer > $logfile 2>&1 &" "$__HAZELCAST_REQUIRED_ENVIRONMENT"
 }
 
 __cdepl_app_hazelcast_get_instance_running_pid()
