@@ -324,6 +324,17 @@ _cdepl_cluster_free()
 	fi
 }
 
+cdepl_cluster_show_logs()
+{
+	local path="$1"
+
+	if [ "$__HHUBS_SOLLIPULLI_MODE" = "1" ]; then
+		ssh -t sollipulli "less +F -R $path/*"
+	else
+		ssh -t -p 55517 ${__HHUBS_SOLLIPULLI_USER}@134.99.112.82 "less +F -R $path/*"
+	fi
+}
+
 ##################################
 # private to this script
 

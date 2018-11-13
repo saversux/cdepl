@@ -202,6 +202,13 @@ cdepl_cluster_file_system_cmd()
 	__cdepl_cluster_login_cmd "$cmd"
 }
 
+cdepl_cluster_show_logs()
+{
+	local path="$1"
+
+	ssh -t ${__HILBERT_USER}@${__HILBERT_HOSTNAME} "less +F -R $path/*"
+}
+
 ##################################
 # called by cdepl and commands from cdepl console
 

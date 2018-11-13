@@ -128,6 +128,13 @@ cdepl_cluster_allows_sudo()
 	echo ""
 }
 
+cdepl_cluster_show_logs()
+{
+	local path="$1"
+
+	less +F -R $path/*
+}
+
 ##################################
 # called by cdepl and commands from cdepl console
 
