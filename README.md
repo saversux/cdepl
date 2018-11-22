@@ -69,6 +69,10 @@ cdepl> kill dxram
 cdepl> kill zookeeper
 ```
 
+| `--superpeers`                     | `--peers`                    | `--storage`                                                         | `--handler`                           | `--print-logs`                           | `--terminal`                                             |
+|------------------------------------|------------------------------|---------------------------------------------------------------------|---------------------------------------|------------------------------------------|----------------------------------------------------------|
+| The amount of superpeers to deploy | The amount of peers to deploy | The amount of megabytes each peer allocates for its key-value store | The amount of message handler threads | Prints and follows logs after deployment | Starts the terminal server application on the first peer |
+
 If you re-run the above commands often, you can also put them into a text file
 and feed that to cdepl instead of using the interactive shell:
 ```
