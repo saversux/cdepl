@@ -802,7 +802,7 @@ __cdepl_app_dxram_node_wait_started()
 		local fail_error2=$(cdepl_cluster_node_cmd "$node" "cat $logfile 2> /dev/null | sed 's,\x1B\[[0-9;]*[a-zA-Z],,g' | grep -i -e '\[ERROR\]' -e '\# A fatal error'")
 
 		if [ "$success" ]; then
-			local pid=$(__cdepl_app_dxram_get_instance_running_pid "$node" "${DXRAM_YCSB_NODE_PORT[$node]}")
+			local pid=$(__cdepl_app_dxram_get_instance_running_pid "$node" "${DXRAM_NODE_PORT[$node]}")
 
 			echo ""
 

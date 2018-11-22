@@ -25,15 +25,57 @@ DX_PEER_PORT_START="22222"
 
 _cdepl_run_application()
 {
-    local num_superpeers="$1"
-    local num_peers="$2"
-    local kvss_mb="$3"
-    local msg_handler="$4"
 
-    if [ "$#" -lt "4" ]; then
-        util_log "Usage: <num superpeers> <num peers> <kvss mb> <peer msg handler>"
-        return
-    fi
+	local num_superpeers="1"
+    local num_peers="1"
+    local kvss_mb="128"
+    local msg_handler="2"
+	local print_logs=false
+
+	PARAMS=""
+	while (( "$#" )); do
+	case "$1" in
+		--peers)
+			num_peers="$2"
+			shift 2
+			;;
+		--superpeers)
+			num_superpeers="$2"
+			shift 2
+			;;
+		--storage)
+			kvss_mb="$2"
+			shift 2
+			;;
+		--handler)
+			msg_handler="$2"
+			shift 2
+			;;
+		--handler)
+			msg_handler="$2"
+			shift 2
+			;;
+		--print-logs)
+			print_logs=true
+			shift 1
+			;;
+		--) # end argument parsing
+			shift
+			break
+			;;
+		-*|--*=) # unsupported flags
+			echo "Error: Unsupported flag $1" >&2
+			exit 1
+			;;
+		*) # preserve positional arguments
+			PARAMS="$PARAMS $1"
+			shift
+			;;
+	esac
+	done
+
+	# set positional arguments in their proper place
+	eval set -- "$PARAMS"
 
     local cluster_total_nodes=$(cdepl_cluster_get_alloc_node_count)
 
@@ -101,18 +143,17 @@ _cdepl_run_application()
 		DX_PEER_PORT_START=$((DX_PEER_PORT_START + 1))
 	done
 
-	# Start superpeers
-	cdepl_app_dxram_start_node 0 $((num_superpeers - 1))
+	local num_nodes=$(( num_superpeers + num_peers ))
 
-	for i in $(seq 0 $((num_superpeers - 1))); do
+	# Start all dxram instances
+	cdepl_app_dxram_start_node 0 $((num_nodes - 1))
+
+	for i in $(seq 0 $((num_nodes - 1))); do
 		cdepl_app_dxram_node_wait_started $i
 	done
 
-	# Start all peers
-	cdepl_app_dxram_start_node $peer_node_offset $((peer_node_offset + num_peers - 1))
-
-	# Wait for all peers to be started
-	for i in $(seq $peer_node_offset $((peer_node_offset + num_peers - 1))); do
-		cdepl_app_dxram_node_wait_started $i
-	done
+	# Show DXRam logs within the console
+	if [ "$print_logs" = true ] ; then
+		cdepl_cluster_show_logs "${__DXRAM_OUT_PATH}/log"
+	fi
 }

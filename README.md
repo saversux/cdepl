@@ -64,8 +64,9 @@ Example, let's allocate some nodes and run DXRAM on them:
 cdepl> cluster alloc 2
 cdepl> cluster status
 cdepl> cluster nodes
-cdepl> run dxram 1 1 1024 2
+cdepl> run dxram --superpeers 1 --peers 1 --storage 1024 --handler 2 --print-logs
 cdepl> kill dxram
+cdepl> kill zookeeper
 ```
 
 If you re-run the above commands often, you can also put them into a text file
@@ -75,7 +76,7 @@ touch my_cmds
 echo "cluster alloc 2" >> my_cmds
 echo "cluster status" >> my_cmds
 echo "cluster nodes" >> my_cmds
-echo "run dxram 1 1 1024 2" >> my_cmds
+echo "run dxram --superpeers 1 --peers 1 --storage 1024 --handler 2 --print-logs" >> my_cmds
 echo "kill dxram" >> my_cmds
 ./cdepl hhubs ./my_cmds
 ```
