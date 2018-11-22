@@ -31,6 +31,7 @@ _cdepl_run_application()
     local kvss_mb="128"
     local msg_handler="2"
 	local print_logs=false
+	local start_terminal=false
 
 	PARAMS=""
 	while (( "$#" )); do
@@ -57,6 +58,10 @@ _cdepl_run_application()
 			;;
 		--print-logs)
 			print_logs=true
+			shift 1
+			;;
+		--terminal)
+			start_terminal=true
 			shift 1
 			;;
 		--) # end argument parsing
@@ -142,6 +147,11 @@ _cdepl_run_application()
 		cdepl_app_dxram_node_port $i $DX_PEER_PORT_START
 		DX_PEER_PORT_START=$((DX_PEER_PORT_START + 1))
 	done
+
+	# Show DXRam logs within the console
+	if [ "$start_terminal" = true ] ; then
+		cdepl_app_dxram_autostart "${peer_node_offset}" "de.hhu.bsinfo.dxterm.server.TerminalServerApplication" "22220@1" "0"
+	fi
 
 	local num_nodes=$(( num_superpeers + num_peers ))
 
