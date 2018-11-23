@@ -850,17 +850,19 @@ __cdepl_app_dxram_cleanup()
 
 	local pid=$(__cdepl_app_dxram_get_instance_running_pid "$node")
 
+	local kill_binary=$(which kill)
+
 	if [ "$pid" ]; then
 		# If we or someone else left some garbage processes on the node multiple
 		# pids are returned
 		for i in $pid; do
-			local kill_out=$(cdepl_cluster_node_cmd "$node" "kill -9 $i 2>&1")
+			local kill_out=$(cdepl_cluster_node_cmd "$node" "$kill_binary -9 $i 2>&1")
 
-			if [ "$?" = "0" ] && [ ! "$kill_out" ]; then
+			if [ "$?" = "0" ]; then
 				util_log "[$node][dxram] Killed (pid: $i)"
 			elif [ "$kill_out" ]; then
 				# Probably operation not permitted, try root
-				cdepl_cluster_node_cmd "$node" "sudo -P kill -9 $i > /dev/null 2>&1"
+				cdepl_cluster_node_cmd "$node" "sudo -P $kill_binary -9 $i > /dev/null 2>&1"
 
 				if [ "$?" = "0" ]; then
 					util_log "[$node][dxram] Killed (root) (pid: $i)"

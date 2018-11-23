@@ -68,7 +68,7 @@ cdepl_app_zookeeper_start()
 	cdepl_cluster_node_cmd "$node" "mkdir -p $__ZOOKEEPER_OUT_PATH"
 	# Go to zookeeper out dir before execution to get all output, zookeeper
 	# data dir if relative path and zookeeper.out folder in the same dir
-	cdepl_cluster_node_cmd "$node" "sed -i -e \"s/clientPort=[0-9]*/clientPort=$port/g\" \"${__ZOOKEEPER_PATH}/conf/zoo.cfg\" && cd ${__ZOOKEEPER_OUT_PATH} && ${__ZOOKEEPER_PATH}/bin/zkServer.sh start ${__ZOOKEEPER_PATH}/conf/zoo.cfg >> $logfile 2>&1" "$__ZOOKEEPER_REQUIRED_ENVIRONMENT"
+	cdepl_cluster_node_cmd "$node" "sed -i -e \"s/clientPort=[0-9]*/clientPort=$port/g\" \"${__ZOOKEEPER_PATH}/conf/zoo.cfg\" && ZOO_LOG_DIR=${__ZOOKEEPER_OUT_PATH} ${__ZOOKEEPER_PATH}/bin/zkServer.sh start ${__ZOOKEEPER_PATH}/conf/zoo.cfg >> $logfile 2>&1" "$__ZOOKEEPER_REQUIRED_ENVIRONMENT"
 
 	if [ "$?" != "0" ]; then
 		util_log_error_and_exit "[$node][zookeeper] Starting failed, also check logfile $logfile"
@@ -90,7 +90,7 @@ cdepl_app_zookeeper_remove()
 
 	util_log "[$node][zookeeper] Remove path $path"
 
-	cdepl_cluster_node_cmd "$node" "cd ${__ZOOKEEPER_OUT_PATH} && echo \"rmr ${path}\" | zkCli.sh >> $logfile 2>&1" "$__ZOOKEEPER_REQUIRED_ENVIRONMENT"
+	cdepl_cluster_node_cmd "$node" "echo \"rmr ${path}\" | ${__ZOOKEEPER_PATH}/bin/zkCli.sh >> $logfile 2>&1" "$__ZOOKEEPER_REQUIRED_ENVIRONMENT"
 }
 
 ##
@@ -177,19 +177,30 @@ __cdepl_app_zookeeper_cleanup()
 
 	util_log "[$node][zookeeper] Cleanup..."
 
-	local pid=$(cdepl_cluster_node_cmd "$node" "pgrep -f 'java -Dzookeeper.log.dir'")
+	local pid=$(__cdepl_app_zookeeper_get_instance_running_pid "$node")
 
-	if [ "$pid" != "" ]; then
-		cdepl_cluster_node_cmd "$node" "kill -9 $pid > /dev/null 2>&1"
+	local kill_binary=$(which kill)
 
-		if [ "$?" != "0" ]; then
-			util_log_warn "[$node][zookeeper] Killing $pid failed, zookeeper might stay alive"
-		else
-			util_log "[$node][zookeeper] Killed (pid: $pid)"
-		fi
+	if [ "$pid" ]; then
+		# If we or someone else left some garbage processes on the node multiple
+		# pids are returned
+		for i in $pid; do
+			local kill_out=$(cdepl_cluster_node_cmd "$node" "$kill_binary -9 $i 2>&1")
 
-		# Delete Zookeeper's previous data directory
-		util_log "[$node][zookeeper] Deleting zookeeper data directory"
-		cdepl_cluster_node_cmd "$node" "rm -rf /tmp/zookeeper"
-	fi	
+			if [ "$?" = "0" ]; then
+				util_log "[$node][zookeeper] Killed (pid: $i)"
+			elif [ "$kill_out" ]; then
+				# Probably operation not permitted, try root
+				cdepl_cluster_node_cmd "$node" "sudo -P $kill_binary -9 $i > /dev/null 2>&1"
+
+				if [ "$?" = "0" ]; then
+					util_log "[$node][zookeeper] Killed (root) (pid: $i)"
+				elif [ "$?" != "1" ]; then
+					util_log_warn "[$node][zookeeper] Killing (root) $i failed, ZooKeeper instance(s) might stay alive"
+				fi
+			elif [ "$?" != "1" ]; then
+				util_log_warn "[$node][zookeeper] Killing $i failed, DXRAM instance(s) might stay alive"
+			fi
+		done
+	fi
 }
