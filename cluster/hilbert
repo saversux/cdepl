@@ -150,7 +150,7 @@ cdepl_cluster_node_cmd()
 	# Note when using nohup: You must redirect stdin/stdout and not add any
 	# command before it using &&, e.g. cd ~ && nohup ...
 	# This will hang the session with controlmaster
-	ssh -o ServerAliveInterval=60 -o ControlMaster=auto -o ControlPath=~/.ssh/cdepl_%r@%h:%p.sock -o ControlPersist=60 ${__HILBERT_USER}@${__HILBERT_HOSTNAME} -n -f bash -c "\"$ssh_wrapped\""
+	ssh -o ServerAliveInterval=10 -o ControlMaster=auto -o ControlPath=~/.ssh/cdepl_%r@%h:%p.sock -o ControlPersist=10 ${__HILBERT_USER}@${__HILBERT_HOSTNAME} -n -f bash -c "\"$ssh_wrapped\""
 }
 
 cdepl_cluster_allows_sudo()
@@ -173,7 +173,7 @@ cdepl_cluster_upload_to_remote()
 	# Use ControlMaster to establish the TCP connection, once, and keep it active
 	# until all sessions are closed and no further session was established
 	# within 60 seconds
-	scp $recursive -o ControlMaster=auto -o ControlPath=~/.ssh/cdepl_%r@%h:%p.sock -o ControlPersist=60 $local_path ${__HILBERT_USER}@${__HILBERT_HOSTNAME}:${remote_path} > /dev/null 2>&1
+	scp $recursive -o ControlMaster=auto -o ControlPath=~/.ssh/cdepl_%r@%h:%p.sock -o ControlPersist=10 $local_path ${__HILBERT_USER}@${__HILBERT_HOSTNAME}:${remote_path} > /dev/null 2>&1
 }
 
 cdepl_cluster_download_from_remote()
@@ -191,7 +191,7 @@ cdepl_cluster_download_from_remote()
 	# Use ControlMaster to establish the TCP connection, once, and keep it active
 	# until all sessions are closed and no further session was established
 	# within 60 seconds
-	scp $recursive -o ControlMaster=auto -o ControlPath=~/.ssh/cdepl_%r@%h:%p.sock -o ControlPersist=60 ${__HILBERT_USER}@${__HILBERT_HOSTNAME}:$remote_path $local_path > /dev/null 2>&1
+	scp $recursive -o ControlMaster=auto -o ControlPath=~/.ssh/cdepl_%r@%h:%p.sock -o ControlPersist=10 ${__HILBERT_USER}@${__HILBERT_HOSTNAME}:$remote_path $local_path > /dev/null 2>&1
 }
 
 cdepl_cluster_file_system_cmd()
@@ -220,7 +220,7 @@ _cdepl_cluster_init()
 	__HILBERT_PROJECT="$(cdepl_configuration_get_and_check "project")"
 
 	# Delete old socket handle which hangs ssh calls after restarting on broken connection
-	rm -f ~/.ssh/cdepl_*.sock 
+	unlink $(realpath ~/.ssh/cdepl_*.sock)
 
 	# Check if passwordless auth available
 	ssh -o PasswordAuthentication=no -o BatchMode=yes ${__HILBERT_USER}@${__HILBERT_HOSTNAME} exit &> /dev/null
