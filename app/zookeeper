@@ -37,7 +37,8 @@ cdepl_app_zookeeper_init()
 	__ZOOKEEPER_OUT_PATH="$(cdepl_run_get_cur_out_path)/zookeeper"
 
 	if [ ! "$__ZOOKEEPER_PATH" ] || [ "$(cdepl_cluster_file_system_cmd "[ -d $__ZOOKEEPER_PATH ] && echo \"1\"")" != "1" ]; then
-		util_log_error_and_exit "[zookeeper]: Path does not exist ($path), resolved path: $__ZOOKEEPER_PATH"
+		util_log_error "[zookeeper]: Path does not exist ($path), resolved path: $__ZOOKEEPER_PATH"
+		return
 	fi
 
 	cdepl_cluster_node_cmd "0" "sed -i 's/dataDir=.*/dataDir=\/tmp\/zookeeper/' $__ZOOKEEPER_PATH/$__ZOOKEEPER_CONF_FILE"
@@ -71,7 +72,8 @@ cdepl_app_zookeeper_start()
 	cdepl_cluster_node_cmd "$node" "sed -i -e \"s/clientPort=[0-9]*/clientPort=$port/g\" \"${__ZOOKEEPER_PATH}/conf/zoo.cfg\" && ZOO_LOG_DIR=${__ZOOKEEPER_OUT_PATH} ${__ZOOKEEPER_PATH}/bin/zkServer.sh start ${__ZOOKEEPER_PATH}/conf/zoo.cfg >> $logfile 2>&1" "$__ZOOKEEPER_REQUIRED_ENVIRONMENT"
 
 	if [ "$?" != "0" ]; then
-		util_log_error_and_exit "[$node][zookeeper] Starting failed, also check logfile $logfile"
+		util_log_error "[$node][zookeeper] Starting failed, also check logfile $logfile"
+		return
 	fi
 }
 
@@ -123,7 +125,8 @@ cdepl_app_zookeeper_wait_started()
 			echo ""
 
 			if [ "$pid" = "" ]; then
-				util_log_error_and_exit "[$node][zookeeper] Could not find started process"
+				util_log_error "[$node][zookeeper] Could not find started process"
+				return
 			fi
 
 			util_log "[$node][zookeeper] Started (pid: $pid)"
@@ -131,7 +134,8 @@ cdepl_app_zookeeper_wait_started()
 			break
 		elif [ "$fail_file" != "" ] || [ "$fail_pid" != "" ] || [ "$fail_started" != "" ] ; then
 			echo ""
-			util_log_error_and_exit "[$node][zookeeper] Could not be started. See log file $logfile"
+			util_log_error "[$node][zookeeper] Could not be started. See log file $logfile"
+			return
 		fi
 
 		sleep 1.0

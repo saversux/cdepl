@@ -484,7 +484,8 @@ cdepl_app_dxram_ycsb_loader_finished_loading()
 	local logfile=${__DXRAM_YCSB_OUT_LOG_PATH}/node${node}${__DXRAM_YCSB_LOG_FILE_LOAD_POSTFIX}
 
 	if [ "$type" != "L" ]; then
-		util_log_error_and_exit "[$node][dxram-ycsb][$type] Invalid node type $type to wait for loader finish"
+		util_log_error "[$node][dxram-ycsb][$type] Invalid node type $type to wait for loader finish"
+		return
 	fi
 
 	util_log "[$node][dxram-ycsb][$type] Waiting for loading to finish: $__DXRAM_YCSB_LOAD_DONE_COND"
@@ -525,7 +526,8 @@ cdepl_app_dxram_ycsb_loader_finished_loading()
 				err="$fail_error2"
 			fi
 
-			util_log_error_and_exit "[$node][dxram-ycsb][$type] Failed, error or exception:\n${err}\nSee log file $logfile"
+			util_log_error "[$node][dxram-ycsb][$type] Failed, error or exception:\n${err}\nSee log file $logfile"
+			return
 		fi
 
 		if [ "$success" ]; then
@@ -555,7 +557,8 @@ cdepl_app_dxram_ycsb_benchmark_wait_finished()
 	local logfile=${__DXRAM_YCSB_OUT_LOG_PATH}/node${node}${__DXRAM_YCSB_LOG_FILE_BENCH_POSTFIX}
 
 	if [ "$type" != "B" ]; then
-		util_log_error_and_exit "[$node][dxram-ycsb][$type] Invalid node type $type to wait for benchmark to finish"
+		util_log_error "[$node][dxram-ycsb][$type] Invalid node type $type to wait for benchmark to finish"
+		return
 	fi
 
 	util_log "[$node][dxram-ycsb][$type] Waiting for benchmark to finish: $__DXRAM_YCSB_BENCH_DONE_COND"
@@ -596,7 +599,8 @@ cdepl_app_dxram_ycsb_benchmark_wait_finished()
 				err="$fail_error2"
 			fi
 
-			util_log_error_and_exit "[$node][dxram-ycsb][$type] Failed, error or exception:\n${err}\nSee log file $logfile"
+			util_log_error "[$node][dxram-ycsb][$type] Failed, error or exception:\n${err}\nSee log file $logfile"
+			return
 		fi
 
 		if [ "$success" ]; then
@@ -655,7 +659,7 @@ cdepl_app_dxram_ycsb_node_cleanup()
 __cdepl_app_dxram_ycsb_check()
 {
 	if [ "$(cdepl_cluster_node_cmd 0 "[ -f ${__DXRAM_YCSB_PATH}/bin/ycsb ] && echo 1")" != "1" ]; then
-		util_log_error_and_exit "[0][dxram-ycsb] Could not find bin/ycsb in $__DXRAM_YCSB_PATH"
+		util_log_error "[0][dxram-ycsb] Could not find bin/ycsb in $__DXRAM_YCSB_PATH"
 	fi
 }
 
@@ -672,7 +676,7 @@ __cdepl_app_dxram_ycsb_check_config()
 
 		# Sanity check
 		if [ "$(cdepl_cluster_node_cmd 0 "[ -f $__DXRAM_YCSB_CONFIG_PATH ] && echo \"1\"")" != "1" ]; then
-			util_log_error_and_exit "[0][dxram-ycsb] Creating config file $__DXRAM_YCSB_CONFIG_PATH failed"
+			util_log_error "[0][dxram-ycsb] Creating config file $__DXRAM_YCSB_CONFIG_PATH failed"
 		fi
 	else
 		local config_content="$(cdepl_cluster_node_cmd 0 "cat "$__DXRAM_YCSB_CONFIG_PATH"")"
@@ -687,7 +691,7 @@ __cdepl_app_dxram_ycsb_check_config()
 
 			# Sanity check
 			if [ "$(cdepl_cluster_node_cmd 0 "[ -f $__DXRAM_YCSB_CONFIG_PATH ] && echo \"1\"")" != "1" ]; then
-				util_log_error_and_exit "[0][dxram-ycsb] Creating config file $__DXRAM_YCSB_CONFIG_PATH failed"
+				util_log_error "[0][dxram-ycsb] Creating config file $__DXRAM_YCSB_CONFIG_PATH failed"
 			fi
 		fi
 	fi
@@ -726,7 +730,8 @@ __cdepl_app_ycsb_dxram_start_node()
 	local node=$1
 
 	if [ "${__DXRAM_YCSB_NODE_TYPE[$node]}" = "" ]; then
-		util_log_error_and_exit "[$node][dxram-ycsb] No node type set, cannot start instance"
+		util_log_error "[$node][dxram-ycsb] No node type set, cannot start instance"
+		return
 	fi
 
 	local logfile=""
@@ -736,7 +741,8 @@ __cdepl_app_ycsb_dxram_start_node()
 	elif [ "${__DXRAM_YCSB_NODE_TYPE[$node]}" = "B" ]; then
 		logfile=${__DXRAM_YCSB_OUT_LOG_PATH}/node${node}${__DXRAM_YCSB_LOG_FILE_BENCH_POSTFIX}
 	else
-		util_log_error_and_exit "[$node][dxram-ycsb] Invalid node type ${__DXRAM_YCSB_NODE_TYPE[$node]} cannot start instance"
+		util_log_error "[$node][dxram-ycsb] Invalid node type ${__DXRAM_YCSB_NODE_TYPE[$node]} cannot start instance"
+		return
 	fi
 
 	
@@ -762,13 +768,15 @@ __cdepl_app_dxram_ycsb_start_peer()
 	local ip="$(cdepl_cluster_resolve_hostname_to_ip "$(cdepl_cluster_node_resolve_node_to_hostname $node)")"
 
 	if [ ! "$ip" ]; then
-		util_log_error_and_exit "[$node][dxram-ycsb][$ycsb_type] Could not resolve hostname '$(cdepl_cluster_node_resolve_node_to_hostname $node)' to ip"
+		util_log_error "[$node][dxram-ycsb][$ycsb_type] Could not resolve hostname '$(cdepl_cluster_node_resolve_node_to_hostname $node)' to ip"
+		return
 	fi
 
 	local zookeeper_ip="$(cdepl_cluster_resolve_node_to_ip $__DXRAM_YCSB_ZOOKEEPER_NODE)"
 
 	if [ zookeeper_ip = "" ]; then
-		util_log_error_and_exit "[$node][dxram-ycsb][$ycsb_type] Could not resolve zookeeper ip for node $__DXRAM_YCSB_ZOOKEEPER_NODE"
+		util_log_error "[$node][dxram-ycsb][$ycsb_type] Could not resolve zookeeper ip for node $__DXRAM_YCSB_ZOOKEEPER_NODE"
+		return
 	fi
 
 	local vm_opts=""
@@ -830,7 +838,8 @@ __cdepl_app_dxram_ycsb_start_peer()
 	ycsb_params="$ycsb_params -p status.interval=1"
 
 	if [ ! "$__DXRAM_YCSB_TOTAL_STORAGE_NODES" ]; then
-		util_log_error_and_exit "[$node][dxram-ycsb][$ycsb_type] Cannot run DXRAM client without total storage nodes parameter specified"
+		util_log_error "[$node][dxram-ycsb][$ycsb_type] Cannot run DXRAM client without total storage nodes parameter specified"
+		return
 	fi
 
 	ycsb_params="$ycsb_params -p dxram.stores=$__DXRAM_YCSB_TOTAL_STORAGE_NODES"
@@ -842,7 +851,8 @@ __cdepl_app_dxram_ycsb_start_peer()
 	fi
 
 	if [ ! "${__DXRAM_YCSB_NODE_INSERTSTART[$node]}" ] && [ "$ycsb_type" = "load" ]; then
-		util_log_error_and_exit "[$node][dxram-ycsb][$ycsb_type] Missing value for insertstart parameter for storage"
+		util_log_error "[$node][dxram-ycsb][$ycsb_type] Missing value for insertstart parameter for storage"
+		return
 	fi
 
 	if [ "${__DXRAM_YCSB_NODE_INSERTSTART[$node]}" ]; then

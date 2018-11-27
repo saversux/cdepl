@@ -95,7 +95,7 @@ cdepl_app_dxram_init()
 
 	# Check if dxram path is available
 	if [ ! "$__DXRAM_PATH" ] || [ "$(cdepl_cluster_file_system_cmd "[ -d $__DXRAM_PATH ] && echo \"1\"")" != "1" ]; then
-		util_log_error_and_exit "[dxram]: Path does not exist ($path), resolved path: $__DXRAM_PATH"
+		util_log_error "[dxram]: Path does not exist ($path), resolved path: $__DXRAM_PATH"
 	fi
 
 	__cdepl_app_dxram_check
@@ -503,7 +503,7 @@ cdepl_app_dxram_autostart()
 __cdepl_app_dxram_check()
 {
 	if [ "$(cdepl_cluster_node_cmd 0 "[ -f ${__DXRAM_PATH}/${__DXRAM_BINARY} ] && echo 1")" != "1" ]; then
-		util_log_error_and_exit "[0][dxram] Could not find dxram executable in $__DXRAM_PATH/bin"
+		util_log_error "[0][dxram] Could not find dxram executable in $__DXRAM_PATH/bin"
 	fi
 }
 
@@ -519,7 +519,7 @@ __cdepl_app_dxram_check_config()
 
 		# Sanity check
 		if [ "$(cdepl_cluster_node_cmd 0 "[ -f $__DXRAM_CONFIG_PATH ] && echo \"1\"")" != "1" ]; then
-			util_log_error_and_exit "[0][dxram] Creating config file $__DXRAM_CONFIG_PATH failed"
+			util_log_error "[0][dxram] Creating config file $__DXRAM_CONFIG_PATH failed"
 		fi
 	else
 		local config_content="$(cdepl_cluster_node_cmd 0 "cat '$__DXRAM_CONFIG_PATH'")"
@@ -534,7 +534,7 @@ __cdepl_app_dxram_check_config()
 
 			# Sanity check
 			if [ "$(cdepl_cluster_node_cmd 0 "[ -f $__DXRAM_CONFIG_PATH ] && echo \"1\"")" != "1" ]; then
-				util_log_error_and_exit "[0][dxram] Creating config file $__DXRAM_CONFIG_PATH failed"
+				util_log_error "[0][dxram] Creating config file $__DXRAM_CONFIG_PATH failed"
 			fi
 		fi
 	fi
@@ -595,7 +595,7 @@ __cdepl_app_dxram_start_node()
 	local node=$1
 
 	if [ "${__DXRAM_NODE_TYPE[$node]}" = "" ]; then
-		util_log_error_and_exit "[$node][dxram] No node type set, cannot start instance"
+		util_log_error "[$node][dxram] No node type set, cannot start instance"
 	fi
 
 	local logfile=""
@@ -629,7 +629,7 @@ __cdepl_app_dxram_start_superpeer()
 	local ip="$(cdepl_cluster_resolve_hostname_to_ip "$name_to_id")"
 
 	if [ ! "$ip" ]; then
-		util_log_error_and_exit "[$node][dxram][S] Could not resolve hostname '$name_to_id' to ip"
+		util_log_error "[$node][dxram][S] Could not resolve hostname '$name_to_id' to ip"
 	fi
 
 	local vm_opts=""
@@ -698,7 +698,7 @@ __cdepl_app_dxram_start_peer()
 	local ip="$(cdepl_cluster_resolve_hostname_to_ip "$name_to_id")"
 
 	if [ ! "$ip" ]; then
-		util_log_error_and_exit "[$node][dxram][P] Could not resolve hostname '$name_to_id' to ip"
+		util_log_error "[$node][dxram][P] Could not resolve hostname '$name_to_id' to ip"
 	fi
 
 	local vm_opts=""
@@ -807,7 +807,7 @@ __cdepl_app_dxram_node_wait_started()
 			echo ""
 
 			if [ ! "$pid" ]; then
-				util_log_error_and_exit "[$node][dxram][$type] Could not find started process"
+				util_log_error "[$node][dxram][$type] Could not find started process"
 			fi
 
 			util_log "[$node][dxram][$type] Started (pid: $pid)"
@@ -815,11 +815,11 @@ __cdepl_app_dxram_node_wait_started()
 			break
 		elif [ "$fail_init" ]; then
 			echo ""
-			util_log_error_and_exit "[$node][dxram][$type] Could not be started. See log file $logfile"
+			util_log_error "[$node][dxram][$type] Could not be started. See log file $logfile"
 			return 1
 		elif [ "$fail_error" ] || [ "$fail_error2" ]; then
 			echo ""
-			util_log_error_and_exit "[$node][dxram][$type] Failed, error or exception. See log file $logfile"
+			util_log_error "[$node][dxram][$type] Failed, error or exception. See log file $logfile"
 			return 2
 		fi
 
