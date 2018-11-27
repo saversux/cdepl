@@ -33,9 +33,10 @@ _cdepl_run_application()
         return
     fi
 
-    if [ "$#" -lt 10 ]; then
+    if [ "$#" -lt 11 ]; then
 		util_log_error "Missing benchmark arguments"
-		util_log_error "Usage: <network type: eth, ib> <num dxram storage nodes> <num ycsb benchmark nodes> <storage size mb per node> <num message handler storages> <num message handlers benchmark clients> <num ycsb benchmark threads> <workload: a, b, g, x> <record count per node> <operation count per node>"
+		util_log_error "Usage: <network type: eth, ib> <num dxram storage nodes> <num ycsb benchmark nodes> <storage size mb per node> <num message handler storages> <num message handlers benchmark clients> <num ycsb load threads> <num ycsb benchmark 
+threads> <workload: a, b, g, x> <record count per node> <operation count per node>"
         return
     fi
 
@@ -45,10 +46,11 @@ _cdepl_run_application()
 	local storage_size=$4
 	local num_message_handler_storages=$5
 	local num_message_handler_benchmark=$6
-	local ycsb_threads=$7
-	local workload=$8
-	local recordcount_per_node=$9
-	local operationcount=${10}
+	local ycsb_load_threads=$7
+	local ycsb_threads=$8
+	local workload=$9
+	local recordcount_per_node=${10}
+	local operationcount=${11}
 
 	if [ "$((1 + storage_nodes + ycsb_nodes))" -gt "$cluster_total_nodes" ]; then
 		util_log_error "Not enough nodes for 1 superpeer, $storage_nodes storage nodes and $ycsb_nodes ycsb benchmark nodes: total $cluster_total_nodes"
@@ -137,6 +139,7 @@ _cdepl_run_application()
 
 		cdepl_app_dxram_ycsb_load_target_peer_idx $i $counter
 		cdepl_app_dxram_ycsb_insertstart $i $((recordcount_per_node * counter))
+		cdepl_app_dxram_ycsb_threads $i $ycsb_load_threads
 
 		counter=$((counter + 1))
 	done
