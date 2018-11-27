@@ -149,7 +149,7 @@ _cdepl_cluster_init()
 	fi
 
 	# Delete old socket handle which hangs ssh calls after restarting on broken connection
-	rm -f ~/.ssh/cdepl_*.sock 
+	unlink $(realpath ~/.ssh/cdepl_*.sock)
 
 	__cdepl_cluster_hhubs_sollipulli_check
 
