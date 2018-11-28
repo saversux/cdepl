@@ -638,25 +638,25 @@ __cdepl_app_dxram_start_superpeer()
 	vm_opts="-XX:+UseMembar"
 
 	vm_opts="$vm_opts -Ddxram.config=$node_config_path"
-	vm_opts="$vm_opts -Ddxram.m_config.m_engineConfig.m_address.m_ip=$ip"
-	vm_opts="$vm_opts -Ddxram.m_config.m_engineConfig.m_address.m_port=${__DXRAM_NODE_PORT[$node]}"
-	vm_opts="$vm_opts -Ddxram.m_config.m_engineConfig.m_role=Superpeer"
+	vm_opts="$vm_opts -Ddxram.m_engineConfig.m_address.m_ip=$ip"
+	vm_opts="$vm_opts -Ddxram.m_engineConfig.m_address.m_port=${__DXRAM_NODE_PORT[$node]}"
+	vm_opts="$vm_opts -Ddxram.m_engineConfig.m_role=Superpeer"
 
 	# ZooKeeper connection settings
 	local zookeeper_ip="$(cdepl_cluster_resolve_node_to_ip "$__DXRAM_ZOOKEEPER_NODE")"
-	vm_opts="$vm_opts -Ddxram.m_config.m_componentConfigs[ZookeeperBootComponentConfig].m_connection.m_ip=${zookeeper_ip}"
-	vm_opts="$vm_opts -Ddxram.m_config.m_componentConfigs[ZookeeperBootComponentConfig].m_connection.m_port=${__DXRAM_ZOOKEEPER_PORT}"
+	vm_opts="$vm_opts -Ddxram.m_componentConfigs[ZookeeperBootComponent].m_connection.m_ip=${zookeeper_ip}"
+	vm_opts="$vm_opts -Ddxram.m_componentConfigs[ZookeeperBootComponent].m_connection.m_port=${__DXRAM_ZOOKEEPER_PORT}"
 	
 	# Optional dxram node specific settings
 
 	if [ "${__DXRAM_NODE_NETWORK[$node]}" = "eth" ]; then
-		vm_opts="$vm_opts -Ddxram.m_config.m_componentConfigs[NetworkComponentConfig].m_coreConfig.m_device=ethernet"
+		vm_opts="$vm_opts -Ddxram.m_componentConfigs[NetworkComponent].m_coreConfig.m_device=ethernet"
 	elif [ "${__DXRAM_NODE_NETWORK[$node]}" = "ib" ]; then
-		vm_opts="$vm_opts -Ddxram.m_config.m_componentConfigs[NetworkComponentConfig].m_coreConfig.m_device=infiniband"
+		vm_opts="$vm_opts -Ddxram.m_componentConfigs[NetworkComponent].m_coreConfig.m_device=infiniband"
 	fi
 
 	if [ "${__DXRAM_NODE_MSG_HANDLER[$node]}" ]; then
-		vm_opts="$vm_opts -Ddxram.m_config.m_componentConfigs[NetworkComponentConfig].m_coreConfig.m_numMessageHandlerThreads=${__DXRAM_NODE_MSG_HANDLER[$node]}"
+		vm_opts="$vm_opts -Ddxram.m_componentConfigs[NetworkComponent].m_coreConfig.m_numMessageHandlerThreads=${__DXRAM_NODE_MSG_HANDLER[$node]}"
 	fi
 
 	# Development and debugging
@@ -707,43 +707,43 @@ __cdepl_app_dxram_start_peer()
 	vm_opts="-XX:+UseMembar"
 
 	vm_opts="$vm_opts -Ddxram.config=$node_config_path"
-	vm_opts="$vm_opts -Ddxram.m_config.m_engineConfig.m_address.m_ip=$ip"
-	vm_opts="$vm_opts -Ddxram.m_config.m_engineConfig.m_address.m_port=${__DXRAM_NODE_PORT[$node]}"
-	vm_opts="$vm_opts -Ddxram.m_config.m_engineConfig.m_role=Peer"
+	vm_opts="$vm_opts -Ddxram.m_engineConfig.m_address.m_ip=$ip"
+	vm_opts="$vm_opts -Ddxram.m_engineConfig.m_address.m_port=${__DXRAM_NODE_PORT[$node]}"
+	vm_opts="$vm_opts -Ddxram.m_engineConfig.m_role=Peer"
 
 	# ZooKeeper connection settings
 	local zookeeper_ip="$(cdepl_cluster_resolve_node_to_ip "$__DXRAM_ZOOKEEPER_NODE")"
-	vm_opts="$vm_opts -Ddxram.m_config.m_componentConfigs[ZookeeperBootComponentConfig].m_connection.m_ip=${zookeeper_ip}"
-	vm_opts="$vm_opts -Ddxram.m_config.m_componentConfigs[ZookeeperBootComponentConfig].m_connection.m_port=${__DXRAM_ZOOKEEPER_PORT}"
+	vm_opts="$vm_opts -Ddxram.m_componentConfigs[ZookeeperBootComponent].m_connection.m_ip=${zookeeper_ip}"
+	vm_opts="$vm_opts -Ddxram.m_componentConfigs[ZookeeperBootComponent].m_connection.m_port=${__DXRAM_ZOOKEEPER_PORT}"
 	
 	# Optional dxram node specific settings
 
-	vm_opts="$vm_opts -Ddxram.m_config.m_componentConfigs[BackupComponentConfig].m_backupActive=${__DXRAM_NODE_PEER_BACKUP_SRC[$node]}"
-	vm_opts="$vm_opts -Ddxram.m_config.m_componentConfigs[BackupComponentConfig].m_availableForBackup=${__DXRAM_NODE_PEER_BACKUP_DST[$node]}"
+	vm_opts="$vm_opts -Ddxram.m_componentConfigs[BackupComponent].m_backupActive=${__DXRAM_NODE_PEER_BACKUP_SRC[$node]}"
+	vm_opts="$vm_opts -Ddxram.m_componentConfigs[BackupComponent].m_availableForBackup=${__DXRAM_NODE_PEER_BACKUP_DST[$node]}"
 
 	if [ "${__DXRAM_NODE_NETWORK[$node]}" = "eth" ]; then
-		vm_opts="$vm_opts -Ddxram.m_config.m_componentConfigs[NetworkComponentConfig].m_coreConfig.m_device=ethernet"
+		vm_opts="$vm_opts -Ddxram.m_componentConfigs[NetworkComponent].m_coreConfig.m_device=ethernet"
 	elif [ "${__DXRAM_NODE_NETWORK[$node]}" = "ib" ]; then
-		vm_opts="$vm_opts -Ddxram.m_config.m_componentConfigs[NetworkComponentConfig].m_coreConfig.m_device=infiniband"
+		vm_opts="$vm_opts -Ddxram.m_componentConfigs[NetworkComponent].m_coreConfig.m_device=infiniband"
 	fi
 
 	if [ "${__DXRAM_NODE_MSG_HANDLER[$node]}" ]; then
-		vm_opts="$vm_opts -Ddxram.m_config.m_componentConfigs[NetworkComponentConfig].m_coreConfig.m_numMessageHandlerThreads=${__DXRAM_NODE_MSG_HANDLER[$node]}"
+		vm_opts="$vm_opts -Ddxram.m_componentConfigs[NetworkComponent].m_coreConfig.m_numMessageHandlerThreads=${__DXRAM_NODE_MSG_HANDLER[$node]}"
 	fi
 
 	if [ "${__DXRAM_NODE_MS_ROLE[$node]}" ]; then
-		vm_opts="$vm_opts -Ddxram.m_config.m_serviceConfigs[MasterSlaveComputeServiceConfig].m_role=${__DXRAM_NODE_MS_ROLE[$node]}"
+		vm_opts="$vm_opts -Ddxram.m_serviceConfigs[MasterSlaveComputeServiceConfig].m_role=${__DXRAM_NODE_MS_ROLE[$node]}"
 	fi
 
 	if [ "${__DXRAM_NODE_PEER_KVSS[$node]}" ]; then
-		vm_opts="$vm_opts -Ddxram.m_config.m_componentConfigs[ChunkComponentConfig].m_keyValueStoreSize.m_value=${__DXRAM_NODE_PEER_KVSS[$node]}"
-		vm_opts="$vm_opts -Ddxram.m_config.m_componentConfigs[ChunkComponentConfig].m_keyValueStoreSize.m_unit=mb"
+		vm_opts="$vm_opts -Ddxram.m_componentConfigs[ChunkComponent].m_keyValueStoreSize.m_value=${__DXRAM_NODE_PEER_KVSS[$node]}"
+		vm_opts="$vm_opts -Ddxram.m_componentConfigs[ChunkComponent].m_keyValueStoreSize.m_unit=mb"
 	fi
 
 	if [ "${__DXRAM_NODE_AUTOSTART_APP[$node]}" != "" ]; then
-		vm_opts="$vm_opts -Ddxram.m_config.m_serviceConfigs[ApplicationServiceConfig].m_autoStart[0].m_className=${__DXRAM_NODE_AUTOSTART_APP[$node]}"
-		vm_opts="$vm_opts -Ddxram.m_config.m_serviceConfigs[ApplicationServiceConfig].m_autoStart[0].m_args=${__DXRAM_NODE_AUTOSTART_ARGS[$node]}"
-		vm_opts="$vm_opts -Ddxram.m_config.m_serviceConfigs[ApplicationServiceConfig].m_autoStart[0].m_startOrderId=${__DXRAM_NODE_AUTOSTART_INIT_ID[$node]}"
+		vm_opts="$vm_opts -Ddxram.m_serviceConfigs[ApplicationServiceConfig].m_autoStart[0].m_className=${__DXRAM_NODE_AUTOSTART_APP[$node]}"
+		vm_opts="$vm_opts -Ddxram.m_serviceConfigs[ApplicationServiceConfig].m_autoStart[0].m_args=${__DXRAM_NODE_AUTOSTART_ARGS[$node]}"
+		vm_opts="$vm_opts -Ddxram.m_serviceConfigs[ApplicationServiceConfig].m_autoStart[0].m_startOrderId=${__DXRAM_NODE_AUTOSTART_INIT_ID[$node]}"
 		util_log "[$node][dxram][P] Enabled autostart for application ${__DXRAM_NODE_AUTOSTART_APP[$node]}"
 	fi
 
@@ -835,7 +835,7 @@ __cdepl_app_dxram_get_instance_running_pid()
 	local port=$2
 
 	if [ "$port" ]; then
-		port=".*-Ddxram.m_config.m_engineConfig.m_address.m_port=${port}"
+		port=".*-Ddxram.m_engineConfig.m_address.m_port=${port}"
 	fi
 
 	# Consider port for multiple instances on a single machine (e.g. localhost)

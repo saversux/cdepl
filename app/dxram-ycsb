@@ -787,29 +787,29 @@ __cdepl_app_dxram_ycsb_start_peer()
 
 	vm_opts="$vm_opts -Dlog4j.configurationFile=$__DXRAM_YCSB_LOG4J_CONFIG_PATH"
 	vm_opts="$vm_opts -Ddxram.config=$node_config_path"
-	vm_opts="$vm_opts -Ddxram.m_config.m_engineConfig.m_address.m_ip=$ip"
-	vm_opts="$vm_opts -Ddxram.m_config.m_engineConfig.m_address.m_port=${__DXRAM_YCSB_NODE_PORT[$node]}"
-	vm_opts="$vm_opts -Ddxram.m_config.m_engineConfig.m_role=Peer"
+	vm_opts="$vm_opts -Ddxram.m_engineConfig.m_address.m_ip=$ip"
+	vm_opts="$vm_opts -Ddxram.m_engineConfig.m_address.m_port=${__DXRAM_YCSB_NODE_PORT[$node]}"
+	vm_opts="$vm_opts -Ddxram.m_engineConfig.m_role=Peer"
 
 	# ZooKeeper connection settings
 	local zookeeper_ip="$(cdepl_cluster_resolve_node_to_ip "$__DXRAM_YCSB_ZOOKEEPER_NODE")"
-	vm_opts="$vm_opts -Ddxram.m_config.m_componentConfigs[ZookeeperBootComponentConfig].m_connection.m_ip=${zookeeper_ip}"
-	vm_opts="$vm_opts -Ddxram.m_config.m_componentConfigs[ZookeeperBootComponentConfig].m_connection.m_port=${__DXRAM_YCSB_ZOOKEEPER_PORT}"
+	vm_opts="$vm_opts -Ddxram.m_componentConfigs[ZookeeperBootComponent].m_connection.m_ip=${zookeeper_ip}"
+	vm_opts="$vm_opts -Ddxram.m_componentConfigs[ZookeeperBootComponent].m_connection.m_port=${__DXRAM_YCSB_ZOOKEEPER_PORT}"
 
 	# Optional dxram node specific settings
 
 	if [ "${__DXRAM_YCSB_NODE_NETWORK[$node]}" = "eth" ]; then
-		vm_opts="$vm_opts -Ddxram.m_config.m_componentConfigs[NetworkComponentConfig].m_coreConfig.m_device=ethernet"
+		vm_opts="$vm_opts -Ddxram.m_componentConfigs[NetworkComponent].m_coreConfig.m_device=ethernet"
 	elif [ "${__DXRAM_YCSB_NODE_NETWORK[$node]}" = "ib" ]; then
-		vm_opts="$vm_opts -Ddxram.m_config.m_componentConfigs[NetworkComponentConfig].m_coreConfig.m_device=infiniband"
+		vm_opts="$vm_opts -Ddxram.m_componentConfigs[NetworkComponent].m_coreConfig.m_device=infiniband"
 	fi
 
 	if [ "${__DXRAM_YCSB_NODE_MSG_HANDLER[$node]}" ]; then
-		vm_opts="$vm_opts -Ddxram.m_config.m_componentConfigs[NetworkComponentConfig].m_coreConfig.m_numMessageHandlerThreads=${__DXRAM_YCSB_NODE_MSG_HANDLER[$node]}"
+		vm_opts="$vm_opts -Ddxram.m_componentConfigs[NetworkComponent].m_coreConfig.m_numMessageHandlerThreads=${__DXRAM_YCSB_NODE_MSG_HANDLER[$node]}"
 	fi
 
 	# Disable key value storage
-	vm_opts="$vm_opts -Ddxram.m_config.m_componentConfigs[ChunkComponentConfig].m_chunkStorageEnabled=false"
+	vm_opts="$vm_opts -Ddxram.m_componentConfigs[ChunkComponent].m_chunkStorageEnabled=false"
 
 	# Development and debugging
 
@@ -917,7 +917,7 @@ __cdepl_app_dxram_ycsb_get_instance_running_pid()
 	local port=$2
 
 	if [ "$port" ]; then
-		port=".*-Ddxram.m_config.m_engineConfig.m_address.m_port=${port}"
+		port=".*-Ddxram.m_engineConfig.m_address.m_port=${port}"
 	fi
 
 	# Consider port for multiple instances on a single machine (e.g. localhost)
