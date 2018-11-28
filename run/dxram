@@ -148,17 +148,24 @@ _cdepl_run_application()
 		DX_PEER_PORT_START=$((DX_PEER_PORT_START + 1))
 	done
 
-	# Show DXRam logs within the console
+	# Add terminal to autostart
 	if [ "$start_terminal" = true ] ; then
 		cdepl_app_dxram_autostart "${peer_node_offset}" "de.hhu.bsinfo.dxterm.server.TerminalServerApplication" "22220@1" "0"
 	fi
 
+	# Start superpeers
+	cdepl_app_dxram_start_node 0 $((num_superpeers - 1))
+
+	for i in $(seq 0 $((num_superpeers - 1))); do
+		cdepl_app_dxram_node_wait_started $i
+	done
+
 	local num_nodes=$(( num_superpeers + num_peers ))
 
-	# Start all dxram instances
-	cdepl_app_dxram_start_node 0 $((num_nodes - 1))
+	# Start all peers
+	cdepl_app_dxram_start_node $peer_node_offset $((peer_node_offset + num_peers - 1))
 
-	for i in $(seq 0 $((num_nodes - 1))); do
+	for i in $(seq $peer_node_offset $((peer_node_offset + num_peers - 1))); do
 		cdepl_app_dxram_node_wait_started $i
 	done
 
