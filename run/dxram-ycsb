@@ -35,9 +35,9 @@ _cdepl_run_application()
 
     if [ "$#" -lt 11 ]; then
 		util_log_error "Missing benchmark arguments"
-		util_log_error "Usage: <network type: eth, ib> <num dxram storage nodes> <num ycsb benchmark nodes> <storage size mb per node> <num message handler storages> <num message handlers benchmark clients> <num ycsb load threads> <num ycsb benchmark 
-threads> <workload: a, b, g, x> <record count per node> <operation count per node>"
-        return
+		util_log_error "Usage: <network type: eth, ib> <num dxram storage nodes> <num ycsb benchmark nodes> <storage size mb per node> <num message handler storages> <num message handlers benchmark clients> <num ycsb load threads> <num ycsb benchmark threads> <workload: a, b, g, x> <record count per node> <operation count per node>"
+	    util_log_error "Example: run dxram-ycsb eth 1 1 1024 2 2 1 1 a 1000 1000"
+	    return
     fi
 
 	local network_type=$1
