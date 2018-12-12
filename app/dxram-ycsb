@@ -33,8 +33,7 @@ readonly __DXRAM_YCSB_DEFAULT_PS_PORT="22222"
 readonly __DXRAM_YCSB_DEFAULT_PB_PORT="22223"
 
 readonly __DXRAM_YCSB_PROCESS_IDENTIFIER="dxramdeployscript"
-readonly __DXRAM_YCSB_LOAD_DONE_COND="\[INSERT\], Return"
-readonly __DXRAM_YCSB_BENCH_DONE_COND="\[OVERALL\], RunTime"
+readonly __DXRAM_YCSB_DONE_COND="\[OVERALL\], RunTime"
 
 readonly __DXRAM_YCSB_REQUIRED_ENVIRONMENT="java/1.8 gcc/6.1"
 
@@ -488,7 +487,7 @@ cdepl_app_dxram_ycsb_loader_finished_loading()
 		return
 	fi
 
-	util_log "[$node][dxram-ycsb][$type] Waiting for loading to finish: $__DXRAM_YCSB_LOAD_DONE_COND"
+	util_log "[$node][dxram-ycsb][$type] Waiting for loading to finish: $__DXRAM_YCSB_DONE_COND"
 
 	local first_progress=1
 
@@ -510,7 +509,7 @@ cdepl_app_dxram_ycsb_loader_finished_loading()
 			echo -n "."
 		fi
 
-		local success=$(cdepl_cluster_node_cmd $node "cat $logfile 2> /dev/null | sed 's,\x1B\[[0-9;]*[a-zA-Z],,g' | grep '$__DXRAM_YCSB_LOAD_DONE_COND'")
+		local success=$(cdepl_cluster_node_cmd $node "cat $logfile 2> /dev/null | sed 's,\x1B\[[0-9;]*[a-zA-Z],,g' | grep '$__DXRAM_YCSB_DONE_COND'")
 		# Abort execution after an exception was thrown (every exception but NetworkResponseCancelledException)
 		local fail_error=$(cdepl_cluster_node_cmd $node "cat $logfile 2> /dev/null | sed 's,\x1B\[[0-9;]*[a-zA-Z],,g' | grep -i 'exception' | grep -v 'NetworkResponseCancelledException' | grep -v 'fpu_exception'")
 		# "A fatal error" -> JVM segfaults
@@ -561,7 +560,7 @@ cdepl_app_dxram_ycsb_benchmark_wait_finished()
 		return
 	fi
 
-	util_log "[$node][dxram-ycsb][$type] Waiting for benchmark to finish: $__DXRAM_YCSB_BENCH_DONE_COND"
+	util_log "[$node][dxram-ycsb][$type] Waiting for benchmark to finish: $__DXRAM_YCSB_DONE_COND"
 
 	local first_progress=1
 
@@ -583,7 +582,7 @@ cdepl_app_dxram_ycsb_benchmark_wait_finished()
 			echo -n "."
 		fi
 
-		local success=$(cdepl_cluster_node_cmd $node "cat $logfile 2> /dev/null | sed 's,\x1B\[[0-9;]*[a-zA-Z],,g' | grep '$__DXRAM_YCSB_BENCH_DONE_COND'")
+		local success=$(cdepl_cluster_node_cmd $node "cat $logfile 2> /dev/null | sed 's,\x1B\[[0-9;]*[a-zA-Z],,g' | grep '$__DXRAM_YCSB_DONE_COND'")
 		# Abort execution after an exception was thrown (every exception but NetworkResponseCancelledException)
 		local fail_error=$(cdepl_cluster_node_cmd $node "cat $logfile 2> /dev/null | sed 's,\x1B\[[0-9;]*[a-zA-Z],,g' | grep -i 'exception' | grep -v 'NetworkResponseCancelledException' | grep -v 'fpu_exception'")
 		# "A fatal error" -> JVM segfaults
