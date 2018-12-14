@@ -741,9 +741,9 @@ __cdepl_app_dxram_start_peer()
 	fi
 
 	if [ "${__DXRAM_NODE_AUTOSTART_APP[$node]}" != "" ]; then
-		vm_opts="$vm_opts -Ddxram.m_serviceConfigs[ApplicationServiceConfig].m_autoStart[0].m_className=${__DXRAM_NODE_AUTOSTART_APP[$node]}"
-		vm_opts="$vm_opts -Ddxram.m_serviceConfigs[ApplicationServiceConfig].m_autoStart[0].m_args=${__DXRAM_NODE_AUTOSTART_ARGS[$node]}"
-		vm_opts="$vm_opts -Ddxram.m_serviceConfigs[ApplicationServiceConfig].m_autoStart[0].m_startOrderId=${__DXRAM_NODE_AUTOSTART_INIT_ID[$node]}"
+		vm_opts="$vm_opts -Ddxram.m_serviceConfigs[ApplicationService].m_autoStart[0].m_className=${__DXRAM_NODE_AUTOSTART_APP[$node]}"
+		vm_opts="$vm_opts -Ddxram.m_serviceConfigs[ApplicationService].m_autoStart[0].m_args=${__DXRAM_NODE_AUTOSTART_ARGS[$node]}"
+		vm_opts="$vm_opts -Ddxram.m_serviceConfigs[ApplicationService].m_autoStart[0].m_startOrderId=${__DXRAM_NODE_AUTOSTART_INIT_ID[$node]}"
 		util_log "[$node][dxram][P] Enabled autostart for application ${__DXRAM_NODE_AUTOSTART_APP[$node]}"
 	fi
 
