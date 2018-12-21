@@ -515,7 +515,7 @@ __cdepl_app_dxram_check_config()
 
 		# Don't run this on the login node (might not have java installed)
 		# Use the first actual cluster node instead
-		cdepl_cluster_node_cmd 0 "cd $__DXRAM_PATH && DXRAM_OPTS='-Ddxram.config.createDefaultAndExit -Ddxram.config=$__DXRAM_CONFIG_PATH' ./$__DXRAM_BINARY > /dev/null 2>&1" "$__DXRAM_REQUIRED_ENVIRONMENT"
+		cdepl_cluster_node_cmd 0 "DXRAM_OPTS='-Ddxram.config.createDefaultAndExit -Ddxram.config=$__DXRAM_CONFIG_PATH' $__DXRAM_PATH/$__DXRAM_BINARY > /dev/null 2>&1" "$__DXRAM_REQUIRED_ENVIRONMENT"
 
 		# Sanity check
 		if [ "$(cdepl_cluster_node_cmd 0 "[ -f $__DXRAM_CONFIG_PATH ] && echo \"1\"")" != "1" ]; then
@@ -530,7 +530,7 @@ __cdepl_app_dxram_check_config()
 			util_log "[0][dxram] Configuration file $__DXRAM_CONFIG_PATH corrupted, deleting and creating default"
 
 			# Configuration file seems to be corrupted -> start dxram once to create new configuration
-			cdepl_cluster_node_cmd 0 "rm $__DXRAM_CONFIG_PATH && cd $__DXRAM_PATH && DXRAM_OPTS='-Ddxram.config.createDefaultAndExit -Ddxram.config=$__DXRAM_CONFIG_PATH' ./$__DXRAM_BINARY && sync > /dev/null 2>&1" "$__DXRAM_REQUIRED_ENVIRONMENT"
+			cdepl_cluster_node_cmd 0 "rm $__DXRAM_CONFIG_PATH &&  DXRAM_OPTS='-Ddxram.config.createDefaultAndExit -Ddxram.config=$__DXRAM_CONFIG_PATH' $__DXRAM_PATH/$__DXRAM_BINARY && sync > /dev/null 2>&1" "$__DXRAM_REQUIRED_ENVIRONMENT"
 
 			# Sanity check
 			if [ "$(cdepl_cluster_node_cmd 0 "[ -f $__DXRAM_CONFIG_PATH ] && echo \"1\"")" != "1" ]; then
@@ -681,7 +681,7 @@ __cdepl_app_dxram_start_superpeer()
 
 	# Don't use && instead of ;
 	# This will hang if ssh with controlmaster and nohup is used
-	cdepl_cluster_node_cmd "$node" "cd $__DXRAM_PATH ; JAVA_OPTS='$vm_opts' DXRAM_OPTS='-D${__DXRAM_PROCESS_IDENTIFIER}' $root nohup ./$__DXRAM_BINARY > $logfile 2>&1 &" "$__DXRAM_REQUIRED_ENVIRONMENT"
+	cdepl_cluster_node_cmd "$node" "JAVA_OPTS='$vm_opts' DXRAM_OPTS='-D${__DXRAM_PROCESS_IDENTIFIER}' $root nohup $__DXRAM_PATH/$__DXRAM_BINARY > $logfile 2>&1 &" "$__DXRAM_REQUIRED_ENVIRONMENT"
 }
 
 __cdepl_app_dxram_start_peer()
@@ -769,7 +769,7 @@ __cdepl_app_dxram_start_peer()
 
 	# Don't use && instead of ;
 	# This will hang if ssh with controlmaster and nohup is used
-	cdepl_cluster_node_cmd "$node" "cd $__DXRAM_PATH ; JAVA_OPTS='$vm_opts' DXRAM_OPTS='-D${__DXRAM_PROCESS_IDENTIFIER}' $root nohup ./$__DXRAM_BINARY > $logfile 2>&1 &" "$__DXRAM_REQUIRED_ENVIRONMENT"
+	cdepl_cluster_node_cmd "$node" "JAVA_OPTS='$vm_opts' DXRAM_OPTS='-D${__DXRAM_PROCESS_IDENTIFIER}' $root nohup $__DXRAM_PATH/$__DXRAM_BINARY > $logfile 2>&1 &" "$__DXRAM_REQUIRED_ENVIRONMENT"
 }
 
 __cdepl_app_dxram_node_wait_started()
