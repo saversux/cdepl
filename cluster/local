@@ -83,7 +83,7 @@ cdepl_cluster_node_cmd()
 	local cmd="$2"
 	local required_env="$3"
 
-	eval "$cmd"
+	(eval "$cmd")
 }
 
 cdepl_cluster_upload_to_remote()
@@ -120,7 +120,7 @@ cdepl_cluster_file_system_cmd()
 {
 	local cmd="$1"
 
-	eval "$cmd"
+	(eval "$cmd")
 }
 
 cdepl_cluster_allows_sudo()
