@@ -67,6 +67,8 @@ __DXRAM_NODE_AUTOSTART_APP=()
 __DXRAM_NODE_AUTOSTART_ARGS=()
 __DXRAM_NODE_AUTOSTART_INIT_ID=()
 
+__DXRAM_NODE_START_AGENT=()
+
 ##
 # Initialize and setup the DXRAM environment. This must be called before any
 # other function of the dxram module.
@@ -156,6 +158,23 @@ cdepl_app_dxram_node_port()
 	fi
 
 	__DXRAM_NODE_PORT[$node]="$port"
+}
+
+##
+# Launches the jokolia agent on the specified node
+#
+# $1 node Node of the DXRAM instance
+##
+cdepl_app_dxram_start_agent()
+{
+	local node=$1
+
+
+	if [ "$node" -ge "$(cdepl_cluster_get_alloc_node_count)" ]; then
+		util_log_error_and_exit "[$node][dxram] Invalid node id $node > $(cdepl_cluster_get_alloc_node_count)"
+	fi
+
+	__DXRAM_NODE_START_AGENT[$node]=true
 }
 
 ##
@@ -678,6 +697,10 @@ __cdepl_app_dxram_start_superpeer()
 
 		util_log "[$node][dxram][S] On your local machine: establish a tunnel using 'ssh <target_hostname> -L ${__DXRAM_NODE_REMOTE_PROFILE_YJP_PORT[$node]}:<target_hostname>:${__DXRAM_NODE_REMOTE_PROFILE_YJP_PORT[$node]}' and connect with yourkit using 'Connect to remote application' with the arguments 'localhost:${__DXRAM_NODE_REMOTE_PROFILE_YJP_PORT[$node]}'"
 	fi
+	
+	if [ "${__DXRAM_NODE_START_AGENT[$node]}" = true ]; then
+		vm_opts="$vm_opts -javaagent:$__DXRAM_PATH/jmx/jolokia.jar"
+	fi
 
 	# Don't use && instead of ;
 	# This will hang if ssh with controlmaster and nohup is used
@@ -765,6 +788,10 @@ __cdepl_app_dxram_start_peer()
 		vm_opts="$vm_opts -agentpath:${__DXRAM_NODE_REMOTE_PROFILE_YJP_AGENT_LIB[$node]}=port=${__DXRAM_NODE_REMOTE_PROFILE_YJP_PORT[$node]}"
 
 		util_log "[$node][dxram][P] On your local machine: establish a tunnel using 'ssh <target_hostname> -L ${__DXRAM_NODE_REMOTE_PROFILE_YJP_PORT[$node]}:<target_hostname>:${__DXRAM_NODE_REMOTE_PROFILE_YJP_PORT[$node]}' and connect with yourkit using 'Connect to remote application' with the arguments 'localhost:${__DXRAM_NODE_REMOTE_PROFILE_YJP_PORT[$node]}'"
+	fi
+	
+	if [ "${__DXRAM_NODE_START_AGENT[$node]}" = true ]; then
+		vm_opts="$vm_opts -javaagent:$__DXRAM_PATH/jmx/jolokia.jar"
 	fi
 
 	# Don't use && instead of ;
