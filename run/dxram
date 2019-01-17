@@ -126,16 +126,6 @@ _cdepl_run_application()
 
 	util_log "Starting $num_superpeers superpeers and $num_peers peers (kvss: $kvss_mb MB each, $msg_handler msg handler)"
 
-	# Initilize zookeeper deployment
-	cdepl_app_zookeeper_init $zookeeper_path
-
-	# Start zookeeper instance and wait until started
-	cdepl_app_zookeeper_start $ZK_NODE $ZK_PORT
-	cdepl_app_zookeeper_wait_started $ZK_NODE
-
-	# Cleanup of failed startups in zookeeper
-	cdepl_app_zookeeper_remove $ZK_NODE "/dxram"
-
 	# Initialize dxram deployment
 	cdepl_app_dxram_init $dxram_path $ZK_NODE $ZK_PORT
 
