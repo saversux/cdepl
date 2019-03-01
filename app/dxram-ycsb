@@ -84,9 +84,6 @@ __DXRAM_YCSB_NODE_INSERTSTART=()
 #
 # $1 path Path to folder containing build output of ycsb-dxram with bin, config
 #    folder etc
-# $2 zookeeper_node Node running the zookeeper server necessary to bootstrap
-#    DXRAM
-# $3 zookeeper_port Port of the zookeper server running on the specified node
 ##
 cdepl_app_dxram_ycsb_init()
 {
@@ -102,8 +99,8 @@ cdepl_app_dxram_ycsb_init()
 	__DXRAM_YCSB_OUT_CONF_PATH="${__DXRAM_YCSB_OUT_PATH}/conf"
 	__DXRAM_YCSB_OUT_LOG_PATH="${__DXRAM_YCSB_OUT_PATH}/log"
 
-	__DXRAM_YCSB_ZOOKEEPER_NODE="$zookeeper_node"
-	__DXRAM_YCSB_ZOOKEEPER_PORT="$zookeeper_port"
+	__DXRAM_YCSB_ZOOKEEPER_NODE="0"
+	__DXRAM_YCSB_ZOOKEEPER_PORT="2181"
 
 	# Check if dxram ycsb path is available
 	if [ ! "$__DXRAM_YCSB_PATH" ] || [ "$(cdepl_cluster_file_system_cmd "[ -d $__DXRAM_YCSB_PATH ] && echo \"1\"")" != "1" ]; then

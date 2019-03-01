@@ -16,11 +16,6 @@
 # Includes
 source "app/dxram"
 source "app/dxram-ycsb"
-source "app/zookeeper"
-
-# Zookeeper config values
-ZK_NODE=0
-ZK_PORT=2181
 
 DX_PEER_PORT_START="22222"
 
@@ -58,22 +53,11 @@ _cdepl_run_application()
     fi
 
     local dxram_ycsb_path="$(cdepl_cluster_application_install_dir)/ycsb-dxram"
-    local zookeeper_path="$(cdepl_cluster_application_install_dir)/zookeeper"
-
-	# Initilize zookeeper deployment
-	cdepl_app_zookeeper_init $zookeeper_path
-
-	# Start zookeeper instance and wait until started
-	cdepl_app_zookeeper_start $ZK_NODE $ZK_PORT
-	cdepl_app_zookeeper_wait_started $ZK_NODE
-
-	# Cleanup of failed startups in zookeeper
-	cdepl_app_zookeeper_remove $ZK_NODE "/dxram"
 
 	# Start a DXRAM cluster first
 	# Initialize deployment
-	cdepl_app_dxram_init $dxram_ycsb_path $ZK_NODE $ZK_PORT
-	cdepl_app_dxram_ycsb_init $dxram_ycsb_path $ZK_NODE $ZK_PORT
+	cdepl_app_dxram_init $dxram_ycsb_path
+	cdepl_app_dxram_ycsb_init $dxram_ycsb_path
 
 	local ycsb_range_start=$((1 + storage_nodes))
 	local ycsb_range_end=$((ycsb_range_start + ycsb_nodes - 1))
