@@ -15,11 +15,6 @@
 
 # Includes
 source "app/dxram"
-source "app/zookeeper"
-
-# Zookeeper config values
-ZK_NODE=0
-ZK_PORT=2181
 
 DX_PEER_PORT_START="22222"
 
@@ -122,7 +117,6 @@ _cdepl_run_application()
 	fi
 
     local dxram_path="$(cdepl_cluster_application_install_dir)/dxram"
-    local zookeeper_path="$(cdepl_cluster_application_install_dir)/zookeeper"
 
 	util_log "Starting $num_superpeers superpeers and $num_peers peers (kvss: $kvss_mb MB each, $msg_handler msg handler)"
 
