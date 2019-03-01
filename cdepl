@@ -13,7 +13,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>
 #
 
-readonly CDEPL_VERSION="0.4.0"
+readonly CDEPL_VERSION="0.5.0"
 readonly CDEPL_SCRIPT_DIR="$( cd "$(dirname "${BASH_SOURCE[0]}")" && pwd )"
 
 ##
