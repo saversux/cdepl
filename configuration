@@ -96,3 +96,31 @@ cdepl_configuration_save()
         echo "${i}=${__CDEPL_CONFIGURATION[$i]}" >> $file
     done
 }
+
+cdepl_configuration_check_validity() {
+    local keys=($1)
+
+    for key in "${keys[@]}"; do
+        if [[ ! -v "__CDEPL_CONFIGURATION[${key}]" ]]; then
+            return 1
+        fi
+    done
+
+    return 0
+}
+
+cdepl_configuration_wizard()
+{
+    local cluster_type=$1
+    local keys=($2)
+
+    printf "Welcome to the cdepl configuration wizard!\n"
+    printf "You are trying to to start cdepl with the cluster type '%s' with an invalid configuration.\n" "${cluster_type}"
+    printf "In the following steps, you will need to enter values for every necessary configuration key, in order for cdepl to work correctly.\n"
+
+    for key in "${keys[@]}"; do
+        read -p "Please enter the value for '${key}': " __CDEPL_CONFIGURATION["$key"]
+    done
+
+    cdepl_configuration_save "${cluster_type}"
+}

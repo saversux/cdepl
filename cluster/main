@@ -96,10 +96,15 @@ cdepl_cluster_main()
 
 # Check if cluster type is available
 if [ ! -f "cluster/$(cdepl_configuration_get_cluster_type)" ]; then
-    util_log_error_and_exit "Cluster type $(cdepl_configuration_get_cluster_type) not available or not a file"
+    util_log_error_and_exit "Cluster type '$(cdepl_configuration_get_cluster_type)' not available or not a file"
 fi
 
 source "cluster/$(cdepl_configuration_get_cluster_type)"
+
+if ! cdepl_configuration_check_validity "$(cdepl_cluster_get_required_configuration_keys)"; then
+    util_log_error "Invalid configuration for cluster type '$(cdepl_configuration_get_cluster_type)'! Starting setup wizard..." 
+    cdepl_configuration_wizard "$(cdepl_configuration_get_cluster_type)" "$(cdepl_cluster_get_required_configuration_keys)"
+fi
 
 _cdepl_cluster_init
 

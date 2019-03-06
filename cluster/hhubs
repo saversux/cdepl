@@ -136,6 +136,10 @@ cdepl_cluster_allows_sudo()
 	echo "1"
 }
 
+cdepl_cluster_get_required_configuration_keys() {
+	echo "user"
+}
+
 ##################################
 # called by cdepl and commands from cdepl console
 

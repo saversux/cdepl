@@ -162,6 +162,10 @@ cdepl_cluster_allows_sudo()
 	echo ""
 }
 
+cdepl_cluster_get_required_configuration_keys() {
+	echo "user project"
+}
+
 cdepl_cluster_upload_to_remote()
 {
 	local local_path=$1
