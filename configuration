@@ -115,8 +115,9 @@ cdepl_configuration_wizard()
     local keys=($2)
 
     printf "Welcome to the cdepl configuration wizard!\n"
-    printf "You are trying to to start cdepl with the cluster type '%s' with an invalid configuration.\n" "${cluster_type}"
+    printf "This tool will help you, to configure cdepl for the cluster type '%s'.\n" "${cluster_type}"
     printf "In the following steps, you will need to enter values for every necessary configuration key, in order for cdepl to work correctly.\n"
+    printf "The configuration will be saved in the file '.cdepl_%s'. You may edit it, to change the configuration, or just start this wizard again.\n\n" "${cluster_type}"
 
     for key in "${keys[@]}"; do
         read -p "Please enter the value for '${key}': " __CDEPL_CONFIGURATION["$key"]

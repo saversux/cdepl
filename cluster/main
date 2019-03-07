@@ -83,9 +83,14 @@ cdepl_cluster_main()
 		"free")
             _cdepl_cluster_free $args
 			;;
+
+        "config")
+            cdepl_configuration_wizard "$(cdepl_configuration_get_cluster_type)" "$(cdepl_cluster_get_required_configuration_keys)"
+            _cdepl_cluster_init
+			;;
 			
 		*)
-            util_log_error "Invalid command specified, available: status, alloc, nodes, free"
+            util_log_error "Invalid command specified, available: status, alloc, nodes, free, config, help"
 			;;
     esac
 }
