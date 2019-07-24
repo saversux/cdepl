@@ -334,7 +334,7 @@ cdepl_cluster_show_logs()
 {
 	local path="$1"
 
-	ssh -t $__HHUBS_SOLLIPULLI_IP "less +F -R $path/*"
+	ssh -t $__HHUBS_SOLLIPULLI_IP "tail -f -n 1000 $path/*"
 }
 
 ##################################
